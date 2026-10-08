@@ -204,27 +204,27 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
     {
       id: 'welcome',
       icon: '♡',
-      title: 'Welcome from Leah',
-      summary: 'Meet Leah and discover the foundational care story behind Princess of Peptides.',
+      title: 'Welcome from Kelvin',
+      summary: 'Meet Kelvin and discover the foundational care story behind Whole Harbor Wellness.',
       sections: [
         {
           title: 'My story',
           paragraphs: [
-            'Princess of Peptides began with my own wellness journey. Like many people, I was committed to living a healthy lifestyle—eating well, exercising and taking care of myself—but I still did not feel like the best version of myself.',
+            'Whole Harbor Wellness began with my own wellness journey. Like many people, I was committed to living a healthy lifestyle—eating well, exercising and taking care of myself—but I still did not feel like the best version of myself.',
             'That experience led me to spend countless hours learning about cellular optimization, bio-identical hormone support, and peptides. As I learned more, I realized these tools had the potential to support people with many different wellness goals and at different stages of life.'
           ]
         },
         {
-          title: 'Why Princess of Peptides?',
+          title: 'Why Whole Harbor Wellness?',
           paragraphs: [
             'Living between Canada and Mexico gave me the opportunity to learn from different healthcare experiences and connect with people from many backgrounds. One thing became clear: many people struggled to find reliable information, quality products and someone they could trust to answer their questions.',
-            'I created Princess of Peptides to make the experience simple, private, professional and supportive from beginning to end.'
+            'I created Whole Harbor Wellness to make the experience simple, private, professional and supportive from beginning to end.'
           ]
         },
         {
           title: 'What makes us different',
           items: [
-            'Personal support directly from Leah and our dedicated clinical team',
+            'Personal support directly from Kelvin and our dedicated clinical team',
             'Carefully selected cGMP certified manufacturing laboratories',
             'Worldwide cold-chain secure shipping with insulated packaging',
             'A private, confidential, and secure ordering process',
@@ -394,7 +394,7 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
           <div className="mb-6">
             <div className="w-full h-28 rounded-2xl bg-gradient-to-br from-[#fff6f3] to-[#ead2ce]/60 border border-[#ead2ce] flex flex-col items-center justify-center p-4 text-center shadow-xs">
               <span className="font-serif text-3xl text-[#b87572] font-normal leading-none mb-1">♕</span>
-              <span className="font-serif text-base font-semibold text-[#744241] tracking-tight">The Princess of Peptides</span>
+              <span className="font-serif text-base font-semibold text-[#744241] tracking-tight">Whole Harbor Wellness</span>
               <span className="text-[9px] uppercase tracking-[0.2em] text-[#7c6b69] font-semibold">Whole Harbor Studio</span>
             </div>
           </div>
@@ -422,7 +422,7 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
               }`}
             >
               <span className="font-serif text-lg text-[#b87572]">♕</span>
-              <span>Ask the Princess</span>
+              <span>Ask Whole Harbor</span>
             </button>
 
             <button
@@ -456,12 +456,12 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
             </div>
 
             <a
-              href="https://wa.me/529841721536?text=Hi%20Leah%2C%20I%20have%20a%20question%20about%20Princess%20of%20Peptides."
+              href="https://wa.me/529841721536?text=Hi%20Kelvin%2C%20I%20have%20a%20question%20about%20Whole%20Harbor%20Wellness."
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 text-xs font-bold text-[#b87572] hover:text-[#744241] transition-colors"
             >
-              <span>Contact Leah</span>
+              <span>Contact Kelvin</span>
               <span>→</span>
             </a>
           </div>
@@ -488,7 +488,7 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
           </header>
 
           {/* ------------------------------------------------------ */}
-          {/* VIEW TAB 1: ASK THE PRINCESS (GUIDANCE & TOPICS)       */}
+          {/* VIEW TAB 1: ASK WHOLE HARBOR (GUIDANCE & TOPICS)       */}
           {/* ------------------------------------------------------ */}
           {activeTab === 'ask' && (
             <div className="space-y-10 animate-in fade-in duration-300">
@@ -516,7 +516,7 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
                       ♕
                     </div>
                     <div>
-                      <h3 className="font-serif text-base font-bold text-[#744241]">Princess Guidance Desk</h3>
+                      <h3 className="font-serif text-base font-bold text-[#744241]">Whole Harbor Guidance Desk</h3>
                       <p className="text-[10px] text-[#7c6b69]">Automated Verified Knowledge &amp; Guidance</p>
                     </div>
                   </div>

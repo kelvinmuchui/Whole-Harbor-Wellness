@@ -82,7 +82,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
         />
         <div className="hero-overlay"></div>
         <div className="hero-copy">
-          <p className="eyebrow">WHOLE HARBOR WELLNESS • THE PRINCESS OF PEPTIDES</p>
+          <p className="eyebrow">WHOLE HARBOR WELLNESS • WHW</p>
           <h1>
             Feel Your Best,<br />
             <em>Beautifully.</em>
@@ -748,12 +748,12 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
             </p>
             <div className="flex flex-wrap items-center gap-4 pt-2">
               <a
-                href="https://wa.me/529841721536?text=Hi%20Leah%2C%20I%20have%20a%20question%20about%20Whole%20Harbor%20Wellness."
+                href="https://wa.me/529841721536?text=Hi%20Kelvin%2C%20I%20have%20a%20question%20about%20Whole%20Harbor%20Wellness."
                 target="_blank"
                 rel="noreferrer"
                 className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors inline-flex items-center gap-2 cursor-pointer shadow-xs"
               >
-                <span>💬 WhatsApp Leah Directly</span>
+                <span>💬 WhatsApp Kelvin Directly</span>
               </a>
               <button
                 onClick={() => navigate('contact')}
@@ -823,7 +823,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
             <p className="eyebrow">CUSTOMER GUIDE</p>
             <h2>Learn with Confidence</h2>
             <p>
-              Practical product guides, ordering answers and care information—designed for Princess of Peptides and Whole Harbor Wellness.
+              Practical product guides, ordering answers and care information—designed for Whole Harbor Wellness.
             </p>
           </div>
           <div className="learn-contact">
@@ -837,28 +837,28 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
               Open Education Studio
             </a>
             <a
-              href="https://wa.me/529841721536?text=Hi%20Leah%2C%20I%20have%20a%20question%20about%20Princess%20of%20Peptides."
+              href="https://wa.me/529841721536?text=Hi%20Kelvin%2C%20I%20have%20a%20question%20about%20Whole%20Harbor%20Wellness."
               target="_blank"
               rel="noreferrer"
             >
-              WhatsApp Leah
+              WhatsApp Kelvin
             </a>
           </div>
         </div>
 
         <div className="learn-grid">
-          {/* 1. Welcome from Leah */}
+          {/* 1. Welcome from Kelvin */}
           <button onClick={() => navigate('learn', 'welcome')}>
             <div className="learn-card-image">
               <img
                 src="/images/learn/welcome.png"
-                alt="Personal welcome and guidance materials in the Princess of Peptides studio"
+                alt="Personal welcome and guidance materials in the Whole Harbor Wellness studio"
               />
               <span>♡</span>
             </div>
             <div className="learn-card-copy">
-              <h3>Welcome from Leah</h3>
-              <p>Meet Leah and discover the story behind Princess of Peptides.</p>
+              <h3>Welcome from Kelvin</h3>
+              <p>Meet Kelvin and discover the story behind Whole Harbor Wellness.</p>
               <b>Open guide →</b>
             </div>
           </button>
@@ -992,7 +992,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
           <span>♧</span>
           <p>
             <b>Personal support</b>
-            Real guidance from Leah and our clinical concierge team.
+            Real guidance from Kelvin and our clinical concierge team.
           </p>
         </div>
         <div>

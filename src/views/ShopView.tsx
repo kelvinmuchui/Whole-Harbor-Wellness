@@ -113,7 +113,7 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
         />
         <div className="hero-overlay"></div>
         <div className="hero-copy">
-          <p className="eyebrow">WHOLE HARBOR WELLNESS • THE PRINCESS OF PEPTIDES</p>
+          <p className="eyebrow">WHOLE HARBOR WELLNESS • WHW</p>
           <h1>
             Feel Your Best,<br />
             <em>Beautifully.</em>

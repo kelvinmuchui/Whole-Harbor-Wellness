@@ -168,12 +168,12 @@ export const FAQView: React.FC<FAQViewProps> = ({ navigate }) => {
             Contact Concierge
           </button>
           <a
-            href="https://wa.me/529841721536?text=Hi%20Leah%2C%20I%20have%20a%20question%20about%20Whole%20Harbor%20Wellness."
+            href="https://wa.me/529841721536?text=Hi%20Kelvin%2C%20I%20have%20a%20question%20about%20Whole%20Harbor%20Wellness."
             target="_blank"
             rel="noreferrer"
             className="px-5 py-3 rounded-xl bg-white border border-[#ead2ce] text-[#744241] text-xs font-semibold hover:bg-[#fffdfb] transition-colors cursor-pointer inline-flex items-center gap-1.5"
           >
-            <span>WhatsApp Leah</span>
+            <span>WhatsApp Kelvin</span>
             <span>→</span>
           </a>
         </div>

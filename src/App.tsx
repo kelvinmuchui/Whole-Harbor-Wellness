@@ -10,7 +10,7 @@ import { SearchModal } from './components/SearchModal.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
 import { GoalsModal } from './components/GoalsModal.tsx';
 import { PerksModal } from './components/PerksModal.tsx';
-import { AskPrincessDrawer } from './components/AskPrincessDrawer.tsx';
+import { AskWHWDrawer } from './components/AskWHWDrawer.tsx';
 
 // Views
 import { HomeView } from './views/HomeView.tsx';
@@ -135,7 +135,7 @@ function MainApp() {
           onClose={() => setPerksOpen(false)}
           navigate={navigate}
         />
-        <AskPrincessDrawer
+        <AskWHWDrawer
           currentPath={currentPath}
           navigate={navigate}
         />
@@ -162,10 +162,14 @@ function MainApp() {
             <div className="flex items-center gap-3">
               <div 
                 onClick={() => navigate('home')} 
-                className="md:hidden flex items-center gap-2 cursor-pointer"
+                className="md:hidden flex items-center gap-2.5 cursor-pointer"
               >
-                <span className="text-xl text-[var(--rose)]">♕</span>
-                <span className="font-serif font-bold text-sm text-[var(--deep)]">Princess of Peptides</span>
+                <img
+                  src="/images/whw-logo.png"
+                  alt="Whole Harbor Wellness"
+                  className="w-7 h-7 rounded-full object-cover border border-[#ead2ce]"
+                />
+                <span className="font-serif font-bold text-sm text-[var(--deep)]">Whole Harbor Wellness</span>
               </div>
               <p className="hidden md:block">Wellness • Recovery • Optimization</p>
             </div>
@@ -181,12 +185,12 @@ function MainApp() {
               </button>
 
               <a
-                href="https://wa.me/529841721536?text=Hi%20Leah%2C%20I%20have%20a%20question%20about%20Princess%20of%20Peptides."
+                href="https://wa.me/529841721536?text=Hi%20Kelvin%2C%20I%20have%20a%20question%20about%20Whole%20Harbor%20Wellness."
                 target="_blank"
                 rel="noreferrer"
                 className="topbar-contact cursor-pointer"
               >
-                Contact Leah
+                Contact Kelvin
               </a>
 
               <button
@@ -314,7 +318,7 @@ function MainApp() {
       />
 
       {/* Floating Action Button & Slide-over Assistant */}
-      <AskPrincessDrawer
+      <AskWHWDrawer
         currentPath={currentPath}
         navigate={navigate}
       />

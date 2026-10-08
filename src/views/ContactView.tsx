@@ -44,10 +44,10 @@ export const ContactView: React.FC<ContactViewProps> = ({ navigate }) => {
           </div>
           <h3 className="font-serif text-lg font-bold text-[#744241]">Instant WhatsApp</h3>
           <p className="text-xs text-[#7c6b69] leading-relaxed">
-            Direct real-time messaging with Leah and the personal care concierge team.
+            Direct real-time messaging with Kelvin and the personal care concierge team.
           </p>
           <a
-            href="https://wa.me/529841721536?text=Hi%20Leah%2C%20I%20have%20a%20question%20about%20Whole%20Harbor%20Wellness."
+            href="https://wa.me/529841721536?text=Hi%20Kelvin%2C%20I%20have%20a%20question%20about%20Whole%20Harbor%20Wellness."
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 text-xs font-bold text-[#b87572] hover:text-[#744241] pt-1"

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-interface AskPrincessDrawerProps {
+interface AskWHWDrawerProps {
   currentPath: string;
   navigate: (path: string, param?: string) => void;
 }
@@ -11,13 +11,13 @@ interface ChatMessage {
   text: string;
 }
 
-export const AskPrincessDrawer: React.FC<AskPrincessDrawerProps> = ({ currentPath, navigate }) => {
+export const AskWHWDrawer: React.FC<AskWHWDrawerProps> = ({ currentPath, navigate }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: '1',
       sender: 'assistant',
-      text: "Hello! Welcome to Princess of Peptides. I can answer questions about peptide reconstitution, storage, syringe scales, delivery guarantees, and order fulfillment. How can I help you today?"
+      text: "Hello! Welcome to Whole Harbor Wellness. I can answer questions about peptide reconstitution, storage, syringe scales, delivery guarantees, and order fulfillment. How can I help you today?"
     }
   ]);
   const [inputQuestion, setInputQuestion] = useState('');
@@ -69,7 +69,7 @@ export const AskPrincessDrawer: React.FC<AskPrincessDrawerProps> = ({ currentPat
         sender: 'assistant',
         text: match
           ? match.a
-          : `For specific questions regarding "${text}", explore our verified guides on the Learn page or reach out directly to Leah via WhatsApp. Always confirm instructions with a licensed clinician.`
+          : `For specific questions regarding "${text}", explore our verified guides on the Learn page or reach out directly to Kelvin via WhatsApp. Always confirm instructions with a licensed clinician.`
       };
       setMessages((prev) => [...prev, botMsg]);
     }, 350);
@@ -84,12 +84,12 @@ export const AskPrincessDrawer: React.FC<AskPrincessDrawerProps> = ({ currentPat
       <button
         onClick={() => setIsOpen(true)}
         className="fixed bottom-6 right-6 z-40 bg-[#744241] hover:bg-[#b87572] text-white rounded-full p-2.5 pr-4.5 flex items-center gap-2.5 shadow-xl border border-[#ead2ce]/40 cursor-pointer transition-all hover:scale-105 active:scale-95 group"
-        aria-label="Ask the Princess"
+        aria-label="Ask Whole Harbor"
       >
         <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-serif text-lg text-white group-hover:bg-white group-hover:text-[#b87572] transition-colors">
           ♕
         </div>
-        <span className="text-xs font-bold tracking-wide">Ask the Princess</span>
+        <span className="text-xs font-bold tracking-wide">Ask Whole Harbor</span>
       </button>
 
       {/* Slide-over Assistant Drawer */}
@@ -113,7 +113,7 @@ export const AskPrincessDrawer: React.FC<AskPrincessDrawerProps> = ({ currentPat
                     EDUCATIONAL GUIDE
                   </p>
                   <h2 className="font-serif text-xl font-bold text-[#744241]">
-                    Ask the Princess
+                    Ask Whole Harbor
                   </h2>
                 </div>
               </div>

@@ -107,7 +107,7 @@ export const Header: React.FC<HeaderProps> = ({ currentPath, navigate, onOpenSea
               </button>
             )}
 
-            {/* Princess Perks */}
+            {/* WHW Perks */}
             {onOpenPerks && (
               <button
                 onClick={onOpenPerks}

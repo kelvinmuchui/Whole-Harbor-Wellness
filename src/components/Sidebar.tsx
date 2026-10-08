@@ -34,8 +34,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside className="sidebar" aria-label="Main navigation">
       {/* Brand Logo */}
       <img
-        src="/images/princess-logo.png"
-        alt="The Princess of Peptides"
+        src="/images/whw-logo.png"
+        alt="Whole Harbor Wellness"
         width={470}
         height={220}
         className="brand-logo"
@@ -191,7 +191,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Perks Card */}
       <section className="perks-card">
         <div className="perks-crown">♕</div>
-        <h3>Princess Perks</h3>
+        <h3>Whole Harbor Perks</h3>
         <p>Create your complimentary profile to unlock checkout, member offers, order tracking and faster reordering.</p>
         <button onClick={onOpenPerks}>
           Create your profile →

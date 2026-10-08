@@ -109,12 +109,12 @@ export const GoalsModal: React.FC<GoalsModalProps> = ({ isOpen, onClose, navigat
         <div className="pt-2 border-t border-[#ead2ce] text-center text-xs text-[#7c6b69]">
           <span>Not sure where to begin? </span>
           <a
-            href="https://wa.me/529841721536?text=Hi%20Leah%2C%20I%20would%20like%20help%20choosing%20a%20wellness%20category."
+            href="https://wa.me/529841721536?text=Hi%20Kelvin%2C%20I%20would%20like%20help%20choosing%20a%20wellness%20category."
             target="_blank"
             rel="noreferrer"
             className="text-[#b87572] font-bold hover:underline"
           >
-            Ask Leah for personal guidance →
+            Ask Kelvin for personal guidance →
           </a>
         </div>
       </div>

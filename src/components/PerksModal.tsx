@@ -69,7 +69,7 @@ export const PerksModal: React.FC<PerksModalProps> = ({ isOpen, onClose, navigat
             YOUR MEMBER BENEFITS
           </p>
           <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#744241]">
-            Your Princess Perks
+            Your Whole Harbor Perks
           </h2>
           <p className="text-xs text-[#7c6b69] max-w-md mx-auto leading-relaxed">
             Thoughtful savings and personal support designed to make every order easier.

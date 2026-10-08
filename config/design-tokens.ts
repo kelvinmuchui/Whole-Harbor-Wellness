@@ -4,7 +4,7 @@
  */
 
 export const colors = {
-  // Princess of Peptides Exact Palette
+  // Whole Harbor Wellness (WHW) Exact Palette
   ivory: '#fffdfb',   // Main Background
   blush: '#fff6f3',   // Secondary Background / Cards
   petal: '#f7e5e1',   // Soft Tinted Highlight
