@@ -1,0 +1,232 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role-based access",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "displayName": { "type": "string", "maxLength": 128 },
+        "role": { "type": "string", "enum": ["CUSTOMER", "PARTNER_OWNER", "PARTNER_STAFF", "ADMIN", "SALES_ADMIN"] },
+        "partnerId": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Partner": {
+      "title": "Partner",
+      "description": "Clinical or studio partner organization",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "partnerId": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "maxLength": 256 },
+        "slug": { "type": "string", "maxLength": 128 },
+        "contactPerson": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "phone": { "type": "string", "maxLength": 64 },
+        "description": { "type": "string", "maxLength": 2048 },
+        "logoUrl": { "type": "string", "maxLength": 1024 },
+        "website": { "type": "string", "maxLength": 512 },
+        "category": { "type": "string", "maxLength": 128 },
+        "address": { "type": "string", "maxLength": 512 },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "SUSPENDED", "REJECTED"] },
+        "commissionRate": { "type": "number" },
+        "memberDiscountRate": { "type": "number" },
+        "ownerUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["partnerId", "name", "slug", "email", "status"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Peptide formulation or clinical wellness product",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "maxLength": 256 },
+        "slug": { "type": "string", "maxLength": 128 },
+        "sku": { "type": "string", "maxLength": 64 },
+        "category": { "type": "string", "maxLength": 64 },
+        "shortDescription": { "type": "string", "maxLength": 512 },
+        "description": { "type": "string", "maxLength": 4096 },
+        "price": { "type": "number" },
+        "salePrice": { "type": "number" },
+        "imageUrl": { "type": "string", "maxLength": 1024 },
+        "stockQuantity": { "type": "number" },
+        "status": { "type": "string", "enum": ["ACTIVE", "DRAFT", "ARCHIVED"] },
+        "featured": { "type": "boolean" },
+        "strengths": { "type": "array" },
+        "lotNumber": { "type": "string", "maxLength": 64 },
+        "purity": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "slug", "category", "price", "status"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer purchase order with partner attribution",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "orderNumber": { "type": "string", "maxLength": 64 },
+        "customerUid": { "type": "string", "maxLength": 128 },
+        "customerName": { "type": "string", "maxLength": 128 },
+        "customerEmail": { "type": "string", "maxLength": 256 },
+        "shippingAddress": { "type": "object" },
+        "items": { "type": "array" },
+        "subtotal": { "type": "number" },
+        "discount": { "type": "number" },
+        "shipping": { "type": "number" },
+        "tax": { "type": "number" },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["PENDING", "CONFIRMED", "PROCESSING", "COMPLETED", "CANCELLED"] },
+        "paymentStatus": { "type": "string", "enum": ["PENDING", "PAID", "FAILED", "REFUNDED"] },
+        "partnerId": { "type": "string", "maxLength": 64 },
+        "partnerSlug": { "type": "string", "maxLength": 128 },
+        "partnerName": { "type": "string", "maxLength": 256 },
+        "referralSource": { "type": "string", "maxLength": 256 },
+        "partnerCommission": { "type": "number" },
+        "commissionStatus": { "type": "string", "enum": ["NONE", "PENDING", "APPROVED", "PAID"] },
+        "trackingNumber": { "type": "string", "maxLength": 128 },
+        "coldChainLogged": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["orderNumber", "customerEmail", "items", "total", "status"]
+    },
+    "PartnerEarning": {
+      "title": "PartnerEarning",
+      "description": "Auditable commission ledger entry for partner sales",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "partnerId": { "type": "string", "maxLength": 64 },
+        "partnerSlug": { "type": "string", "maxLength": 128 },
+        "orderId": { "type": "string", "maxLength": 64 },
+        "orderNumber": { "type": "string", "maxLength": 64 },
+        "grossSales": { "type": "number" },
+        "eligibleSales": { "type": "number" },
+        "commissionRate": { "type": "number" },
+        "earningAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "PAID"] },
+        "payoutBatchId": { "type": "string", "maxLength": 64 },
+        "paidAt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["partnerId", "orderId", "grossSales", "earningAmount", "status"]
+    },
+    "WellnessProgram": {
+      "title": "WellnessProgram",
+      "description": "Physician-guided wellness protocol program",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "maxLength": 256 },
+        "slug": { "type": "string", "maxLength": 128 },
+        "duration": { "type": "string", "maxLength": 64 },
+        "category": { "type": "string", "maxLength": 64 },
+        "tag": { "type": "string", "maxLength": 64 },
+        "shortDescription": { "type": "string", "maxLength": 512 },
+        "fullDescription": { "type": "string", "maxLength": 4096 },
+        "priceMonthly": { "type": "number" },
+        "features": { "type": "array" },
+        "status": { "type": "string", "enum": ["ACTIVE", "DRAFT", "ARCHIVED"] },
+        "featured": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "slug", "priceMonthly", "status"]
+    },
+    "EducationalArticle": {
+      "title": "EducationalArticle",
+      "description": "Clinical protocol guide and educational resource",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "title": { "type": "string", "maxLength": 256 },
+        "slug": { "type": "string", "maxLength": 128 },
+        "category": { "type": "string", "maxLength": 64 },
+        "readTime": { "type": "string", "maxLength": 64 },
+        "summary": { "type": "string", "maxLength": 1024 },
+        "content": { "type": "string", "maxLength": 16384 },
+        "imageUrl": { "type": "string", "maxLength": 1024 },
+        "author": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "enum": ["PUBLISHED", "DRAFT"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["title", "slug", "category", "status"]
+    },
+    "FAQ": {
+      "title": "FAQ",
+      "description": "Frequently asked question and answer",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "question": { "type": "string", "maxLength": 512 },
+        "answer": { "type": "string", "maxLength": 4096 },
+        "category": { "type": "string", "maxLength": 64 },
+        "orderIndex": { "type": "number" }
+      },
+      "required": ["question", "answer"]
+    },
+    "Testimonial": {
+      "title": "Testimonial",
+      "description": "Client or physician testimonial",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "maxLength": 128 },
+        "role": { "type": "string", "maxLength": 128 },
+        "organization": { "type": "string", "maxLength": 128 },
+        "quote": { "type": "string", "maxLength": 2048 },
+        "rating": { "type": "number" },
+        "verified": { "type": "boolean" },
+        "featured": { "type": "boolean" }
+      },
+      "required": ["name", "quote", "rating"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles and RBAC claims"
+    },
+    "/partners/{partnerId}": {
+      "schema": { "$ref": "#/entities/Partner" },
+      "description": "Registered partner accounts and clinical directories"
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Catalog of pharmaceutical-grade peptide and wellness products"
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Customer purchase orders and referral attribution records"
+    },
+    "/partner_earnings/{earningId}": {
+      "schema": { "$ref": "#/entities/PartnerEarning" },
+      "description": "Auditable commission ledger tracking partner payouts"
+    },
+    "/wellness_programs/{programId}": {
+      "schema": { "$ref": "#/entities/WellnessProgram" },
+      "description": "Physician-supervised guided clinical protocols"
+    },
+    "/educational_articles/{articleId}": {
+      "schema": { "$ref": "#/entities/EducationalArticle" },
+      "description": "Peer-reviewed guides, cold chain protocols, and research articles"
+    },
+    "/faqs/{faqId}": {
+      "schema": { "$ref": "#/entities/FAQ" },
+      "description": "Frequently asked questions"
+    },
+    "/testimonials/{testimonialId}": {
+      "schema": { "$ref": "#/entities/Testimonial" },
+      "description": "Physician and patient clinical testimonials"
+    }
+  }
+}

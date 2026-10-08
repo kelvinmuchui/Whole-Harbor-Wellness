@@ -1,0 +1,493 @@
+// WHOLE HARBOR WELLNESS — PRISMA DATABASE SCHEMA
+// Target Database: PostgreSQL
+// Specification: Module 1 — System Analysis & Architecture
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://wh_user:wh_password@localhost:5432/whole_harbor_wellness?schema=public"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -------------------------------------------------------------
+// ENUMS
+// -------------------------------------------------------------
+
+enum UserRole {
+  CUSTOMER
+  PARTNER_OWNER
+  PARTNER_STAFF
+  ADMIN
+  SALES_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum PartnerStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+  REJECTED
+}
+
+enum PartnerUserRole {
+  OWNER
+  STAFF
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+  OUT_OF_STOCK
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum EarningStatus {
+  PENDING
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// -------------------------------------------------------------
+// USER & AUTHENTICATION ENTITIES
+// -------------------------------------------------------------
+
+model User {
+  id            String      @id @default(uuid())
+  email         String      @unique
+  name          String
+  passwordHash  String
+  role          UserRole    @default(CUSTOMER)
+  status        UserStatus  @default(ACTIVE)
+  phoneNumber   String?
+  avatarUrl     String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  deletedAt     DateTime?
+
+  // Relations
+  partnerAssociations PartnerUser[]
+  orders              Order[]             @relation("CustomerOrders")
+  referrals           Referral[]          @relation("CustomerReferrals")
+  auditLogs           AuditLog[]          @relation("UserAuditLogs")
+  uploadedMedia       Media[]             @relation("UserMedia")
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  userAgent    String?
+  ipAddress    String?
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+// -------------------------------------------------------------
+// PARTNER ECOSYSTEM ENTITIES (CORE MVP MODULE)
+// -------------------------------------------------------------
+
+model Partner {
+  id                  String        @id @default(uuid())
+  partnerId           String        @unique // e.g. WH-P-000001 (Human readable, immutable, unique)
+  businessName        String
+  slug                String        @unique // e.g. /partner/apex-performance
+  description         String        @db.Text
+  logoUrl             String?
+  email               String        @unique
+  phone               String?
+  website             String?
+  category            String        // e.g. Medical Spa, Performance Gym, Longevity Clinic
+  address             String?
+  status              PartnerStatus @default(PENDING)
+  commissionRate      Decimal       @default(0.25) @db.Decimal(5, 4) // e.g. 25% revenue share
+  memberDiscountRate  Decimal       @default(0.15) @db.Decimal(5, 4) // e.g. 15% VIP discount for patient
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  deletedAt           DateTime?
+
+  // Relations
+  users               PartnerUser[]
+  slugHistory         PartnerSlug[]
+  attributedOrders    Order[]           @relation("PartnerAttributedOrders")
+  referrals           Referral[]        @relation("PartnerReferrals")
+  earnings            PartnerEarning[]  @relation("PartnerEarningsLedger")
+
+  @@index([slug])
+  @@index([partnerId])
+  @@index([status])
+}
+
+model PartnerUser {
+  id          String          @id @default(uuid())
+  partnerId   String
+  userId      String
+  role        PartnerUserRole @default(STAFF)
+  createdAt   DateTime        @default(now())
+
+  partner     Partner         @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, userId])
+  @@index([userId])
+  @@index([partnerId])
+}
+
+model PartnerSlug {
+  id          String    @id @default(uuid())
+  partnerId   String
+  slug        String    @unique
+  isCurrent   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  partner     Partner   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+
+  @@index([slug])
+}
+
+// -------------------------------------------------------------
+// PRODUCT & WELLNESS PROGRAM ENTITIES
+// -------------------------------------------------------------
+
+model ProductCategory {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?   @db.Text
+  displayOrder Int      @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products    Product[]
+
+  @@index([slug])
+}
+
+model Product {
+  id               String          @id @default(uuid())
+  sku              String          @unique // e.g. WH-SEMA-2026
+  name             String
+  slug             String          @unique
+  shortDescription String          @db.VarChar(500)
+  description      String          @db.Text
+  categoryId       String
+  price            Decimal         @db.Decimal(10, 2)
+  salePrice        Decimal?        @db.Decimal(10, 2)
+  stockQuantity    Int             @default(0)
+  status           ProductStatus   @default(ACTIVE)
+  featured         Boolean         @default(false)
+  purity           String?         // e.g. ">99.4% HPLC"
+  lotNumber        String?         // e.g. "LOT-2026-B12-09"
+  coaUrl           String?         // Link to Certificate of Analysis
+  imageUrl         String
+  galleryImages    String[]        @default([])
+  isStack          Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  deletedAt        DateTime?
+
+  category         ProductCategory @relation(fields: [categoryId], references: [id])
+  orderItems       OrderItem[]
+
+  @@index([slug])
+  @@index([categoryId])
+  @@index([status])
+  @@index([sku])
+}
+
+model WellnessProgram {
+  id               String          @id @default(uuid())
+  name             String
+  slug             String          @unique
+  tag              String          // e.g. "Physician Guided", "Research Track"
+  duration         String          // e.g. "12 Weeks"
+  category         String
+  priceMonthly     Decimal         @db.Decimal(10, 2)
+  shortDescription String          @db.VarChar(500)
+  fullDescription  String          @db.Text
+  features         String[]        @default([])
+  featured         Boolean         @default(false)
+  status           String          @default("ACTIVE")
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([slug])
+}
+
+// -------------------------------------------------------------
+// ORDERS & REFERRAL TRACKING (CORE CONVERSION WORKFLOW)
+// -------------------------------------------------------------
+
+model Referral {
+  id              String      @id @default(uuid())
+  partnerId       String
+  partnerSlug     String
+  visitorSessionId String     // Cookie / Client Session Token
+  customerId      String?
+  referralSource  String?     // e.g. "partner_url", "qr_code", "direct_link"
+  attributedAt    DateTime    @default(now())
+  expiresAt       DateTime    // End of attribution window (e.g., 30 days)
+  converted       Boolean     @default(false)
+  convertedOrderId String?    @unique
+
+  partner         Partner     @relation("PartnerReferrals", fields: [partnerId], references: [id])
+  customer        User?       @relation("CustomerReferrals", fields: [customerId], references: [id])
+  order           Order?      @relation("OrderReferral", fields: [convertedOrderId], references: [id])
+
+  @@index([visitorSessionId])
+  @@index([partnerId])
+  @@index([partnerSlug])
+  @@index([expiresAt])
+}
+
+model Order {
+  id                String          @id @default(uuid())
+  orderNumber       String          @unique // e.g. WH-ORD-2026-8921
+  customerId        String
+  customerEmail     String
+  customerName      String
+  
+  // Shipping Address JSON or fields
+  shippingAddress   Json
+  
+  // Financial breakdown
+  subtotal          Decimal         @db.Decimal(10, 2)
+  volumeDiscount    Decimal         @default(0.00) @db.Decimal(10, 2)
+  partnerDiscount   Decimal         @default(0.00) @db.Decimal(10, 2)
+  shippingFee       Decimal         @default(0.00) @db.Decimal(10, 2)
+  tax               Decimal         @default(0.00) @db.Decimal(10, 2)
+  total             Decimal         @db.Decimal(10, 2)
+  
+  status            OrderStatus     @default(PENDING)
+  paymentStatus     PaymentStatus   @default(PENDING)
+  
+  // Partner Attribution & Tracking
+  partnerId         String?
+  partnerSlug       String?
+  partnerCommission Decimal?        @db.Decimal(10, 2)
+  
+  trackingNumber    String?
+  coldChainLogged   Boolean         @default(true)
+  
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  customer          User            @relation("CustomerOrders", fields: [customerId], references: [id])
+  partner           Partner?        @relation("PartnerAttributedOrders", fields: [partnerId], references: [id])
+  items             OrderItem[]
+  earnings          PartnerEarning? @relation("OrderEarnings")
+  referral          Referral?       @relation("OrderReferral")
+  payments          Payment[]
+
+  @@index([customerId])
+  @@index([partnerId])
+  @@index([orderNumber])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id            String    @id @default(uuid())
+  orderId       String
+  productId     String
+  strengthLabel String    // e.g. "10mg / 10 Vials"
+  quantity      Int
+  unitPrice     Decimal   @db.Decimal(10, 2)
+  total         Decimal   @db.Decimal(10, 2)
+
+  order         Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product       Product   @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// -------------------------------------------------------------
+// PARTNER EARNINGS AUDITABLE LEDGER
+// -------------------------------------------------------------
+
+model PartnerEarning {
+  id              String        @id @default(uuid())
+  partnerId       String
+  orderId         String        @unique
+  orderNumber     String
+  grossSales      Decimal       @db.Decimal(10, 2)
+  eligibleSales   Decimal       @db.Decimal(10, 2)
+  commissionRate  Decimal       @db.Decimal(5, 4)
+  earningAmount   Decimal       @db.Decimal(10, 2)
+  status          EarningStatus @default(PENDING)
+  payoutBatchId   String?       // Payout reference when disbursed by Admin
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  partner         Partner       @relation("PartnerEarningsLedger", fields: [partnerId], references: [id])
+  order           Order         @relation("OrderEarnings", fields: [orderId], references: [id])
+
+  @@index([partnerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  orderId         String
+  amount          Decimal       @db.Decimal(10, 2)
+  status          PaymentStatus @default(PENDING)
+  provider        String        @default("stripe")
+  transactionRef  String?
+  createdAt       DateTime      @default(now())
+
+  order           Order         @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+}
+
+// -------------------------------------------------------------
+// CONTENT, FAQS, TESTIMONIALS & CMS
+// -------------------------------------------------------------
+
+model EducationalArticle {
+  id          String        @id @default(uuid())
+  title       String
+  slug        String        @unique
+  category    String
+  readTime    String        // e.g. "5 min read"
+  summary     String        @db.VarChar(500)
+  content     String        @db.Text
+  imageUrl    String
+  author      String
+  status      ArticleStatus @default(PUBLISHED)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([slug])
+  @@index([category])
+}
+
+model FAQ {
+  id          String    @id @default(uuid())
+  question    String
+  answer      String    @db.Text
+  category    String
+  orderIndex  Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([category])
+  @@index([orderIndex])
+}
+
+model Testimonial {
+  id           String   @id @default(uuid())
+  name         String
+  role         String
+  organization String
+  quote        String   @db.Text
+  rating       Int      @default(5)
+  verified     Boolean  @default(true)
+  featured     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([featured])
+}
+
+model Promotion {
+  id              String    @id @default(uuid())
+  code            String    @unique
+  description     String
+  discountPercent Decimal   @db.Decimal(5, 2)
+  active          Boolean   @default(true)
+  startsAt        DateTime  @default(now())
+  endsAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([code])
+}
+
+// -------------------------------------------------------------
+// MEDIA & AUDIT LOGGING
+// -------------------------------------------------------------
+
+model Media {
+  id           String   @id @default(uuid())
+  filename     String
+  url          String
+  mimeType     String
+  sizeBytes    Int
+  uploadedById String?
+  createdAt    DateTime @default(now())
+
+  uploadedBy   User?    @relation("UserMedia", fields: [uploadedById], references: [id])
+
+  @@index([uploadedById])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  userRole   String?
+  action     String   // e.g. "PARTNER_APPROVED", "ORDER_STATUS_CHANGED", "PRODUCT_CREATED"
+  resource   String   // e.g. "Partner", "Order", "Product"
+  resourceId String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user       User?    @relation("UserAuditLogs", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([createdAt])
+}

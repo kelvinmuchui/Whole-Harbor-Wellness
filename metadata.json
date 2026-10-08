@@ -1,0 +1,6 @@
+{
+  "name": "Whole Harbor Wellness",
+  "description": "Clinical-grade holistic wellness platform, high-purity metabolic support kits, physician-supervised longevity protocols, and turnkey partner ecosystem.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
