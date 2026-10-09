@@ -355,7 +355,7 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
     },
     {
       id: 'about',
-      icon: '♔',
+      icon: '✦',
       title: 'About Us & Quality Standards',
       summary: 'Our commitment to a premium, private, and deeply supportive wellness experience.',
       sections: [
@@ -380,34 +380,34 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
   }, [initialTab]);
 
   return (
-    <div className="min-h-screen bg-[#fffdfb] text-[#744241] font-sans">
+    <div className="min-h-screen bg-[#fffdfb] text-[#0c2340] font-sans">
       
       {/* Education Studio Page Wrapper */}
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] min-h-screen bg-[radial-gradient(circle_at_85%_10%,rgba(247,222,217,0.35)_0,transparent_32%),linear-gradient(135deg,#fffdfb,#fff6f3)]">
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] min-h-screen bg-[radial-gradient(circle_at_85%_10%,rgba(247,222,217,0.35)_0,transparent_32%),linear-gradient(135deg,#fffdfb,#f6f4ee)]">
         
         {/* ======================================================== */}
         {/* 1. LEFT SIDEBAR (STICKY STUDIO PANEL)                     */}
         {/* ======================================================== */}
-        <aside className="border-r border-[#ead2ce] bg-[#fffdfb]/90 backdrop-blur-md p-6 sm:p-8 flex flex-col lg:h-screen lg:sticky lg:top-0 z-30">
+        <aside className="border-r border-[#dfd7c7] bg-[#fffdfb]/90 backdrop-blur-md p-6 sm:p-8 flex flex-col lg:h-screen lg:sticky lg:top-0 z-30">
           
           {/* Studio Brand Monogram */}
           <div className="mb-6">
-            <div className="w-full h-28 rounded-2xl bg-gradient-to-br from-[#fff6f3] to-[#ead2ce]/60 border border-[#ead2ce] flex flex-col items-center justify-center p-4 text-center shadow-xs">
-              <span className="font-serif text-3xl text-[#b87572] font-normal leading-none mb-1">♕</span>
-              <span className="font-serif text-base font-semibold text-[#744241] tracking-tight">Whole Harbor Wellness</span>
-              <span className="text-[9px] uppercase tracking-[0.2em] text-[#7c6b69] font-semibold">Whole Harbor Studio</span>
+            <div className="w-full h-28 rounded-2xl bg-gradient-to-br from-[#f6f4ee] to-[#dfd7c7]/60 border border-[#dfd7c7] flex flex-col items-center justify-center p-4 text-center shadow-xs">
+              <span className="font-serif text-3xl text-[#c5a059] font-normal leading-none mb-1">✦</span>
+              <span className="font-serif text-base font-semibold text-[#0c2340] tracking-tight">Whole Harbor Wellness</span>
+              <span className="text-[9px] uppercase tracking-[0.2em] text-[#5a6b7c] font-semibold">Whole Harbor Studio</span>
             </div>
           </div>
 
-          <p className="text-[10px] uppercase font-bold tracking-widest text-[#b87572] mb-1">
+          <p className="text-[10px] uppercase font-bold tracking-widest text-[#c5a059] mb-1">
             EDUCATION STUDIO
           </p>
 
-          <h1 className="font-serif text-3xl text-[#744241] font-bold leading-tight mb-2">
+          <h1 className="font-serif text-3xl text-[#0c2340] font-bold leading-tight mb-2">
             Learn with confidence.
           </h1>
 
-          <p className="text-xs text-[#7c6b69] leading-relaxed mb-6">
+          <p className="text-xs text-[#5a6b7c] leading-relaxed mb-6">
             Clear product education, careful calculations and personal support in one calm place.
           </p>
 
@@ -417,11 +417,11 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
               onClick={() => setActiveTab('ask')}
               className={`w-full text-left rounded-xl p-3 text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
                 activeTab === 'ask'
-                  ? 'bg-[#fff6f3] text-[#744241] border border-[#ead2ce] shadow-xs'
-                  : 'text-[#7c6b69] hover:text-[#744241] hover:bg-[#fff6f3]/50'
+                  ? 'bg-[#f6f4ee] text-[#0c2340] border border-[#dfd7c7] shadow-xs'
+                  : 'text-[#5a6b7c] hover:text-[#0c2340] hover:bg-[#f6f4ee]/50'
               }`}
             >
-              <span className="font-serif text-lg text-[#b87572]">♕</span>
+              <span className="font-serif text-lg text-[#c5a059]">✦</span>
               <span>Ask Whole Harbor</span>
             </button>
 
@@ -429,28 +429,28 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
               onClick={() => setActiveTab('calculator')}
               className={`w-full text-left rounded-xl p-3 text-xs font-bold transition-all flex items-center gap-3 cursor-pointer ${
                 activeTab === 'calculator'
-                  ? 'bg-[#fff6f3] text-[#744241] border border-[#ead2ce] shadow-xs'
-                  : 'text-[#7c6b69] hover:text-[#744241] hover:bg-[#fff6f3]/50'
+                  ? 'bg-[#f6f4ee] text-[#0c2340] border border-[#dfd7c7] shadow-xs'
+                  : 'text-[#5a6b7c] hover:text-[#0c2340] hover:bg-[#f6f4ee]/50'
               }`}
             >
-              <span className="font-serif text-lg text-[#b87572]">◇</span>
+              <span className="font-serif text-lg text-[#c5a059]">◇</span>
               <span>Mixing calculator</span>
             </button>
 
             <button
               onClick={() => navigate('shop')}
-              className="w-full text-left rounded-xl p-3 text-xs font-bold text-[#7c6b69] hover:text-[#744241] hover:bg-[#fff6f3]/50 transition-colors flex items-center gap-3 cursor-pointer"
+              className="w-full text-left rounded-xl p-3 text-xs font-bold text-[#5a6b7c] hover:text-[#0c2340] hover:bg-[#f6f4ee]/50 transition-colors flex items-center gap-3 cursor-pointer"
             >
-              <span className="font-serif text-lg text-[#b87572]">♧</span>
+              <span className="font-serif text-lg text-[#c5a059]">♧</span>
               <span>Shop the catalog</span>
             </button>
           </nav>
 
           {/* Private by Design Container */}
           <div className="mt-auto pt-4">
-            <div className="border border-[#ead2ce] bg-[#fff6f3] rounded-xl p-3.5 mb-3 shadow-xs">
-              <b className="block text-[11px] font-bold text-[#744241]">Private by design</b>
-              <p className="text-[10px] text-[#7c6b69] leading-snug mt-1">
+            <div className="border border-[#dfd7c7] bg-[#f6f4ee] rounded-xl p-3.5 mb-3 shadow-xs">
+              <b className="block text-[11px] font-bold text-[#0c2340]">Private by design</b>
+              <p className="text-[10px] text-[#5a6b7c] leading-snug mt-1">
                 Your conversation history stays on this device. No medical data is logged or shared.
               </p>
             </div>
@@ -459,7 +459,7 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
               href="https://wa.me/529841721536?text=Hi%20Kelvin%2C%20I%20have%20a%20question%20about%20Whole%20Harbor%20Wellness."
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#b87572] hover:text-[#744241] transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#c5a059] hover:text-[#0c2340] transition-colors"
             >
               <span>Contact Kelvin</span>
               <span>→</span>
@@ -474,15 +474,15 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
         <section className="max-w-[1050px] w-full mx-auto px-4 sm:px-8 lg:px-12 py-8 sm:py-10">
           
           {/* Top Bar Return Breadcrumb */}
-          <header className="flex items-center justify-between pb-6 border-b border-[#ead2ce] text-xs text-[#7c6b69]">
+          <header className="flex items-center justify-between pb-6 border-b border-[#dfd7c7] text-xs text-[#5a6b7c]">
             <button
               onClick={() => navigate('shop')}
-              className="font-bold text-[#744241] hover:text-[#b87572] flex items-center gap-1.5 cursor-pointer transition-colors"
+              className="font-bold text-[#0c2340] hover:text-[#c5a059] flex items-center gap-1.5 cursor-pointer transition-colors"
             >
               <span>←</span>
               <span>Return to storefront</span>
             </button>
-            <span className="text-[11px] uppercase tracking-wider text-[#7c6b69]">
+            <span className="text-[11px] uppercase tracking-wider text-[#5a6b7c]">
               Product guidance • ordering support
             </span>
           </header>
@@ -495,32 +495,32 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
               
               {/* Studio Intro */}
               <div className="pt-6 pb-2">
-                <p className="text-[10px] uppercase font-bold tracking-widest text-[#b87572] mb-2">
+                <p className="text-[10px] uppercase font-bold tracking-widest text-[#c5a059] mb-2">
                   ASK • LEARN • UNDERSTAND
                 </p>
-                <h2 className="font-serif text-3xl sm:text-5xl lg:text-[54px] text-[#744241] font-bold leading-[1.05] tracking-tight mb-3">
+                <h2 className="font-serif text-3xl sm:text-5xl lg:text-[54px] text-[#0c2340] font-bold leading-[1.05] tracking-tight mb-3">
                   Clarity for your wellness questions.
                 </h2>
-                <p className="text-sm text-[#7c6b69] max-w-2xl leading-relaxed">
+                <p className="text-sm text-[#5a6b7c] max-w-2xl leading-relaxed">
                   Explore the catalog in plain language, understand product status and find the right next question to ask.
                 </p>
               </div>
 
               {/* Interactive Q&A Assistant Console */}
-              <div className="bg-white rounded-3xl border border-[#ead2ce] shadow-md overflow-hidden">
+              <div className="bg-white rounded-3xl border border-[#dfd7c7] shadow-md overflow-hidden">
                 
                 {/* Chat Header */}
-                <div className="px-6 py-4 bg-[#fff6f3] border-b border-[#ead2ce] flex items-center justify-between">
+                <div className="px-6 py-4 bg-[#f6f4ee] border-b border-[#dfd7c7] flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-[#b87572] text-white flex items-center justify-center font-serif text-base">
-                      ♕
+                    <div className="w-8 h-8 rounded-full bg-[#c5a059] text-white flex items-center justify-center font-serif text-base">
+                      ✦
                     </div>
                     <div>
-                      <h3 className="font-serif text-base font-bold text-[#744241]">Whole Harbor Guidance Desk</h3>
-                      <p className="text-[10px] text-[#7c6b69]">Automated Verified Knowledge &amp; Guidance</p>
+                      <h3 className="font-serif text-base font-bold text-[#0c2340]">Whole Harbor Guidance Desk</h3>
+                      <p className="text-[10px] text-[#5a6b7c]">Automated Verified Knowledge &amp; Guidance</p>
                     </div>
                   </div>
-                  <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded bg-[#b87572]/10 text-[#b87572]">
+                  <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded bg-[#c5a059]/10 text-[#c5a059]">
                     Active
                   </span>
                 </div>
@@ -534,16 +534,16 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
                     >
                       <div
                         className={`w-7 h-7 rounded-full flex items-center justify-center text-xs shrink-0 ${
-                          m.sender === 'user' ? 'bg-[#744241] text-white' : 'bg-[#b87572] text-white font-serif'
+                          m.sender === 'user' ? 'bg-[#0c2340] text-white' : 'bg-[#c5a059] text-white font-serif'
                         }`}
                       >
-                        {m.sender === 'user' ? 'You' : '♕'}
+                        {m.sender === 'user' ? 'You' : '✦'}
                       </div>
                       <div
                         className={`p-3.5 rounded-2xl text-xs leading-relaxed whitespace-pre-line shadow-2xs ${
                           m.sender === 'user'
-                            ? 'bg-[#744241] text-white rounded-tr-none'
-                            : 'bg-white text-[#744241] border border-[#ead2ce] rounded-tl-none'
+                            ? 'bg-[#0c2340] text-white rounded-tr-none'
+                            : 'bg-white text-[#0c2340] border border-[#dfd7c7] rounded-tl-none'
                         }`}
                       >
                         {m.text}
@@ -553,12 +553,12 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
                 </div>
 
                 {/* Quick Suggestion Pills */}
-                <div className="px-6 py-2.5 bg-[#fff6f3]/80 border-t border-[#ead2ce] flex gap-2 overflow-x-auto no-scrollbar">
+                <div className="px-6 py-2.5 bg-[#f6f4ee]/80 border-t border-[#dfd7c7] flex gap-2 overflow-x-auto no-scrollbar">
                   {qaKnowledge.slice(0, 5).map((item, idx) => (
                     <button
                       key={idx}
                       onClick={() => handleAskQuestion(item.query)}
-                      className="px-3 py-1.5 rounded-full bg-white border border-[#ead2ce] text-[10px] font-semibold text-[#744241] hover:bg-[#b87572] hover:text-white transition-colors shrink-0 cursor-pointer shadow-2xs"
+                      className="px-3 py-1.5 rounded-full bg-white border border-[#dfd7c7] text-[10px] font-semibold text-[#0c2340] hover:bg-[#c5a059] hover:text-white transition-colors shrink-0 cursor-pointer shadow-2xs"
                     >
                       {item.query}
                     </button>
@@ -571,18 +571,18 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
                     e.preventDefault();
                     handleAskQuestion(inputQuestion);
                   }}
-                  className="p-4 bg-white border-t border-[#ead2ce] flex items-center gap-3"
+                  className="p-4 bg-white border-t border-[#dfd7c7] flex items-center gap-3"
                 >
                   <input
                     type="text"
                     value={inputQuestion}
                     onChange={(e) => setInputQuestion(e.target.value)}
                     placeholder="Ask about mixing, storage, syringes, purity, or orders..."
-                    className="flex-1 px-4 py-2.5 rounded-xl bg-[#fff6f3] border border-[#ead2ce] text-xs text-[#744241] placeholder-[#7c6b69] focus:outline-none focus:ring-1 focus:ring-[#b87572]"
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-[#f6f4ee] border border-[#dfd7c7] text-xs text-[#0c2340] placeholder-[#5a6b7c] focus:outline-none focus:ring-1 focus:ring-[#c5a059]"
                   />
                   <button
                     type="submit"
-                    className="px-5 py-2.5 rounded-xl bg-[#b87572] text-white text-xs font-bold hover:bg-[#744241] transition-colors cursor-pointer shrink-0 shadow-xs"
+                    className="px-5 py-2.5 rounded-xl bg-[#c5a059] text-white text-xs font-bold hover:bg-[#0c2340] transition-colors cursor-pointer shrink-0 shadow-xs"
                   >
                     Send
                   </button>
@@ -594,14 +594,14 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
               <div className="pt-4 space-y-4">
                 <div className="flex items-end justify-between">
                   <div>
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-[#b87572]">
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-[#c5a059]">
                       CORE CLIENT GUIDANCE
                     </span>
-                    <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[#744241] mt-1">
+                    <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[#0c2340] mt-1">
                       Essential Wellness Guides
                     </h3>
                   </div>
-                  <span className="text-xs text-[#7c6b69]">7 Articles</span>
+                  <span className="text-xs text-[#5a6b7c]">7 Articles</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -609,21 +609,21 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
                     <div
                       key={topic.id}
                       onClick={() => setActiveGuide(topic)}
-                      className="bg-white rounded-2xl border border-[#ead2ce] p-6 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between group"
+                      className="bg-white rounded-2xl border border-[#dfd7c7] p-6 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between group"
                     >
                       <div>
-                        <div className="w-10 h-10 rounded-xl bg-[#fff6f3] text-[#b87572] border border-[#ead2ce] flex items-center justify-center font-serif text-lg mb-4 group-hover:bg-[#b87572] group-hover:text-white transition-colors">
+                        <div className="w-10 h-10 rounded-xl bg-[#f6f4ee] text-[#c5a059] border border-[#dfd7c7] flex items-center justify-center font-serif text-lg mb-4 group-hover:bg-[#c5a059] group-hover:text-white transition-colors">
                           {topic.icon}
                         </div>
-                        <h4 className="font-serif text-lg font-bold text-[#744241] mb-1.5 group-hover:text-[#b87572] transition-colors">
+                        <h4 className="font-serif text-lg font-bold text-[#0c2340] mb-1.5 group-hover:text-[#c5a059] transition-colors">
                           {topic.title}
                         </h4>
-                        <p className="text-xs text-[#7c6b69] leading-relaxed line-clamp-3">
+                        <p className="text-xs text-[#5a6b7c] leading-relaxed line-clamp-3">
                           {topic.summary}
                         </p>
                       </div>
 
-                      <div className="pt-4 mt-4 border-t border-[#ead2ce]/60 flex items-center justify-between text-xs text-[#b87572] font-bold">
+                      <div className="pt-4 mt-4 border-t border-[#dfd7c7]/60 flex items-center justify-between text-xs text-[#c5a059] font-bold">
                         <span>Read Guide</span>
                         <span className="group-hover:translate-x-1 transition-transform">→</span>
                       </div>
@@ -643,50 +643,50 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
               
               {/* Calculator Intro */}
               <div className="pt-6 pb-2">
-                <p className="text-[10px] uppercase font-bold tracking-widest text-[#b87572] mb-2">
+                <p className="text-[10px] uppercase font-bold tracking-widest text-[#c5a059] mb-2">
                   ARITHMETIC TOOL
                 </p>
-                <h2 className="font-serif text-3xl sm:text-5xl lg:text-[54px] text-[#744241] font-bold leading-[1.05] tracking-tight mb-3">
+                <h2 className="font-serif text-3xl sm:text-5xl lg:text-[54px] text-[#0c2340] font-bold leading-[1.05] tracking-tight mb-3">
                   Mixing calculator
                 </h2>
-                <p className="text-sm text-[#7c6b69] max-w-2xl leading-relaxed">
+                <p className="text-sm text-[#5a6b7c] max-w-2xl leading-relaxed">
                   Enter the values from your verified instructions to calculate concentration and syringe markings.
                 </p>
               </div>
 
               {/* Quick Preset Buttons */}
-              <div className="bg-[#fff6f3] border border-[#ead2ce] rounded-2xl p-4">
-                <span className="text-[10px] uppercase font-bold tracking-wider text-[#7c6b69] block mb-2">
+              <div className="bg-[#f6f4ee] border border-[#dfd7c7] rounded-2xl p-4">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-[#5a6b7c] block mb-2">
                   Quick Formulation Presets:
                 </span>
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => applyPreset('semaglutide')}
-                    className="px-3 py-1.5 rounded-lg bg-white border border-[#ead2ce] text-xs font-semibold text-[#744241] hover:bg-[#b87572] hover:text-white transition-colors cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-white border border-[#dfd7c7] text-xs font-semibold text-[#0c2340] hover:bg-[#c5a059] hover:text-white transition-colors cursor-pointer"
                   >
                     Semaglutide 5mg (250mcg dose)
                   </button>
                   <button
                     onClick={() => applyPreset('tirzepatide')}
-                    className="px-3 py-1.5 rounded-lg bg-white border border-[#ead2ce] text-xs font-semibold text-[#744241] hover:bg-[#b87572] hover:text-white transition-colors cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-white border border-[#dfd7c7] text-xs font-semibold text-[#0c2340] hover:bg-[#c5a059] hover:text-white transition-colors cursor-pointer"
                   >
                     Tirzepatide 10mg (2.5mg dose)
                   </button>
                   <button
                     onClick={() => applyPreset('bpc157')}
-                    className="px-3 py-1.5 rounded-lg bg-white border border-[#ead2ce] text-xs font-semibold text-[#744241] hover:bg-[#b87572] hover:text-white transition-colors cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-white border border-[#dfd7c7] text-xs font-semibold text-[#0c2340] hover:bg-[#c5a059] hover:text-white transition-colors cursor-pointer"
                   >
                     BPC-157 5mg (250mcg dose)
                   </button>
                   <button
                     onClick={() => applyPreset('nad')}
-                    className="px-3 py-1.5 rounded-lg bg-white border border-[#ead2ce] text-xs font-semibold text-[#744241] hover:bg-[#b87572] hover:text-white transition-colors cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-white border border-[#dfd7c7] text-xs font-semibold text-[#0c2340] hover:bg-[#c5a059] hover:text-white transition-colors cursor-pointer"
                   >
                     NAD+ 500mg (50mg dose)
                   </button>
                   <button
                     onClick={() => applyPreset('retatrutide')}
-                    className="px-3 py-1.5 rounded-lg bg-white border border-[#ead2ce] text-xs font-semibold text-[#744241] hover:bg-[#b87572] hover:text-white transition-colors cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg bg-white border border-[#dfd7c7] text-xs font-semibold text-[#0c2340] hover:bg-[#c5a059] hover:text-white transition-colors cursor-pointer"
                   >
                     Retatrutide 10mg (2mg dose)
                   </button>
@@ -697,17 +697,17 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
               <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-6 items-start">
                 
                 {/* Inputs Card */}
-                <div className="bg-white border border-[#ead2ce] rounded-3xl p-6 sm:p-8 shadow-sm space-y-5">
-                  <h3 className="font-serif text-lg font-bold text-[#744241] border-b border-[#ead2ce] pb-3">
+                <div className="bg-white border border-[#dfd7c7] rounded-3xl p-6 sm:p-8 shadow-sm space-y-5">
+                  <h3 className="font-serif text-lg font-bold text-[#0c2340] border-b border-[#dfd7c7] pb-3">
                     Reconstitution Parameters
                   </h3>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Vial Amount */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-[#744241] flex justify-between">
+                      <label className="text-xs font-bold text-[#0c2340] flex justify-between">
                         <span>Vial amount</span>
-                        <span className="text-[#7c6b69] font-normal">mg</span>
+                        <span className="text-[#5a6b7c] font-normal">mg</span>
                       </label>
                       <input
                         type="number"
@@ -715,15 +715,15 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
                         step="0.1"
                         value={vialAmount}
                         onChange={(e) => setVialAmount(Number(e.target.value))}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#fffdfb] border border-[#ead2ce] text-xs font-semibold text-[#744241] focus:outline-none focus:ring-1 focus:ring-[#b87572]"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#fffdfb] border border-[#dfd7c7] text-xs font-semibold text-[#0c2340] focus:outline-none focus:ring-1 focus:ring-[#c5a059]"
                       />
                     </div>
 
                     {/* Final Mixing Volume */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-[#744241] flex justify-between">
+                      <label className="text-xs font-bold text-[#0c2340] flex justify-between">
                         <span>Final mixing volume</span>
-                        <span className="text-[#7c6b69] font-normal">mL</span>
+                        <span className="text-[#5a6b7c] font-normal">mL</span>
                       </label>
                       <input
                         type="number"
@@ -731,19 +731,19 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
                         step="0.1"
                         value={mixingVolume}
                         onChange={(e) => setMixingVolume(Number(e.target.value))}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#fffdfb] border border-[#ead2ce] text-xs font-semibold text-[#744241] focus:outline-none focus:ring-1 focus:ring-[#b87572]"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#fffdfb] border border-[#dfd7c7] text-xs font-semibold text-[#0c2340] focus:outline-none focus:ring-1 focus:ring-[#c5a059]"
                       />
                     </div>
 
                     {/* Syringe Scale */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-[#744241]">
+                      <label className="text-xs font-bold text-[#0c2340]">
                         Syringe scale
                       </label>
                       <select
                         value={syringeScale}
                         onChange={(e) => setSyringeScale(e.target.value as any)}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#fffdfb] border border-[#ead2ce] text-xs font-semibold text-[#744241] focus:outline-none focus:ring-1 focus:ring-[#b87572]"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#fffdfb] border border-[#dfd7c7] text-xs font-semibold text-[#0c2340] focus:outline-none focus:ring-1 focus:ring-[#c5a059]"
                       >
                         <option value="U-100">U-100 (Standard Insulin)</option>
                         <option value="U-40">U-40 (40 Units/mL)</option>
@@ -753,9 +753,9 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
 
                     {/* Purity / COA */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-[#744241] flex justify-between">
+                      <label className="text-xs font-bold text-[#0c2340] flex justify-between">
                         <span>Purity / COA</span>
-                        <span className="text-[#7c6b69] font-normal">% (optional)</span>
+                        <span className="text-[#5a6b7c] font-normal">% (optional)</span>
                       </label>
                       <input
                         type="number"
@@ -764,14 +764,14 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
                         step="0.1"
                         value={purity}
                         onChange={(e) => setPurity(Number(e.target.value))}
-                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#fffdfb] border border-[#ead2ce] text-xs font-semibold text-[#744241] focus:outline-none focus:ring-1 focus:ring-[#b87572]"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[#fffdfb] border border-[#dfd7c7] text-xs font-semibold text-[#0c2340] focus:outline-none focus:ring-1 focus:ring-[#c5a059]"
                       />
                     </div>
                   </div>
 
                   {/* Dose Input */}
                   <div className="pt-2 space-y-1.5">
-                    <label className="text-xs font-bold text-[#744241] block">
+                    <label className="text-xs font-bold text-[#0c2340] block">
                       Amount from verified instructions
                     </label>
                     <div className="grid grid-cols-[1fr_100px] gap-2">
@@ -781,12 +781,12 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
                         step="0.01"
                         value={doseAmount}
                         onChange={(e) => setDoseAmount(Number(e.target.value))}
-                        className="px-3.5 py-2.5 rounded-xl bg-[#fffdfb] border border-[#ead2ce] text-xs font-semibold text-[#744241] focus:outline-none focus:ring-1 focus:ring-[#b87572]"
+                        className="px-3.5 py-2.5 rounded-xl bg-[#fffdfb] border border-[#dfd7c7] text-xs font-semibold text-[#0c2340] focus:outline-none focus:ring-1 focus:ring-[#c5a059]"
                       />
                       <select
                         value={doseUnit}
                         onChange={(e) => setDoseUnit(e.target.value as any)}
-                        className="px-3 py-2.5 rounded-xl bg-[#fffdfb] border border-[#ead2ce] text-xs font-semibold text-[#744241] focus:outline-none focus:ring-1 focus:ring-[#b87572]"
+                        className="px-3 py-2.5 rounded-xl bg-[#fffdfb] border border-[#dfd7c7] text-xs font-semibold text-[#0c2340] focus:outline-none focus:ring-1 focus:ring-[#c5a059]"
                       >
                         <option value="mcg">mcg</option>
                         <option value="mg">mg</option>
@@ -797,20 +797,20 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
                 </div>
 
                 {/* Results Card */}
-                <div className="bg-white border border-[#ead2ce] rounded-3xl p-6 sm:p-8 shadow-sm space-y-5">
-                  <p className="text-[10px] uppercase font-bold tracking-widest text-[#b87572]">
+                <div className="bg-white border border-[#dfd7c7] rounded-3xl p-6 sm:p-8 shadow-sm space-y-5">
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-[#c5a059]">
                     CALCULATED RESULT
                   </p>
 
                   {/* Draw to Callout Highlight Box */}
-                  <div className="rounded-2xl p-6 bg-gradient-to-br from-[#744241] to-[#b87572] text-white shadow-lg space-y-1">
-                    <small className="text-[10px] uppercase tracking-wider text-[#ead2ce]/90 font-semibold block">
+                  <div className="rounded-2xl p-6 bg-gradient-to-br from-[#0c2340] to-[#c5a059] text-white shadow-lg space-y-1">
+                    <small className="text-[10px] uppercase tracking-wider text-[#dfd7c7]/90 font-semibold block">
                       Draw to
                     </small>
                     <strong className="font-serif text-5xl sm:text-6xl font-bold leading-none block my-1">
                       {Number.isFinite(calcResults.drawUnits) ? calcResults.drawUnits.toFixed(2) : '—'}
                     </strong>
-                    <span className="text-xs text-[#ead2ce] font-medium block">
+                    <span className="text-xs text-[#dfd7c7] font-medium block">
                       {syringeScale === 'Tuberculin'
                         ? 'hundredths on a 1 mL scale'
                         : `${syringeScale} syringe units`}
@@ -818,40 +818,40 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
                   </div>
 
                   {/* Metrics Definition List */}
-                  <dl className="divide-y divide-[#ead2ce] text-xs">
+                  <dl className="divide-y divide-[#dfd7c7] text-xs">
                     <div className="py-2.5 flex justify-between">
-                      <dt className="text-[#7c6b69]">Concentration</dt>
-                      <dd className="font-bold text-[#744241] tabular-nums">
+                      <dt className="text-[#5a6b7c]">Concentration</dt>
+                      <dd className="font-bold text-[#0c2340] tabular-nums">
                         {calcResults.concentration.toFixed(3)} mg/mL
                       </dd>
                     </div>
                     <div className="py-2.5 flex justify-between">
-                      <dt className="text-[#7c6b69]">Liquid to draw</dt>
-                      <dd className="font-bold text-[#744241] tabular-nums">
+                      <dt className="text-[#5a6b7c]">Liquid to draw</dt>
+                      <dd className="font-bold text-[#0c2340] tabular-nums">
                         {calcResults.liquidToDrawMl.toFixed(3)} mL
                       </dd>
                     </div>
                     <div className="py-2.5 flex justify-between">
-                      <dt className="text-[#7c6b69]">Amount per syringe unit</dt>
-                      <dd className="font-bold text-[#744241] tabular-nums">
+                      <dt className="text-[#5a6b7c]">Amount per syringe unit</dt>
+                      <dd className="font-bold text-[#0c2340] tabular-nums">
                         {calcResults.amountPerUnitMcg.toFixed(2)} mcg
                       </dd>
                     </div>
                     <div className="py-2.5 flex justify-between">
-                      <dt className="text-[#7c6b69]">Effective vial amount</dt>
-                      <dd className="font-bold text-[#744241] tabular-nums">
+                      <dt className="text-[#5a6b7c]">Effective vial amount</dt>
+                      <dd className="font-bold text-[#0c2340] tabular-nums">
                         {calcResults.effectiveMg.toFixed(2)} mg
                       </dd>
                     </div>
                     <div className="py-2.5 flex justify-between">
-                      <dt className="text-[#7c6b69]">Total syringe units in vial</dt>
-                      <dd className="font-bold text-[#744241] tabular-nums">
+                      <dt className="text-[#5a6b7c]">Total syringe units in vial</dt>
+                      <dd className="font-bold text-[#0c2340] tabular-nums">
                         {calcResults.totalUnitsInVial.toFixed(1)} units
                       </dd>
                     </div>
                     <div className="py-2.5 flex justify-between">
-                      <dt className="text-[#7c6b69]">Estimated doses in vial</dt>
-                      <dd className="font-bold text-[#b87572] tabular-nums">
+                      <dt className="text-[#5a6b7c]">Estimated doses in vial</dt>
+                      <dd className="font-bold text-[#c5a059] tabular-nums">
                         ~{calcResults.dosesPerVial} doses
                       </dd>
                     </div>
@@ -862,15 +862,15 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
               </div>
 
               {/* Warning Disclaimer Card */}
-              <div className="border border-[#ead2ce] bg-[#fff6f3] rounded-2xl p-5 flex items-start gap-4">
-                <span className="w-8 h-8 rounded-full bg-white text-[#b87572] border border-[#ead2ce] flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs">
+              <div className="border border-[#dfd7c7] bg-[#f6f4ee] rounded-2xl p-5 flex items-start gap-4">
+                <span className="w-8 h-8 rounded-full bg-white text-[#c5a059] border border-[#dfd7c7] flex items-center justify-center font-bold text-sm shrink-0 shadow-2xs">
                   !
                 </span>
                 <div className="space-y-1 text-xs">
-                  <b className="font-bold text-[#744241] block">
+                  <b className="font-bold text-[#0c2340] block">
                     Arithmetic only — not a dose recommendation.
                   </b>
-                  <p className="text-[#7c6b69] leading-relaxed">
+                  <p className="text-[#5a6b7c] leading-relaxed">
                     This tool calculates from the numbers you enter. Confirm the vial label, final mixing volume, syringe scale and intended amount with verified instructions and a licensed clinician or pharmacist before use. Do not guess.
                   </p>
                 </div>
@@ -888,24 +888,24 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
       {/* ======================================================== */}
       {activeGuide && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#fffdfb] max-w-2xl w-full rounded-3xl border border-[#ead2ce] shadow-2xl p-6 sm:p-8 space-y-6 relative animate-in fade-in zoom-in-95">
+          <div className="bg-[#fffdfb] max-w-2xl w-full rounded-3xl border border-[#dfd7c7] shadow-2xl p-6 sm:p-8 space-y-6 relative animate-in fade-in zoom-in-95">
             
             {/* Header */}
-            <div className="flex items-start justify-between border-b border-[#ead2ce] pb-4">
+            <div className="flex items-start justify-between border-b border-[#dfd7c7] pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#fff6f3] text-[#b87572] border border-[#ead2ce] flex items-center justify-center font-serif text-xl">
+                <div className="w-10 h-10 rounded-xl bg-[#f6f4ee] text-[#c5a059] border border-[#dfd7c7] flex items-center justify-center font-serif text-xl">
                   {activeGuide.icon}
                 </div>
                 <div>
-                  <h3 className="font-serif text-2xl font-bold text-[#744241]">
+                  <h3 className="font-serif text-2xl font-bold text-[#0c2340]">
                     {activeGuide.title}
                   </h3>
-                  <p className="text-xs text-[#7c6b69]">{activeGuide.summary}</p>
+                  <p className="text-xs text-[#5a6b7c]">{activeGuide.summary}</p>
                 </div>
               </div>
               <button
                 onClick={() => setActiveGuide(null)}
-                className="w-8 h-8 rounded-full bg-[#fff6f3] hover:bg-[#ead2ce] text-[#744241] flex items-center justify-center text-sm font-bold transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-full bg-[#f6f4ee] hover:bg-[#dfd7c7] text-[#0c2340] flex items-center justify-center text-sm font-bold transition-colors cursor-pointer"
               >
                 ✕
               </button>
@@ -915,16 +915,16 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
             <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
               {activeGuide.sections.map((sec, idx) => (
                 <div key={idx} className="space-y-2.5">
-                  <h4 className="font-serif text-lg font-bold text-[#744241]">
+                  <h4 className="font-serif text-lg font-bold text-[#0c2340]">
                     {sec.title}
                   </h4>
                   {sec.paragraphs?.map((p, pIdx) => (
-                    <p key={pIdx} className="text-xs sm:text-sm text-[#7c6b69] leading-relaxed">
+                    <p key={pIdx} className="text-xs sm:text-sm text-[#5a6b7c] leading-relaxed">
                       {p}
                     </p>
                   ))}
                   {sec.items && (
-                    <ul className="space-y-1.5 pl-4 list-disc text-xs sm:text-sm text-[#7c6b69] leading-relaxed marker:text-[#b87572]">
+                    <ul className="space-y-1.5 pl-4 list-disc text-xs sm:text-sm text-[#5a6b7c] leading-relaxed marker:text-[#c5a059]">
                       {sec.items.map((it, itIdx) => (
                         <li key={itIdx}>{it}</li>
                       ))}
@@ -935,10 +935,10 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
             </div>
 
             {/* Footer */}
-            <div className="pt-4 border-t border-[#ead2ce] flex justify-end">
+            <div className="pt-4 border-t border-[#dfd7c7] flex justify-end">
               <button
                 onClick={() => setActiveGuide(null)}
-                className="px-6 py-2.5 rounded-xl bg-[#b87572] text-white text-xs font-semibold hover:bg-[#744241] transition-colors cursor-pointer"
+                className="px-6 py-2.5 rounded-xl bg-[#c5a059] text-white text-xs font-semibold hover:bg-[#0c2340] transition-colors cursor-pointer"
               >
                 Close Guide
               </button>

@@ -21,29 +21,29 @@ export const MobileNav: React.FC<MobileNavProps> = ({
 
   return (
     <nav 
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 h-[68px] pb-[calc(6px+env(safe-area-inset-bottom))] bg-[#fffdfb]/95 backdrop-blur-md border-t border-[#ead2ce] grid grid-cols-5 items-center px-1 shadow-lg select-none"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 h-[68px] pb-[calc(6px+env(safe-area-inset-bottom))] bg-[#fffdfb]/95 backdrop-blur-md border-t border-[#dfd7c7] grid grid-cols-5 items-center px-1 shadow-lg select-none"
       aria-label="Mobile navigation"
     >
       {/* Shop */}
       <button
         onClick={() => navigate('shop')}
         className={`flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold cursor-pointer transition-colors ${
-          isShopActive ? 'text-[#b87572]' : 'text-[#7c6b69] hover:text-[#744241]'
+          isShopActive ? 'text-[#c5a059]' : 'text-[#5a6b7c] hover:text-[#0c2340]'
         }`}
       >
-        <span className="font-serif text-lg leading-none">♔</span>
+        <span className="font-serif text-lg leading-none">✦</span>
         <span>Shop</span>
       </button>
 
       {/* Cart */}
       <button
         onClick={() => setCartOpen(true)}
-        className="relative flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-[#7c6b69] hover:text-[#744241] cursor-pointer transition-colors"
+        className="relative flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-[#5a6b7c] hover:text-[#0c2340] cursor-pointer transition-colors"
       >
         <span className="font-serif text-lg leading-none">♧</span>
         <span>Cart</span>
         {totalVialsOrKits > 0 && (
-          <i className="not-italic absolute top-0.5 right-3 min-w-4 h-4 px-1 rounded-full bg-[#b87572] text-white text-[9px] font-bold flex items-center justify-center">
+          <i className="not-italic absolute top-0.5 right-3 min-w-4 h-4 px-1 rounded-full bg-[#c5a059] text-white text-[9px] font-bold flex items-center justify-center">
             {totalVialsOrKits}
           </i>
         )}
@@ -52,7 +52,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
       {/* Perks */}
       <button
         onClick={onOpenPerks}
-        className="flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-[#7c6b69] hover:text-[#744241] cursor-pointer transition-colors"
+        className="flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-[#5a6b7c] hover:text-[#0c2340] cursor-pointer transition-colors"
       >
         <span className="font-serif text-lg leading-none">◇</span>
         <span>Perks</span>
@@ -62,7 +62,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
       <button
         onClick={() => navigate('customer-portal')}
         className={`flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold cursor-pointer transition-colors ${
-          isOrdersActive ? 'text-[#b87572]' : 'text-[#7c6b69] hover:text-[#744241]'
+          isOrdersActive ? 'text-[#c5a059]' : 'text-[#5a6b7c] hover:text-[#0c2340]'
         }`}
       >
         <span className="font-serif text-lg leading-none">□</span>
@@ -73,7 +73,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
       <button
         onClick={() => navigate('learn')}
         className={`flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold cursor-pointer transition-colors ${
-          isLearnActive ? 'text-[#b87572]' : 'text-[#7c6b69] hover:text-[#744241]'
+          isLearnActive ? 'text-[#c5a059]' : 'text-[#5a6b7c] hover:text-[#0c2340]'
         }`}
       >
         <span className="font-serif text-lg leading-none">▤</span>

@@ -49,32 +49,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, navigate 
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-[#744241]/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="relative bg-[#fffdfb] w-full max-w-md rounded-3xl border border-[#ead2ce] shadow-2xl p-6 sm:p-8 space-y-6 animate-in zoom-in-95 text-xs">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-[#0c2340]/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="relative bg-[#fffdfb] w-full max-w-md rounded-3xl border border-[#dfd7c7] shadow-2xl p-6 sm:p-8 space-y-6 animate-in zoom-in-95 text-xs">
         
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#ead2ce] pb-4">
+        <div className="flex items-center justify-between border-b border-[#dfd7c7] pb-4">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#b87572] text-[24px]">lock</span>
-            <h3 className="font-serif text-xl font-bold text-[#744241]">
+            <span className="material-symbols-outlined text-[#c5a059] text-[24px]">lock</span>
+            <h3 className="font-serif text-xl font-bold text-[#0c2340]">
               {isRegister ? 'Register Account' : 'Clinical Sign In'}
             </h3>
           </div>
-          <button onClick={onClose} className="text-[#7c6b69] hover:text-[#744241] cursor-pointer">
+          <button onClick={onClose} className="text-[#5a6b7c] hover:text-[#0c2340] cursor-pointer">
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
         </div>
 
         {/* Quick Demo Persona Switcher */}
-        <div className="bg-[#fff6f3] p-3 rounded-2xl border border-[#ead2ce] space-y-2">
-          <span className="text-[10px] uppercase font-bold tracking-wider text-[#7c6b69] block">
+        <div className="bg-[#f6f4ee] p-3 rounded-2xl border border-[#dfd7c7] space-y-2">
+          <span className="text-[10px] uppercase font-bold tracking-wider text-[#5a6b7c] block">
             Instant Test Persona Switcher
           </span>
           <div className="grid grid-cols-3 gap-1.5 text-[11px]">
             <button
               onClick={() => handleQuickPersona('CUSTOMER')}
               className={`p-1.5 rounded-lg text-center font-medium cursor-pointer ${
-                role === 'CUSTOMER' ? 'bg-[#b87572] text-white' : 'bg-white hover:bg-[#fffdfb] text-[#744241]'
+                role === 'CUSTOMER' ? 'bg-[#c5a059] text-white' : 'bg-white hover:bg-[#fffdfb] text-[#0c2340]'
               }`}
             >
               Customer
@@ -82,7 +82,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, navigate 
             <button
               onClick={() => handleQuickPersona('PARTNER_OWNER')}
               className={`p-1.5 rounded-lg text-center font-medium cursor-pointer ${
-                role === 'PARTNER_OWNER' ? 'bg-[#b87572] text-white' : 'bg-white hover:bg-[#fffdfb] text-[#744241]'
+                role === 'PARTNER_OWNER' ? 'bg-[#c5a059] text-white' : 'bg-white hover:bg-[#fffdfb] text-[#0c2340]'
               }`}
             >
               Partner
@@ -90,7 +90,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, navigate 
             <button
               onClick={() => handleQuickPersona('ADMIN')}
               className={`p-1.5 rounded-lg text-center font-medium cursor-pointer ${
-                role === 'ADMIN' ? 'bg-[#b87572] text-white' : 'bg-white hover:bg-[#fffdfb] text-[#744241]'
+                role === 'ADMIN' ? 'bg-[#c5a059] text-white' : 'bg-white hover:bg-[#fffdfb] text-[#0c2340]'
               }`}
             >
               Admin
@@ -102,49 +102,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, navigate 
         <form onSubmit={handleSubmit} className="space-y-4">
           {isRegister && (
             <div>
-              <label className="block text-[#7c6b69] font-medium mb-1">Full Legal Name</label>
+              <label className="block text-[#5a6b7c] font-medium mb-1">Full Legal Name</label>
               <input
                 type="text"
                 required
                 placeholder="Dr. Jordan Hayes"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-white border border-[#ead2ce] text-[#744241]"
+                className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
               />
             </div>
           )}
 
           <div>
-            <label className="block text-[#7c6b69] font-medium mb-1">Email Address</label>
+            <label className="block text-[#5a6b7c] font-medium mb-1">Email Address</label>
             <input
               type="email"
               required
               placeholder="user@wholeharbor.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-white border border-[#ead2ce] text-[#744241]"
+              className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
             />
           </div>
 
           <div>
-            <label className="block text-[#7c6b69] font-medium mb-1">Password</label>
+            <label className="block text-[#5a6b7c] font-medium mb-1">Password</label>
             <input
               type="password"
               required
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-white border border-[#ead2ce] text-[#744241]"
+              className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
             />
           </div>
 
           {isRegister && (
             <div>
-              <label className="block text-[#7c6b69] font-medium mb-1">Select Role</label>
+              <label className="block text-[#5a6b7c] font-medium mb-1">Select Role</label>
               <select
                 value={selectedRole}
                 onChange={(e) => setSelectedRole(e.target.value as UserRole)}
-                className="w-full px-3 py-2 rounded-lg bg-white border border-[#ead2ce] text-[#744241] cursor-pointer"
+                className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340] cursor-pointer"
               >
                 <option value="CUSTOMER">Customer / Patient</option>
                 <option value="PARTNER_OWNER">Partner Owner (Clinic / Medspa)</option>
@@ -158,21 +158,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, navigate 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 rounded-xl bg-[#b87572] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#744241] cursor-pointer transition-colors shadow-sm"
+            className="w-full py-3 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] cursor-pointer transition-colors shadow-sm"
           >
             {loading ? 'Authenticating...' : isRegister ? 'Register Account' : 'Sign In'}
           </button>
         </form>
 
         {/* Toggle Mode */}
-        <div className="text-center pt-2 text-[#7c6b69]">
+        <div className="text-center pt-2 text-[#5a6b7c]">
           {isRegister ? (
             <p>
               Already have an account?{' '}
               <button
                 type="button"
                 onClick={() => setIsRegister(false)}
-                className="text-[#b87572] font-semibold underline cursor-pointer"
+                className="text-[#c5a059] font-semibold underline cursor-pointer"
               >
                 Sign In
               </button>
@@ -183,7 +183,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, navigate 
               <button
                 type="button"
                 onClick={() => setIsRegister(true)}
-                className="text-[#b87572] font-semibold underline cursor-pointer"
+                className="text-[#c5a059] font-semibold underline cursor-pointer"
               >
                 Create Account
               </button>

@@ -52,8 +52,8 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
 
   if (loading) {
     return (
-      <div className="py-24 text-center text-[#7c6b69] space-y-3">
-        <span className="w-8 h-8 border-2 border-[#b87572] border-t-transparent rounded-full animate-spin inline-block"></span>
+      <div className="py-24 text-center text-[#5a6b7c] space-y-3">
+        <span className="w-8 h-8 border-2 border-[#c5a059] border-t-transparent rounded-full animate-spin inline-block"></span>
         <p className="text-xs">Loading partner ecosystem...</p>
       </div>
     );
@@ -62,11 +62,11 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
   if (!partner) {
     return (
       <div className="max-w-4xl mx-auto py-20 px-4 text-center">
-        <h2 className="font-serif text-2xl font-bold text-[#744241] mb-4">Partner Storefront Not Found</h2>
-        <p className="text-xs text-[#7c6b69] mb-6">The partner link "/partner/{slug}" could not be verified.</p>
+        <h2 className="font-serif text-2xl font-bold text-[#0c2340] mb-4">Partner Storefront Not Found</h2>
+        <p className="text-xs text-[#5a6b7c] mb-6">The partner link "/partner/{slug}" could not be verified.</p>
         <button
           onClick={() => navigate('partners')}
-          className="px-6 py-2.5 rounded-xl bg-[#b87572] text-white text-xs font-semibold cursor-pointer"
+          className="px-6 py-2.5 rounded-xl bg-[#c5a059] text-white text-xs font-semibold cursor-pointer"
         >
           View Partner Network
         </button>
@@ -78,11 +78,11 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
     <div className="space-y-16 pb-20">
       
       {/* 1. Co-Branded Hero Section */}
-      <section className="bg-gradient-to-b from-[#fff6f3] to-[#fffdfb] border-b border-[#ead2ce] pt-12 pb-16">
+      <section className="bg-gradient-to-b from-[#f6f4ee] to-[#fffdfb] border-b border-[#dfd7c7] pt-12 pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           {/* VIP Referral Active Callout */}
-          <div className="mb-8 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#b87572] text-[#fffdfb] text-xs font-semibold shadow-xs">
+          <div className="mb-8 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#c5a059] text-[#fffdfb] text-xs font-semibold shadow-xs">
             <span className="material-symbols-outlined text-[18px]">verified</span>
             <span>
               Exclusive Member Privilege: <strong>{(partner.memberDiscountRate * 100).toFixed(0)}% Off</strong> all formulations automatically applied.
@@ -93,31 +93,31 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
             
             <div className="lg:col-span-8 space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-2xl bg-white border border-[#ead2ce] flex items-center justify-center text-[#b87572] shadow-xs">
+                <div className="w-14 h-14 rounded-2xl bg-white border border-[#dfd7c7] flex items-center justify-center text-[#c5a059] shadow-xs">
                   <span className="material-symbols-outlined text-[32px]">fitness_center</span>
                 </div>
                 <div>
-                  <span className="text-xs font-mono font-bold text-[#7c6b69] uppercase tracking-wider block">
+                  <span className="text-xs font-mono font-bold text-[#5a6b7c] uppercase tracking-wider block">
                     Official Clinical Partner • {partner.partnerId}
                   </span>
-                  <h1 className="font-serif text-3xl sm:text-5xl text-[#744241] font-bold">
+                  <h1 className="font-serif text-3xl sm:text-5xl text-[#0c2340] font-bold">
                     {partner.name}
                   </h1>
                 </div>
               </div>
 
-              <p className="text-sm text-[#7c6b69] max-w-2xl leading-relaxed pt-2">
+              <p className="text-sm text-[#5a6b7c] max-w-2xl leading-relaxed pt-2">
                 {partner.description}
               </p>
 
-              <div className="flex flex-wrap items-center gap-4 pt-4 text-xs text-[#7c6b69]">
+              <div className="flex flex-wrap items-center gap-4 pt-4 text-xs text-[#5a6b7c]">
                 <span className="flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[16px] text-[#b87572]">category</span>
+                  <span className="material-symbols-outlined text-[16px] text-[#c5a059]">category</span>
                   <span>{partner.category}</span>
                 </span>
                 {partner.address && (
                   <span className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[16px] text-[#b87572]">location_on</span>
+                    <span className="material-symbols-outlined text-[16px] text-[#c5a059]">location_on</span>
                     <span>{partner.address}</span>
                   </span>
                 )}
@@ -126,7 +126,7 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
                     href={partner.website}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-1.5 text-[#b87572] hover:underline"
+                    className="flex items-center gap-1.5 text-[#c5a059] hover:underline"
                   >
                     <span className="material-symbols-outlined text-[16px]">language</span>
                     <span>Visit Partner Website</span>
@@ -136,29 +136,29 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
             </div>
 
             {/* Quality Seal Box */}
-            <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-[#ead2ce] shadow-sm space-y-4">
+            <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-[#dfd7c7] shadow-sm space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#b87572]/10 text-[#b87572] flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-[#c5a059]/10 text-[#c5a059] flex items-center justify-center">
                   <span className="material-symbols-outlined text-[22px]">shield_with_heart</span>
                 </div>
                 <div>
-                  <h4 className="font-serif font-bold text-sm text-[#744241]">
+                  <h4 className="font-serif font-bold text-sm text-[#0c2340]">
                     Prescribed Quality Guarantee
                   </h4>
-                  <p className="text-[11px] text-[#7c6b69]">Dispatched via Whole Harbor Central Lab</p>
+                  <p className="text-[11px] text-[#5a6b7c]">Dispatched via Whole Harbor Central Lab</p>
                 </div>
               </div>
-              <ul className="text-xs text-[#7c6b69] space-y-2 border-t border-[#ead2ce]/50 pt-3">
+              <ul className="text-xs text-[#5a6b7c] space-y-2 border-t border-[#dfd7c7]/50 pt-3">
                 <li className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px] text-[#b87572]">check</span>
+                  <span className="material-symbols-outlined text-[16px] text-[#c5a059]">check</span>
                   <span>Cold-Chain Insulated Shipping</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px] text-[#b87572]">check</span>
+                  <span className="material-symbols-outlined text-[16px] text-[#c5a059]">check</span>
                   <span>&gt;99.2% Certified HPLC Purity</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px] text-[#b87572]">check</span>
+                  <span className="material-symbols-outlined text-[16px] text-[#c5a059]">check</span>
                   <span>Direct Clinic Coordination</span>
                 </li>
               </ul>
@@ -171,10 +171,10 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
       {/* 2. Curated Recommended Products */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div>
-          <span className="text-xs uppercase font-bold tracking-widest text-[#7c6b69]">
+          <span className="text-xs uppercase font-bold tracking-widest text-[#5a6b7c]">
             Formulations Recommended By {partner.name}
           </span>
-          <h2 className="font-serif text-3xl text-[#744241] font-bold mt-1">
+          <h2 className="font-serif text-3xl text-[#0c2340] font-bold mt-1">
             Curated Member Protocols
           </h2>
         </div>
@@ -183,10 +183,10 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
           {products.map((prod) => (
             <div
               key={prod.id}
-              className="bg-white rounded-2xl border border-[#ead2ce] overflow-hidden shadow-xs hover:shadow-lg transition-all flex flex-col justify-between"
+              className="bg-white rounded-2xl border border-[#dfd7c7] overflow-hidden shadow-xs hover:shadow-lg transition-all flex flex-col justify-between"
             >
               <div 
-                className="relative h-52 bg-[#fff6f3] cursor-pointer"
+                className="relative h-52 bg-[#f6f4ee] cursor-pointer"
                 onClick={() => navigate('product-detail', prod.slug)}
               >
                 <img
@@ -194,7 +194,7 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
                   alt={prod.name}
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-[#b87572] text-white text-[10px] font-bold uppercase">
+                <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-[#c5a059] text-white text-[10px] font-bold uppercase">
                   {(partner.memberDiscountRate * 100).toFixed(0)}% VIP Discount
                 </div>
               </div>
@@ -203,21 +203,21 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
                 <div>
                   <h3
                     onClick={() => navigate('product-detail', prod.slug)}
-                    className="font-serif text-base font-semibold text-[#744241] hover:text-[#b87572] cursor-pointer"
+                    className="font-serif text-base font-semibold text-[#0c2340] hover:text-[#c5a059] cursor-pointer"
                   >
                     {prod.name}
                   </h3>
-                  <p className="text-xs text-[#7c6b69] line-clamp-2 mt-1">
+                  <p className="text-xs text-[#5a6b7c] line-clamp-2 mt-1">
                     {prod.shortDescription}
                   </p>
                 </div>
 
-                <div className="pt-4 mt-4 border-t border-[#ead2ce]/40 flex items-center justify-between">
+                <div className="pt-4 mt-4 border-t border-[#dfd7c7]/40 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] text-[#7c6b69] line-through block">
+                    <span className="text-[10px] text-[#5a6b7c] line-through block">
                       ${prod.price.toFixed(2)}
                     </span>
-                    <span className="font-serif text-base font-bold text-[#b87572]">
+                    <span className="font-serif text-base font-bold text-[#c5a059]">
                       ${(prod.price * (1 - partner.memberDiscountRate)).toFixed(2)}
                     </span>
                   </div>
@@ -226,7 +226,7 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
                       addToCart(prod, prod.strengths[0], 1);
                       setIsOpen(true);
                     }}
-                    className="px-3.5 py-2 rounded-xl bg-[#b87572] text-white text-xs font-semibold hover:bg-[#744241] cursor-pointer"
+                    className="px-3.5 py-2 rounded-xl bg-[#c5a059] text-white text-xs font-semibold hover:bg-[#0c2340] cursor-pointer"
                   >
                     Add
                   </button>
@@ -240,10 +240,10 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
       {/* 3. Partner Programs */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div>
-          <span className="text-xs uppercase font-bold tracking-widest text-[#7c6b69]">
+          <span className="text-xs uppercase font-bold tracking-widest text-[#5a6b7c]">
             Supervised Tracks
           </span>
-          <h2 className="font-serif text-3xl text-[#744241] font-bold mt-1">
+          <h2 className="font-serif text-3xl text-[#0c2340] font-bold mt-1">
             Supervised Practice Programs
           </h2>
         </div>
@@ -252,26 +252,26 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
           {programs.map((prog) => (
             <div
               key={prog.id}
-              className="bg-[#fff6f3] border border-[#ead2ce] rounded-3xl p-6 flex flex-col justify-between"
+              className="bg-[#f6f4ee] border border-[#dfd7c7] rounded-3xl p-6 flex flex-col justify-between"
             >
               <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-[#b87572] text-white">
+                <span className="text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-[#c5a059] text-white">
                   {prog.tag}
                 </span>
-                <h3 className="font-serif text-xl font-bold text-[#744241] mt-3">
+                <h3 className="font-serif text-xl font-bold text-[#0c2340] mt-3">
                   {prog.name}
                 </h3>
-                <p className="text-xs text-[#7c6b69] mt-1">
+                <p className="text-xs text-[#5a6b7c] mt-1">
                   {prog.shortDescription}
                 </p>
               </div>
-              <div className="pt-6 mt-6 border-t border-[#ead2ce] flex items-center justify-between">
-                <span className="font-serif text-xl font-bold text-[#744241]">
+              <div className="pt-6 mt-6 border-t border-[#dfd7c7] flex items-center justify-between">
+                <span className="font-serif text-xl font-bold text-[#0c2340]">
                   ${prog.priceMonthly}/mo
                 </span>
                 <button
                   onClick={() => navigate('wellness-programs')}
-                  className="px-4 py-2 rounded-xl bg-[#b87572] text-white text-xs font-semibold cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-[#c5a059] text-white text-xs font-semibold cursor-pointer"
                 >
                   View Details
                 </button>
@@ -283,14 +283,14 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
 
       {/* 4. Partner CTA Banner */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-[#b87572] text-[#fffdfb] rounded-3xl p-8 text-center space-y-4">
+        <div className="bg-[#c5a059] text-[#fffdfb] rounded-3xl p-8 text-center space-y-4">
           <h3 className="font-serif text-2xl font-bold">Questions Regarding Your Protocol?</h3>
-          <p className="text-xs text-[#ead2ce] max-w-md mx-auto">
+          <p className="text-xs text-[#dfd7c7] max-w-md mx-auto">
             Contact your care team at {partner.name} or consult our Whole Harbor clinical concierges.
           </p>
           <button
             onClick={() => navigate('shop')}
-            className="px-6 py-3 rounded-xl bg-white text-[#b87572] text-xs font-semibold uppercase tracking-wider hover:bg-[#fffdfb] cursor-pointer"
+            className="px-6 py-3 rounded-xl bg-white text-[#c5a059] text-xs font-semibold uppercase tracking-wider hover:bg-[#fffdfb] cursor-pointer"
           >
             Explore Full Catalog
           </button>

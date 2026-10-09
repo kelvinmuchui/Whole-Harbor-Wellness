@@ -53,7 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             navigate('shop');
           }}
         >
-          <span>♔</span>
+          <span>✦</span>
           Shop
         </a>
 
@@ -190,7 +190,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Perks Card */}
       <section className="perks-card">
-        <div className="perks-crown">♕</div>
+        <div className="perks-crown">⚓</div>
         <h3>Whole Harbor Perks</h3>
         <p>Create your complimentary profile to unlock checkout, member offers, order tracking and faster reordering.</p>
         <button onClick={onOpenPerks}>

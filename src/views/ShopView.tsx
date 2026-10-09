@@ -122,8 +122,8 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
             Pharmaceutical-grade peptide protocols, unbroken cold-chain delivery, and personal guidance from first question to every reorder.
           </p>
           {activeReferral && (
-            <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 border border-[#b87572] text-[11px] font-semibold text-[#744241]">
-              <span>♔</span>
+            <div className="mb-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 border border-[#c5a059] text-[11px] font-semibold text-[#0c2340]">
+              <span>✦</span>
               <span>{(activeReferral.discountRate * 100).toFixed(0)}% Partner VIP Benefit Applied</span>
             </div>
           )}

@@ -83,11 +83,11 @@ export const AskWHWDrawer: React.FC<AskWHWDrawerProps> = ({ currentPath, navigat
       {/* Floating Action Button (FAB) */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-40 bg-[#744241] hover:bg-[#b87572] text-white rounded-full p-2.5 pr-4.5 flex items-center gap-2.5 shadow-xl border border-[#ead2ce]/40 cursor-pointer transition-all hover:scale-105 active:scale-95 group"
+        className="fixed bottom-6 right-6 z-40 bg-[#0c2340] hover:bg-[#c5a059] text-white rounded-full p-2.5 pr-4.5 flex items-center gap-2.5 shadow-xl border border-[#dfd7c7]/40 cursor-pointer transition-all hover:scale-105 active:scale-95 group"
         aria-label="Ask Whole Harbor"
       >
-        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-serif text-lg text-white group-hover:bg-white group-hover:text-[#b87572] transition-colors">
-          ♕
+        <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-serif text-lg text-white group-hover:bg-white group-hover:text-[#c5a059] transition-colors">
+          ✦
         </div>
         <span className="text-xs font-bold tracking-wide">Ask Whole Harbor</span>
       </button>
@@ -99,27 +99,27 @@ export const AskWHWDrawer: React.FC<AskWHWDrawerProps> = ({ currentPath, navigat
           onClick={() => setIsOpen(false)}
         >
           <aside
-            className="w-full max-w-[460px] h-full bg-[#fffdfb] border-l border-[#ead2ce] shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
+            className="w-full max-w-[460px] h-full bg-[#fffdfb] border-l border-[#dfd7c7] shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <header className="p-5 border-b border-[#ead2ce] bg-[#fff6f3] flex items-center justify-between">
+            <header className="p-5 border-b border-[#dfd7c7] bg-[#f6f4ee] flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full border border-[#b87572] bg-white text-[#b87572] flex items-center justify-center font-serif text-xl shadow-2xs">
-                  ♕
+                <div className="w-10 h-10 rounded-full border border-[#c5a059] bg-white text-[#c5a059] flex items-center justify-center font-serif text-xl shadow-2xs">
+                  ✦
                 </div>
                 <div>
-                  <p className="text-[9px] uppercase font-bold tracking-widest text-[#b87572]">
+                  <p className="text-[9px] uppercase font-bold tracking-widest text-[#c5a059]">
                     EDUCATIONAL GUIDE
                   </p>
-                  <h2 className="font-serif text-xl font-bold text-[#744241]">
+                  <h2 className="font-serif text-xl font-bold text-[#0c2340]">
                     Ask Whole Harbor
                   </h2>
                 </div>
               </div>
               <button
                 onClick={() => setIsOpen(false)}
-                className="w-8 h-8 rounded-full bg-white hover:bg-[#ead2ce] text-[#744241] flex items-center justify-center text-sm font-bold transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-full bg-white hover:bg-[#dfd7c7] text-[#0c2340] flex items-center justify-center text-sm font-bold transition-colors cursor-pointer"
                 aria-label="Close"
               >
                 ✕
@@ -135,16 +135,16 @@ export const AskWHWDrawer: React.FC<AskWHWDrawerProps> = ({ currentPath, navigat
                 >
                   <div
                     className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] shrink-0 ${
-                      m.sender === 'user' ? 'bg-[#744241] text-white' : 'bg-[#b87572] text-white font-serif'
+                      m.sender === 'user' ? 'bg-[#0c2340] text-white' : 'bg-[#c5a059] text-white font-serif'
                     }`}
                   >
-                    {m.sender === 'user' ? 'You' : '♕'}
+                    {m.sender === 'user' ? 'You' : '✦'}
                   </div>
                   <div
                     className={`p-3 rounded-2xl text-xs leading-relaxed whitespace-pre-line shadow-2xs ${
                       m.sender === 'user'
-                        ? 'bg-[#744241] text-white rounded-tr-none'
-                        : 'bg-white text-[#744241] border border-[#ead2ce] rounded-tl-none'
+                        ? 'bg-[#0c2340] text-white rounded-tr-none'
+                        : 'bg-white text-[#0c2340] border border-[#dfd7c7] rounded-tl-none'
                     }`}
                   >
                     {m.text}
@@ -154,12 +154,12 @@ export const AskWHWDrawer: React.FC<AskWHWDrawerProps> = ({ currentPath, navigat
             </div>
 
             {/* Quick Suggestion Pills */}
-            <div className="px-4 py-2 bg-[#fff6f3] border-t border-[#ead2ce] flex gap-2 overflow-x-auto no-scrollbar">
+            <div className="px-4 py-2 bg-[#f6f4ee] border-t border-[#dfd7c7] flex gap-2 overflow-x-auto no-scrollbar">
               {quickQuestions.map((item, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleSend(item.q)}
-                  className="px-2.5 py-1 rounded-full bg-white border border-[#ead2ce] text-[10px] font-semibold text-[#744241] hover:bg-[#b87572] hover:text-white transition-colors shrink-0 cursor-pointer shadow-2xs"
+                  className="px-2.5 py-1 rounded-full bg-white border border-[#dfd7c7] text-[10px] font-semibold text-[#0c2340] hover:bg-[#c5a059] hover:text-white transition-colors shrink-0 cursor-pointer shadow-2xs"
                 >
                   {item.q}
                 </button>
@@ -172,31 +172,31 @@ export const AskWHWDrawer: React.FC<AskWHWDrawerProps> = ({ currentPath, navigat
                 e.preventDefault();
                 handleSend(inputQuestion);
               }}
-              className="p-3.5 bg-white border-t border-[#ead2ce] flex items-center gap-2"
+              className="p-3.5 bg-white border-t border-[#dfd7c7] flex items-center gap-2"
             >
               <input
                 type="text"
                 value={inputQuestion}
                 onChange={(e) => setInputQuestion(e.target.value)}
                 placeholder="Ask about mixing, storage, syringes, purity..."
-                className="flex-1 px-3.5 py-2 rounded-xl bg-[#fff6f3] border border-[#ead2ce] text-xs text-[#744241] placeholder-[#7c6b69] focus:outline-none focus:ring-1 focus:ring-[#b87572]"
+                className="flex-1 px-3.5 py-2 rounded-xl bg-[#f6f4ee] border border-[#dfd7c7] text-xs text-[#0c2340] placeholder-[#5a6b7c] focus:outline-none focus:ring-1 focus:ring-[#c5a059]"
               />
               <button
                 type="submit"
-                className="px-4 py-2 rounded-xl bg-[#b87572] text-white text-xs font-bold hover:bg-[#744241] transition-colors cursor-pointer shrink-0"
+                className="px-4 py-2 rounded-xl bg-[#c5a059] text-white text-xs font-bold hover:bg-[#0c2340] transition-colors cursor-pointer shrink-0"
               >
                 Send
               </button>
             </form>
 
             {/* Link to Full Studio */}
-            <div className="p-3.5 bg-[#fff6f3] border-t border-[#ead2ce] text-center">
+            <div className="p-3.5 bg-[#f6f4ee] border-t border-[#dfd7c7] text-center">
               <button
                 onClick={() => {
                   setIsOpen(false);
                   navigate('learn');
                 }}
-                className="w-full py-2.5 rounded-xl bg-white border border-[#b87572] text-[#b87572] hover:bg-[#b87572] hover:text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                className="w-full py-2.5 rounded-xl bg-white border border-[#c5a059] text-[#c5a059] hover:bg-[#c5a059] hover:text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
               >
                 <span>Open the full Education Studio &amp; calculator</span>
                 <span>→</span>

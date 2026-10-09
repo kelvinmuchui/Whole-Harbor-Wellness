@@ -16,7 +16,7 @@ export const PerksModal: React.FC<PerksModalProps> = ({ isOpen, onClose, navigat
       desc: 'Use FIRST20 at checkout for 20% savings with Bitcoin or 15% with card payment.'
     },
     {
-      icon: '♔',
+      icon: '✦',
       title: 'Complimentary reward',
       desc: 'Orders over $300 automatically receive complimentary USP Bacteriostatic Water included in the package.'
     },
@@ -48,13 +48,13 @@ export const PerksModal: React.FC<PerksModalProps> = ({ isOpen, onClose, navigat
       onClick={onClose}
     >
       <div 
-        className="relative bg-[#fffdfb] max-w-xl w-full rounded-3xl border border-[#ead2ce] shadow-2xl p-6 sm:p-8 space-y-6"
+        className="relative bg-[#fffdfb] max-w-xl w-full rounded-3xl border border-[#dfd7c7] shadow-2xl p-6 sm:p-8 space-y-6"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 w-8 h-8 rounded-full bg-[#fff6f3] hover:bg-[#ead2ce] text-[#744241] flex items-center justify-center text-sm font-bold transition-colors cursor-pointer"
+          className="absolute top-5 right-5 w-8 h-8 rounded-full bg-[#f6f4ee] hover:bg-[#dfd7c7] text-[#0c2340] flex items-center justify-center text-sm font-bold transition-colors cursor-pointer"
           aria-label="Close"
         >
           ✕
@@ -62,16 +62,16 @@ export const PerksModal: React.FC<PerksModalProps> = ({ isOpen, onClose, navigat
 
         {/* Header with Crown */}
         <div className="text-center space-y-1">
-          <div className="w-12 h-12 rounded-full bg-[#fff6f3] border border-[#ead2ce] text-[#b87572] flex items-center justify-center font-serif text-2xl mx-auto shadow-2xs">
-            ♕
+          <div className="w-12 h-12 rounded-full bg-[#f6f4ee] border border-[#dfd7c7] text-[#c5a059] flex items-center justify-center font-serif text-2xl mx-auto shadow-2xs">
+            ✦
           </div>
-          <p className="text-[10px] uppercase font-bold tracking-widest text-[#b87572] pt-2">
+          <p className="text-[10px] uppercase font-bold tracking-widest text-[#c5a059] pt-2">
             YOUR MEMBER BENEFITS
           </p>
-          <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#744241]">
+          <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#0c2340]">
             Your Whole Harbor Perks
           </h2>
-          <p className="text-xs text-[#7c6b69] max-w-md mx-auto leading-relaxed">
+          <p className="text-xs text-[#5a6b7c] max-w-md mx-auto leading-relaxed">
             Thoughtful savings and personal support designed to make every order easier.
           </p>
         </div>
@@ -81,27 +81,27 @@ export const PerksModal: React.FC<PerksModalProps> = ({ isOpen, onClose, navigat
           {perks.map((p, idx) => (
             <div
               key={idx}
-              className="p-4 rounded-2xl bg-[#fff6f3] border border-[#ead2ce] flex items-start gap-3 shadow-2xs"
+              className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7] flex items-start gap-3 shadow-2xs"
             >
-              <div className="w-8 h-8 rounded-xl bg-white border border-[#ead2ce] text-[#b87572] flex items-center justify-center font-serif text-base shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-white border border-[#dfd7c7] text-[#c5a059] flex items-center justify-center font-serif text-base shrink-0">
                 {p.icon}
               </div>
               <div className="space-y-0.5">
-                <b className="text-xs font-bold text-[#744241] block">{p.title}</b>
-                <p className="text-[11px] text-[#7c6b69] leading-snug">{p.desc}</p>
+                <b className="text-xs font-bold text-[#0c2340] block">{p.title}</b>
+                <p className="text-[11px] text-[#5a6b7c] leading-snug">{p.desc}</p>
               </div>
             </div>
           ))}
         </div>
 
         {/* Action Button */}
-        <div className="pt-2 border-t border-[#ead2ce]">
+        <div className="pt-2 border-t border-[#dfd7c7]">
           <button
             onClick={() => {
               onClose();
               navigate('shop');
             }}
-            className="w-full py-3.5 rounded-xl bg-[#b87572] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#744241] transition-colors cursor-pointer shadow-xs text-center"
+            className="w-full py-3.5 rounded-xl bg-[#c5a059] text-white text-xs font-bold uppercase tracking-wider hover:bg-[#0c2340] transition-colors cursor-pointer shadow-xs text-center"
           >
             Continue Shopping
           </button>

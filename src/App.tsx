@@ -167,7 +167,7 @@ function MainApp() {
                 <img
                   src="/images/whw-logo.png"
                   alt="Whole Harbor Wellness"
-                  className="w-7 h-7 rounded-full object-cover border border-[#ead2ce]"
+                  className="w-8 h-8 rounded-full object-cover border border-[#c5a059]/50 shadow-xs"
                 />
                 <span className="font-serif font-bold text-sm text-[var(--deep)]">Whole Harbor Wellness</span>
               </div>
