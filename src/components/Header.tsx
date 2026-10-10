@@ -59,18 +59,18 @@ export const Header: React.FC<HeaderProps> = ({ currentPath, navigate, onOpenSea
               className="flex items-center gap-3 group text-left cursor-pointer focus:outline-none"
             >
               {/* Circular Whole Harbor Monogram Logo */}
-              <div className="w-11 h-11 rounded-full border border-[#c5a059]/50 overflow-hidden bg-white shadow-xs transition-transform group-hover:scale-105 shrink-0 flex items-center justify-center">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border border-[#dfd7c7] bg-white shadow-xs p-1 transition-transform group-hover:scale-105 shrink-0 flex items-center justify-center">
                 <img
                   src="/images/whw-logo.png"
                   alt="Whole Harbor Wellness Logo"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
               </div>
               <div className="flex flex-col">
                 <span className="font-serif text-xl sm:text-2xl text-[#0c2340] tracking-tight font-semibold leading-none group-hover:text-[#c5a059] transition-colors">
                   Whole Harbor
                 </span>
-                <span className="font-sans text-[10px] uppercase tracking-[0.25em] text-[#c5a059] font-bold mt-1">
+                <span className="font-sans text-[10px] sm:text-[11px] uppercase tracking-[0.25em] text-[#c5a059] font-bold mt-1">
                   Wellness
                 </span>
               </div>

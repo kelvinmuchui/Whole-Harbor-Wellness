@@ -14,12 +14,12 @@ export const Footer: React.FC<FooterProps> = ({ navigate }) => {
           
           {/* Brand Info */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-full border border-[#c5a059]/50 overflow-hidden bg-white shrink-0 flex items-center justify-center shadow-xs">
+            <div className="flex items-center gap-3.5">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border border-[#c5a059]/40 bg-white p-1 shrink-0 flex items-center justify-center shadow-xs">
                 <img
                   src="/images/whw-logo.png"
                   alt="Whole Harbor Wellness Logo"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                 />
               </div>
               <div>

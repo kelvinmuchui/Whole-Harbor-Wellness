@@ -203,13 +203,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
           <div>
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-[#dfd7c7] bg-[#f6f4ee] flex items-center justify-between">
-              <div>
-                <h2 className="font-serif text-lg font-semibold text-[#0c2340]">
-                  Clinical Checkout &amp; Dispatch
-                </h2>
-                <p className="text-[11px] text-[#5a6b7c]">
-                  Cold-chain insured pharmaceutical-grade fulfillment
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white border border-[#dfd7c7] p-0.5 shadow-xs flex items-center justify-center shrink-0">
+                  <img src="/images/whw-logo.png" alt="Whole Harbor Wellness" className="w-full h-full object-contain" />
+                </div>
+                <div>
+                  <h2 className="font-serif text-lg font-semibold text-[#0c2340]">
+                    Clinical Checkout &amp; Dispatch
+                  </h2>
+                  <p className="text-[11px] text-[#5a6b7c]">
+                    Cold-chain insured pharmaceutical-grade fulfillment
+                  </p>
+                </div>
               </div>
               <button
                 onClick={onClose}

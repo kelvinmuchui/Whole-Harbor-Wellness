@@ -29,6 +29,13 @@ export const AboutView: React.FC<AboutViewProps> = ({ initialSection, navigate }
       
       {/* 1. Hero & Mission */}
       <section className="text-center max-w-3xl mx-auto space-y-4">
+        <div className="w-24 h-24 sm:w-28 sm:h-28 mx-auto rounded-3xl bg-white border border-[#dfd7c7] shadow-sm p-2 flex items-center justify-center">
+          <img
+            src="/images/whw-logo.png"
+            alt="Whole Harbor Wellness Logo"
+            className="w-full h-full object-contain"
+          />
+        </div>
         <span className="text-xs uppercase font-bold tracking-widest text-[#5a6b7c]">
           Our Purpose &amp; Heritage
         </span>

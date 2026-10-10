@@ -82,7 +82,10 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
         />
         <div className="hero-overlay"></div>
         <div className="hero-copy">
-          <p className="eyebrow">WHOLE HARBOR WELLNESS • WHW</p>
+          <div className="inline-flex items-center gap-3 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-[#dfd7c7] shadow-xs mb-3.5">
+            <img src="/images/whw-logo.png" alt="Whole Harbor Wellness" className="w-8 h-8 sm:w-9 sm:h-9 object-contain" />
+            <span className="font-serif font-bold text-xs sm:text-sm text-[#0c2340] tracking-tight">Whole Harbor <span className="text-[#c5a059] font-sans text-[10px] uppercase font-bold tracking-widest">Wellness</span></span>
+          </div>
           <h1>
             Feel Your Best,<br />
             <em>Beautifully.</em>

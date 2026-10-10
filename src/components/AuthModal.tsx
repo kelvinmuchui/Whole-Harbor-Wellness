@@ -54,11 +54,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, navigate 
         
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#dfd7c7] pb-4">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#c5a059] text-[24px]">lock</span>
-            <h3 className="font-serif text-xl font-bold text-[#0c2340]">
-              {isRegister ? 'Register Account' : 'Clinical Sign In'}
-            </h3>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white border border-[#dfd7c7] p-0.5 shadow-xs flex items-center justify-center">
+              <img src="/images/whw-logo.png" alt="Whole Harbor Wellness" className="w-full h-full object-contain" />
+            </div>
+            <div>
+              <h3 className="font-serif text-xl font-bold text-[#0c2340] leading-tight">
+                {isRegister ? 'Register Account' : 'Clinical Sign In'}
+              </h3>
+              <p className="text-[10px] text-[#5a6b7c]">Whole Harbor Wellness</p>
+            </div>
           </div>
           <button onClick={onClose} className="text-[#5a6b7c] hover:text-[#0c2340] cursor-pointer">
             <span className="material-symbols-outlined text-[20px]">close</span>

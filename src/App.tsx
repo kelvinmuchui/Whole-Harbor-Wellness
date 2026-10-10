@@ -162,14 +162,20 @@ function MainApp() {
             <div className="flex items-center gap-3">
               <div 
                 onClick={() => navigate('home')} 
-                className="md:hidden flex items-center gap-2.5 cursor-pointer"
+                className="md:hidden flex items-center gap-3 cursor-pointer py-1"
+                title="Whole Harbor Wellness Home"
               >
-                <img
-                  src="/images/whw-logo.png"
-                  alt="Whole Harbor Wellness"
-                  className="w-8 h-8 rounded-full object-cover border border-[#c5a059]/50 shadow-xs"
-                />
-                <span className="font-serif font-bold text-sm text-[var(--deep)]">Whole Harbor Wellness</span>
+                <div className="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-white border border-[#dfd7c7] shadow-xs p-1 flex items-center justify-center shrink-0 transition-transform active:scale-95">
+                  <img
+                    src="/images/whw-logo.png"
+                    alt="Whole Harbor Wellness"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="flex flex-col leading-tight">
+                  <span className="font-serif font-bold text-base text-[var(--deep)] tracking-tight">Whole Harbor</span>
+                  <span className="font-sans text-[9px] uppercase tracking-[0.2em] text-[#c5a059] font-bold">Wellness</span>
+                </div>
               </div>
               <p className="hidden md:block">Wellness • Recovery • Optimization</p>
             </div>
