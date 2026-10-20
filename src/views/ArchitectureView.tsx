@@ -169,7 +169,7 @@ export const ArchitectureView: React.FC<ArchitectureViewProps> = ({ navigate }) 
                 { name: 'OrderItem', count: '7 fields', desc: 'Product link, vial strength tier, unit price, quantity' },
                 { name: 'PartnerEarning', count: '12 fields', desc: 'Auditable commission ledger (PENDING, APPROVED, PAID)' },
                 { name: 'Product', count: '17 fields', desc: 'SKU, purity assay, lot number, stock, cold-chain CoA' },
-                { name: 'WellnessProgram', count: '11 fields', desc: 'Physician-supervised protocols, syllabus, monthly pricing' },
+                { name: 'WellnessProgram', count: '11 fields', desc: 'Holistic wellness protocols, syllabus, monthly pricing' },
                 { name: 'AuditLog', count: '9 fields', desc: 'Append-only audit trail of security and state mutations' },
                 { name: 'EducationalArticle', count: '10 fields', desc: 'Clinical studies, research summaries, author attribution' },
                 { name: 'Payment', count: '7 fields', desc: 'Gateway transaction logs and reconciliation statuses' }

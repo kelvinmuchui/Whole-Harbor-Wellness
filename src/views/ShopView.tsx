@@ -272,7 +272,7 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
               alt="BPC-157"
               className="w-full h-full object-cover"
             />
-            <span>Clinician Choice</span>
+            <span>Recovery Pick</span>
           </div>
           <div className="product-info">
             <p className="product-detail">Tissue &amp; Gut Repair</p>
@@ -635,10 +635,10 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
           </div>
         </div>
         <div>
-          <span>👩‍⚕️</span>
+          <span>📦</span>
           <div>
-            <b>Clinical Concierge Support</b>
-            <p>Personal protocol guidance for reconstitution volumes, needle gauges, and titration.</p>
+            <b>100% Delivery Guarantee</b>
+            <p>Thermal-integrity tracked arrival guarantee with rapid batch replacement protection.</p>
           </div>
         </div>
       </section>

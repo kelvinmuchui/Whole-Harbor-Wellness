@@ -87,27 +87,27 @@ export const Footer: React.FC<FooterProps> = ({ navigate }) => {
             <ul className="space-y-2.5 text-xs text-[#dfd7c7]/80">
               <li>
                 <button onClick={() => navigate('wellness-programs')} className="hover:text-white transition-colors cursor-pointer">
-                  Physician-Led Programs
+                  Wellness Programs
                 </button>
               </li>
               <li>
                 <button onClick={() => navigate('approach')} className="hover:text-white transition-colors cursor-pointer">
-                  Our Clinical Approach
+                  Our Quality Approach
                 </button>
               </li>
               <li>
                 <button onClick={() => navigate('partners')} className="hover:text-white transition-colors cursor-pointer">
-                  Become a Partner Clinic
+                  Become a Partner
                 </button>
               </li>
               <li>
                 <button onClick={() => navigate('partner-portal')} className="hover:text-white transition-colors cursor-pointer">
-                  Partner Portal Login
+                  Partner Portal &amp; How to Partner
                 </button>
               </li>
               <li>
                 <button onClick={() => navigate('learn')} className="hover:text-white transition-colors cursor-pointer">
-                  Clinical Studies &amp; Research
+                  Education Studio &amp; Mixing Guide
                 </button>
               </li>
             </ul>
@@ -130,13 +130,8 @@ export const Footer: React.FC<FooterProps> = ({ navigate }) => {
                 </button>
               </li>
               <li>
-                <button onClick={() => navigate('about', 'testimonials')} className="hover:text-white transition-colors cursor-pointer">
-                  Clinician Testimonials
-                </button>
-              </li>
-              <li>
                 <button onClick={() => navigate('contact')} className="hover:text-white transition-colors cursor-pointer">
-                  Contact Clinical Concierge
+                  Contact &amp; Support
                 </button>
               </li>
               <li>

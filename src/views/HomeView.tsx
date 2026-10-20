@@ -18,11 +18,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
-  // Quick concierge message state
-  const [quickContactSent, setQuickContactSent] = useState(false);
-  const [quickEmail, setQuickEmail] = useState('');
-  const [quickMessage, setQuickMessage] = useState('');
-
   const { addToCart, setIsOpen } = useCart();
 
   useEffect(() => {
@@ -52,12 +47,6 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' });
     }
-  };
-
-  const handleQuickContact = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quickEmail) return;
-    setQuickContactSent(true);
   };
 
   const filteredCatalog = useMemo(() => {
@@ -440,7 +429,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
               Restoring Clinical Integrity to Longevity Medicine
             </h2>
             <p className="text-xs sm:text-sm text-[#5a6b7c] leading-relaxed">
-              Founded by clinical chemists and functional physicians, Whole Harbor Wellness eliminates the safety hazards of unregulated online research vendors. We provide certified cGMP solid-phase synthesized peptides, unbroken cold-chain temperature telemetry, and seamless physician protocol alignment.
+              Founded on clinical chemistry rigor and holistic wellness, Whole Harbor Wellness eliminates the safety hazards of unregulated online vendors. We provide certified cGMP solid-phase synthesized peptides, unbroken cold-chain temperature telemetry, and personalized wellness education.
             </p>
             <div className="grid grid-cols-2 gap-4 pt-2">
               <div className="bg-white/80 border border-[#dfd7c7] p-4 rounded-2xl">
@@ -546,9 +535,9 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
             <div className="w-10 h-10 rounded-xl bg-[#c5a059] text-white flex items-center justify-center font-bold text-sm">
               04
             </div>
-            <h3 className="font-serif text-lg font-bold text-[#0c2340]">Physician Oversight</h3>
+            <h3 className="font-serif text-lg font-bold text-[#0c2340]">Dedicated Guidance</h3>
             <p className="text-xs text-[#5a6b7c] leading-relaxed">
-              Integrated protocols with partner physicians ensure correct patient titration and biometric feedback.
+              Step-by-step verified reconstitution, storage instructions, and dedicated client resources at every stage.
             </p>
           </div>
         </div>
@@ -558,126 +547,13 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
             onClick={() => navigate('approach')}
             className="px-6 py-2.5 rounded-xl border border-[#dfd7c7] bg-white text-[#0c2340] text-xs font-semibold hover:bg-[#f6f4ee] transition-colors cursor-pointer inline-flex items-center gap-2"
           >
-            <span>Compare Clinical Specifications vs Online Research Vendors</span>
+            <span>Explore Our Methodology &amp; Clinical Quality Standards</span>
             <span>→</span>
           </button>
         </div>
       </section>
 
-      {/* 9. Physician-Guided Wellness Programs Preview */}
-      <section className="bg-white border border-[#dfd7c7] rounded-3xl p-8 sm:p-12 shadow-xs space-y-8">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <span className="text-xs uppercase font-bold tracking-widest text-[#c5a059]">
-              Supervised Healthcare
-            </span>
-            <h2 className="font-serif text-2xl sm:text-4xl text-[#0c2340] font-bold mt-1">
-              Physician-Guided Longevity Programs
-            </h2>
-            <p className="text-xs text-[#5a6b7c] mt-1 max-w-xl">
-              Turnkey clinical protocols combining verified peptides, lab biomarker baseline testing, and continuous physician consultation.
-            </p>
-          </div>
-          <button
-            onClick={() => navigate('wellness-programs')}
-            className="px-5 py-2.5 rounded-xl bg-[#0c2340] text-white text-xs font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer whitespace-nowrap self-start md:self-auto"
-          >
-            View All Programs →
-          </button>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {programs.slice(0, 2).map((prog) => (
-            <div
-              key={prog.id}
-              className="bg-[#f6f4ee] border border-[#dfd7c7] rounded-2xl p-6 flex flex-col justify-between space-y-6 hover:shadow-md transition-all"
-            >
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="px-3 py-1 rounded-full bg-[#c5a059] text-white text-[11px] font-bold uppercase tracking-wider">
-                    {prog.tag}
-                  </span>
-                  <span className="text-xs text-[#5a6b7c] font-medium flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[16px]">schedule</span>
-                    {prog.duration}
-                  </span>
-                </div>
-
-                <div>
-                  <h3 className="font-serif text-xl font-bold text-[#0c2340]">{prog.name}</h3>
-                  <p className="text-xs text-[#5a6b7c] mt-1.5 leading-relaxed">
-                    {prog.shortDescription}
-                  </p>
-                </div>
-
-                <div className="space-y-2 pt-2 border-t border-[#dfd7c7]/60 text-xs text-[#0c2340]">
-                  {prog.features.slice(0, 3).map((feat, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[16px] text-[#c5a059]">verified</span>
-                      <span>{feat}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-[#dfd7c7] flex items-center justify-between">
-                <div>
-                  <span className="text-[11px] text-[#5a6b7c] block">Supervised Protocol</span>
-                  <span className="font-serif text-xl font-bold text-[#0c2340]">
-                    ${prog.priceMonthly}
-                    <span className="text-xs font-normal text-[#5a6b7c]"> / mo</span>
-                  </span>
-                </div>
-                <button
-                  onClick={() => navigate('wellness-programs')}
-                  className="px-4 py-2 rounded-xl bg-[#c5a059] text-white text-xs font-semibold hover:bg-[#0c2340] transition-colors cursor-pointer"
-                >
-                  Learn &amp; Enroll →
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* 10. Clinician & Member Testimonials */}
-      <section className="space-y-8">
-        <div className="text-center max-w-2xl mx-auto space-y-2">
-          <span className="text-xs uppercase font-bold tracking-widest text-[#c5a059]">
-            Clinical Endorsements
-          </span>
-          <h2 className="font-serif text-2xl sm:text-4xl text-[#0c2340] font-bold">
-            Voices from Our Medical Network
-          </h2>
-          <p className="text-xs text-[#5a6b7c]">
-            Over 2,400+ members and 60+ partner medical spas trust Whole Harbor Wellness.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {testimonials.map((t) => (
-            <div
-              key={t.id}
-              className="bg-white border border-[#dfd7c7] rounded-3xl p-6 shadow-xs flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center gap-1 text-[#c5a059] mb-3">
-                  {[...Array(t.rating || 5)].map((_, i) => (
-                    <span key={i} className="material-symbols-outlined text-[16px]">star</span>
-                  ))}
-                </div>
-                <p className="text-xs sm:text-sm text-[#5a6b7c] italic leading-relaxed">
-                  "{t.quote}"
-                </p>
-              </div>
-              <div className="pt-4 mt-6 border-t border-[#dfd7c7]/50">
-                <h4 className="font-serif font-bold text-sm text-[#0c2340]">{t.name}</h4>
-                <p className="text-[11px] text-[#5a6b7c]">{t.role} • {t.organization}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
 
       {/* 11. Interactive Frequently Asked Questions (FAQ) Accordion on Homepage */}
       <section className="bg-[#f6f4ee] border border-[#dfd7c7] rounded-3xl p-6 sm:p-12 space-y-8">
@@ -736,88 +612,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
         </div>
       </section>
 
-      {/* 12. Quick Clinical Concierge Contact Form & Channels */}
-      <section className="bg-white border border-[#dfd7c7] rounded-3xl p-6 sm:p-12 shadow-sm">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-          <div className="space-y-4">
-            <span className="text-xs uppercase font-bold tracking-widest text-[#c5a059]">
-              Personal Concierge
-            </span>
-            <h2 className="font-serif text-2xl sm:text-4xl text-[#0c2340] font-bold">
-              Have a Specific Protocol or Question?
-            </h2>
-            <p className="text-xs sm:text-sm text-[#5a6b7c] leading-relaxed">
-              Our clinical concierge team provides personal guidance for members, doctors, and sports specialists. Reach out directly or send a quick inquiry below.
-            </p>
-            <div className="flex flex-wrap items-center gap-4 pt-2">
-              <a
-                href="https://wa.me/529841721536?text=Hi%20Kelvin%2C%20I%20have%20a%20question%20about%20Whole%20Harbor%20Wellness."
-                target="_blank"
-                rel="noreferrer"
-                className="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors inline-flex items-center gap-2 cursor-pointer shadow-xs"
-              >
-                <span>💬 WhatsApp Kelvin Directly</span>
-              </a>
-              <button
-                onClick={() => navigate('contact')}
-                className="px-5 py-2.5 rounded-xl border border-[#dfd7c7] bg-[#f6f4ee] text-[#0c2340] text-xs font-semibold hover:bg-white transition-colors cursor-pointer"
-              >
-                Full Contact Intake →
-              </button>
-            </div>
-          </div>
 
-          <div className="bg-[#f6f4ee] border border-[#dfd7c7] rounded-2xl p-6">
-            {quickContactSent ? (
-              <div className="text-center py-6 space-y-3">
-                <span className="material-symbols-outlined text-[32px] text-emerald-600">check_circle</span>
-                <h4 className="font-serif text-lg font-bold text-[#0c2340]">Message Transmitted!</h4>
-                <p className="text-xs text-[#5a6b7c]">
-                  Our clinical concierge will follow up at {quickEmail} shortly.
-                </p>
-                <button
-                  onClick={() => { setQuickContactSent(false); setQuickEmail(''); setQuickMessage(''); }}
-                  className="text-xs text-[#c5a059] font-semibold underline cursor-pointer"
-                >
-                  Send another inquiry
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleQuickContact} className="space-y-3 text-xs">
-                <h4 className="font-serif font-bold text-base text-[#0c2340]">Quick Concierge Dispatch</h4>
-                <div>
-                  <label className="block text-[#5a6b7c] mb-1">Your Email Address *</label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="you@example.com"
-                    value={quickEmail}
-                    onChange={(e) => setQuickEmail(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#5a6b7c] mb-1">Your Question or Protocol Inquiries *</label>
-                  <textarea
-                    rows={3}
-                    required
-                    placeholder="Ask about cold-chain, reconstitution, or dosing..."
-                    value={quickMessage}
-                    onChange={(e) => setQuickMessage(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] outline-none"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="w-full py-2.5 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] cursor-pointer transition-colors shadow-xs"
-                >
-                  Send to Concierge
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      </section>
 
       {/* 13. Learn Section (with exact 8 guide cards and images) */}
       <section className="learn-section" id="learn">
@@ -839,29 +634,22 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
             >
               Open Education Studio
             </a>
-            <a
-              href="https://wa.me/529841721536?text=Hi%20Kelvin%2C%20I%20have%20a%20question%20about%20Whole%20Harbor%20Wellness."
-              target="_blank"
-              rel="noreferrer"
-            >
-              WhatsApp Kelvin
-            </a>
           </div>
         </div>
 
         <div className="learn-grid">
-          {/* 1. Welcome from Kelvin */}
-          <button onClick={() => navigate('learn', 'welcome')}>
+          {/* 1. About Whole Harbor Wellness */}
+          <button onClick={() => navigate('learn', 'about')}>
             <div className="learn-card-image">
               <img
                 src="/images/learn/welcome.png"
-                alt="Personal welcome and guidance materials in the Whole Harbor Wellness studio"
+                alt="About Whole Harbor Wellness"
               />
-              <span>♡</span>
+              <span>🌿</span>
             </div>
             <div className="learn-card-copy">
-              <h3>Welcome from Kelvin</h3>
-              <p>Meet Kelvin and discover the story behind Whole Harbor Wellness.</p>
+              <h3>About Whole Harbor</h3>
+              <p>Wellness Should Be Personal. Understand our approach to whole-person health.</p>
               <b>Open guide →</b>
             </div>
           </button>
@@ -995,7 +783,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
           <span>♧</span>
           <p>
             <b>Personal support</b>
-            Real guidance from Kelvin and our clinical concierge team.
+            Clear educational resources and verified quality standards.
           </p>
         </div>
         <div>

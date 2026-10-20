@@ -108,14 +108,15 @@ export const GoalsModal: React.FC<GoalsModalProps> = ({ isOpen, onClose, navigat
         {/* Guidance Prompt */}
         <div className="pt-2 border-t border-[#dfd7c7] text-center text-xs text-[#5a6b7c]">
           <span>Not sure where to begin? </span>
-          <a
-            href="https://wa.me/529841721536?text=Hi%20Kelvin%2C%20I%20would%20like%20help%20choosing%20a%20wellness%20category."
-            target="_blank"
-            rel="noreferrer"
-            className="text-[#c5a059] font-bold hover:underline"
+          <button
+            onClick={() => {
+              onClose();
+              navigate('learn');
+            }}
+            className="text-[#c5a059] font-bold hover:underline cursor-pointer"
           >
-            Ask Kelvin for personal guidance →
-          </a>
+            Explore our educational guides →
+          </button>
         </div>
       </div>
     </div>

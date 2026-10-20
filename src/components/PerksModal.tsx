@@ -38,7 +38,7 @@ export const PerksModal: React.FC<PerksModalProps> = ({ isOpen, onClose, navigat
     {
       icon: '□',
       title: 'Personal order care',
-      desc: 'Direct concierge support via WhatsApp or email before, during, and after dispatch.'
+      desc: 'Direct customer support via email or in-app support before, during, and after dispatch.'
     }
   ];
 

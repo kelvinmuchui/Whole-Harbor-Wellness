@@ -144,36 +144,201 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
             {partner.name} — Partner Portal
           </h1>
           <p className="text-xs text-[#5a6b7c] mt-1">
-            Referred patient sales tracking, automated commission attribution &amp; clinical ledger.
+            Community sales tracking, transparent commission attribution &amp; partner infrastructure.
           </p>
         </div>
 
-        {/* Co-Branded Link Action Card */}
-        <div className="bg-[#f6f4ee] border border-[#dfd7c7] p-3.5 rounded-2xl flex items-center gap-3 text-xs">
-          <div className="text-left">
-            <span className="text-[10px] text-[#5a6b7c] uppercase font-bold block">Patient Referral Link</span>
-            <span className="font-mono text-xs text-[#c5a059] font-semibold">
-              /partner/{partner.slug}
-            </span>
-          </div>
+        {/* Header Action Buttons */}
+        <div className="flex items-center gap-3">
           <button
-            onClick={copyReferralLink}
-            className="px-3 py-1.5 rounded-lg bg-[#c5a059] text-white text-xs font-semibold hover:bg-[#0c2340] transition-colors flex items-center gap-1 cursor-pointer"
+            onClick={() => navigate('partners')}
+            className="px-4 py-2 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] hover:bg-[#f6f4ee] text-xs font-semibold transition-colors cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[14px]">
-              {copiedLink ? 'check' : 'content_copy'}
-            </span>
-            <span>{copiedLink ? 'Copied!' : 'Copy'}</span>
+            Partner Application Page
           </button>
           <button
             onClick={() => navigate('partner-page', partner.slug)}
-            className="px-3 py-1.5 rounded-lg border border-[#dfd7c7] text-[#5a6b7c] hover:bg-[#fffdfb] text-xs font-semibold cursor-pointer"
-            title="Preview customer view"
+            className="px-4 py-2 rounded-xl bg-[#0c2340] text-white hover:bg-[#c5a059] text-xs font-semibold transition-colors cursor-pointer"
           >
-            Preview
+            View Your Live Storefront →
           </button>
         </div>
       </div>
+
+      {/* HOW TO PARTNER BLURB (Shown when visiting Partner Portal from bottom menu or top) */}
+      <section className="bg-gradient-to-br from-[#f6f4ee] via-[#fffdfb] to-[#f6f4ee] border-2 border-[#c5a059]/40 rounded-3xl p-6 sm:p-10 shadow-sm space-y-8">
+        <div className="space-y-3">
+          <span className="text-xs uppercase font-bold tracking-widest text-[#c5a059]">
+            WHOLE HARBOR → YOUR WELLNESS JOURNEY → PARTNER WITH US
+          </span>
+          <h2 className="font-serif text-2xl sm:text-4xl font-bold text-[#0c2340]">
+            BRING WHOLE HARBOR WELLNESS TO YOUR COMMUNITY
+          </h2>
+          <p className="font-serif text-lg sm:text-xl text-[#c5a059] font-medium">
+            Your Community. Your Brand. Our Wellness Infrastructure.
+          </p>
+          <div className="text-xs sm:text-sm text-[#5a6b7c] leading-relaxed space-y-2.5 max-w-4xl pt-1">
+            <p className="font-semibold text-[#0c2340]">
+              You already have something valuable: People who trust you.
+            </p>
+            <p>
+              Maybe you run a fitness studio, yoga studio, wellness practice, gym, coaching business, athletic organization, community program or another business serving people who care about their health.
+            </p>
+            <p>
+              Whole Harbor gives you an opportunity to expand the wellness resources you can offer your community—without having to build the entire infrastructure yourself.
+            </p>
+          </div>
+        </div>
+
+        {/* BECOME A WHOLE HARBOR PARTNER Callout */}
+        <div className="bg-[#0c2340] text-white rounded-2xl p-6 sm:p-8 space-y-3 border border-[#c5a059]/30">
+          <span className="text-xs uppercase font-bold tracking-widest text-[#c5a059] block">
+            BECOME A WHOLE HARBOR PARTNER
+          </span>
+          <h3 className="font-serif text-xl sm:text-2xl font-bold">
+            We'll help provide the infrastructure behind the experience.
+          </h3>
+          <p className="text-xs sm:text-sm text-[#dfd7c7]">
+            You bring the relationship. We help build the platform.
+          </p>
+        </div>
+
+        {/* WHAT YOUR PARTNERSHIP CAN INCLUDE - 5 Cards */}
+        <div className="space-y-4">
+          <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#0c2340]">
+            WHAT YOUR PARTNERSHIP CAN INCLUDE
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-[#dfd7c7] space-y-2 shadow-2xs">
+              <span className="font-mono text-xs font-bold text-[#c5a059] block">01</span>
+              <h4 className="font-serif text-base font-bold text-[#0c2340]">A BRANDED WELLNESS EXPERIENCE</h4>
+              <p className="text-xs text-[#5a6b7c] leading-relaxed">
+                We can help create a Whole Harbor-powered landing page designed around your business and your audience.
+              </p>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-[#dfd7c7] space-y-2 shadow-2xs">
+              <span className="font-mono text-xs font-bold text-[#c5a059] block">02</span>
+              <h4 className="font-serif text-base font-bold text-[#0c2340]">YOUR OWN UNIQUE LINK</h4>
+              <p className="text-xs text-[#5a6b7c] leading-relaxed">
+                Your clients can access your wellness experience through a dedicated link associated with your organization.
+              </p>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-[#dfd7c7] space-y-2 shadow-2xs">
+              <span className="font-mono text-xs font-bold text-[#c5a059] block">03</span>
+              <h4 className="font-serif text-base font-bold text-[#0c2340]">TRANSPARENT SALES TRACKING</h4>
+              <p className="text-xs text-[#5a6b7c] leading-relaxed">
+                Partners receive access to reporting that allows them to see eligible activity and sales generated through their referral channel.
+              </p>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-[#dfd7c7] space-y-2 shadow-2xs">
+              <span className="font-mono text-xs font-bold text-[#c5a059] block">04</span>
+              <h4 className="font-serif text-base font-bold text-[#0c2340]">MARKETING SUPPORT</h4>
+              <p className="text-xs text-[#5a6b7c] leading-relaxed">
+                We'll provide approved educational materials, digital resources, QR codes and promotional tools to help you introduce the program to your community.
+              </p>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-[#dfd7c7] space-y-2 shadow-2xs md:col-span-2 lg:col-span-1">
+              <span className="font-mono text-xs font-bold text-[#c5a059] block">05</span>
+              <h4 className="font-serif text-base font-bold text-[#0c2340]">ONGOING SUPPORT</h4>
+              <p className="text-xs text-[#5a6b7c] leading-relaxed">
+                You won't simply receive a link and be left on your own. Whole Harbor is building a partnership model designed to provide ongoing resources, education and support.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Narrative Closing */}
+        <div className="p-6 rounded-2xl bg-white border border-[#dfd7c7] text-center space-y-3">
+          <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#0c2340]">
+            YOU FOCUS ON YOUR COMMUNITY. WE HELP POWER THE WELLNESS EXPERIENCE BEHIND IT.
+          </h3>
+          <p className="text-xs sm:text-sm text-[#5a6b7c] max-w-3xl mx-auto leading-relaxed">
+            Whether you're a fitness professional looking to expand your services, a yoga studio looking for new wellness resources, a coach serving a growing community or an organization looking for additional ways to support the people you serve, Whole Harbor can help you create a more connected wellness experience.
+          </p>
+          <p className="text-xs sm:text-sm font-semibold text-[#0c2340]">
+            Your clients already trust you. Let's give them another reason to keep moving forward.
+          </p>
+          <div className="pt-2">
+            <button
+              onClick={() => navigate('partners')}
+              className="px-6 py-2.5 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] transition-colors cursor-pointer shadow-xs"
+            >
+              Apply Today &amp; Power Wellness Under Your Brand
+            </button>
+          </div>
+        </div>
+
+        {/* SEPARATE LINKS ARCHITECTURE: Individual Buyers vs Partner Buyers */}
+        <div className="bg-[#fffdfb] p-6 sm:p-8 rounded-2xl border border-[#dfd7c7] space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[#c5a059]">link</span>
+            <h3 className="font-serif text-lg sm:text-xl font-bold text-[#0c2340]">
+              Separate Buying Links (Individual Buyers vs. Partner Buyers)
+            </h3>
+          </div>
+          <p className="text-xs text-[#5a6b7c]">
+            Individual direct buyers and partner buyers use separate, distinct links. Below are the two different URLs:
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+            {/* Direct Individual Link */}
+            <div className="p-4 rounded-xl bg-[#f6f4ee] border border-[#dfd7c7] space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#0c2340] text-white inline-block">
+                Individual Buyer Link (Direct Retail)
+              </span>
+              <p className="text-[11px] text-[#5a6b7c]">
+                For direct individual customers. Standard retail shop without partner attribution.
+              </p>
+              <div className="bg-white p-2 rounded-lg border border-[#dfd7c7] font-mono text-[11px] text-[#0c2340] select-all break-all">
+                {window.location.origin}/#/shop
+              </div>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/#/shop`);
+                  alert('Copied Direct Individual Buyer link to clipboard!');
+                }}
+                className="w-full py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340] hover:bg-[#dfd7c7]/40 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Copy Individual Buyer Link
+              </button>
+            </div>
+
+            {/* Dedicated Partner Link */}
+            <div className="p-4 rounded-xl bg-white border-2 border-[#c5a059] space-y-2 shadow-2xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#c5a059] text-white inline-block">
+                Partner Buyer Link (Dedicated to Your Brand)
+              </span>
+              <p className="text-[11px] text-[#5a6b7c]">
+                Dedicated to <strong>{partner.name}</strong> clients. Displays your community banner, applies VIP savings, and credits commission to your portal.
+              </p>
+              <div className="bg-[#f6f4ee] p-2 rounded-lg border border-[#c5a059]/40 font-mono text-[11px] text-[#0c2340] select-all break-all font-semibold">
+                {referralUrl}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={copyReferralLink}
+                  className="flex-1 py-2 rounded-lg bg-[#c5a059] text-white hover:bg-[#0c2340] text-xs font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-[14px]">
+                    {copiedLink ? 'check' : 'content_copy'}
+                  </span>
+                  <span>{copiedLink ? 'Copied Partner Link!' : 'Copy Partner Buyer Link'}</span>
+                </button>
+                <button
+                  onClick={() => navigate('partner-page', partner.slug)}
+                  className="px-3 py-2 rounded-lg border border-[#dfd7c7] text-[#0c2340] hover:bg-[#f6f4ee] text-xs font-semibold cursor-pointer"
+                >
+                  Preview
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">

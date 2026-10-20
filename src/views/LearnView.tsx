@@ -187,7 +187,7 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
     setTimeout(() => {
       const responseText = matched
         ? matched.answer
-        : `Thank you for asking: "${questionText}". For your specific protocol and individual medical circumstances, please refer to our verified Reconstitution Guide or contact our clinical concierge. Always verify dose recommendations and vial strength with a licensed clinician.`;
+        : `Thank you for asking: "${questionText}". For your specific protocol and individual circumstances, please refer to our verified Reconstitution Guide or contact our Whole Harbor support team through our Contact page.`;
 
       const botMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -202,33 +202,48 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
   // Educational Guides Catalog
   const guideTopics: GuideTopic[] = [
     {
-      id: 'welcome',
-      icon: '♡',
-      title: 'Welcome from Kelvin',
-      summary: 'Meet Kelvin and discover the foundational care story behind Whole Harbor Wellness.',
+      id: 'about',
+      icon: '🌿',
+      title: 'About Whole Harbor Wellness',
+      summary: 'Wellness Should Be Personal. Understand our approach to personal wellness, whole-person health, and longevity.',
       sections: [
         {
-          title: 'My story',
+          title: 'Wellness Should Be Personal.',
           paragraphs: [
-            'Whole Harbor Wellness began with my own wellness journey. Like many people, I was committed to living a healthy lifestyle—eating well, exercising and taking care of myself—but I still did not feel like the best version of myself.',
-            'That experience led me to spend countless hours learning about cellular optimization, bio-identical hormone support, and peptides. As I learned more, I realized these tools had the potential to support people with many different wellness goals and at different stages of life.'
+            'At Whole Harbor Wellness, we believe taking care of your health should be more than chasing the latest trend, buying a product, or following a one-size-fits-all program.',
+            'It should start with understanding you.',
+            'Your goals.',
+            'Your lifestyle.',
+            'Your challenges.',
+            'Your priorities.',
+            'And the changes you want to make.',
+            "Whole Harbor was created to help people navigate today's rapidly changing wellness landscape with greater education, access, support and accountability.",
+            'We bring together wellness resources, lifestyle strategies, nutrition, fitness, recovery and access to appropriate clinical treatment options to create a more complete approach to personal wellness.',
+            'Our goal is simple: Help people take greater ownership of their health and become active participants in their own wellness journey.'
           ]
         },
         {
-          title: 'Why Whole Harbor Wellness?',
+          title: 'Our Approach: We Look at the Whole Person—Not Just One Goal.',
           paragraphs: [
-            'Living between Canada and Mexico gave me the opportunity to learn from different healthcare experiences and connect with people from many backgrounds. One thing became clear: many people struggled to find reliable information, quality products and someone they could trust to answer their questions.',
-            'I created Whole Harbor Wellness to make the experience simple, private, professional and supportive from beginning to end.'
+            'Someone may come to us because they want to lose weight.',
+            'Someone else may want to improve their fitness, change their body composition, improve their lifestyle or explore new approaches to wellness.',
+            'Those goals may look different, but the philosophy remains the same.',
+            'Start with the person. Understand the goal. Build the right pathway.'
           ]
         },
         {
-          title: 'What makes us different',
+          title: 'Whole Harbor encourages a broader approach that can include:',
           items: [
-            'Personal support directly from Kelvin and our dedicated clinical team',
-            'Carefully selected cGMP certified manufacturing laboratories',
-            'Worldwide cold-chain secure shipping with insulated packaging',
-            'A private, confidential, and secure ordering process',
-            'Ongoing educational support before and after your order arrives'
+            'Nutrition',
+            'Physical activity',
+            'Strength training',
+            'Recovery',
+            'Sleep and lifestyle habits',
+            'Weight management',
+            'Metabolic wellness',
+            'Wellness education',
+            'Accountability',
+            'Peptide Education and Resources'
           ]
         }
       ]
@@ -245,7 +260,7 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
             'Browse the catalog and review the detailed product and Certificate of Analysis (COA) information.',
             'Choose your strength, lot specification, and volume options.',
             'Complete your delivery address and contact details at checkout.',
-            'Submit your order. Payment is processed privately and securely with personal concierge tracking.'
+            'Submit your order. Payment is processed privately and securely with personal shipment tracking.'
           ]
         },
         {
@@ -270,7 +285,7 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
           ],
           items: [
             'Free replacement for verified lost shipments',
-            'Responsive human concierge support throughout the shipping process',
+            'Responsive human care support throughout the shipping process',
             'The guarantee applies to the shipping address verified at checkout'
           ]
         },
@@ -348,7 +363,7 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
             'How do I place an order? Browse products, add your selected formulation to cart, and submit checkout.',
             'Are tests and batch records available? Yes, every product batch is backed by an independent third-party HPLC assay.',
             'How long does shipping take? Express couriers typically deliver within 3–5 business days with full tracking.',
-            'Can I ask questions about my protocol? Yes, contact our team via the concierge button anytime.'
+            'Can I ask questions about my protocol? Yes, contact our Whole Harbor support team anytime.'
           ]
         }
       ]
@@ -372,7 +387,7 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
 
   React.useEffect(() => {
     if (initialTab && initialTab !== 'calculator' && initialTab !== 'ask') {
-      const found = guideTopics.find((g) => g.id === initialTab);
+      const found = guideTopics.find((g) => g.id === initialTab || (initialTab === 'welcome' && g.id === 'about'));
       if (found) {
         setActiveGuide(found);
       }
@@ -383,7 +398,7 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
     <div className="min-h-screen bg-[#fffdfb] text-[#0c2340] font-sans">
       
       {/* Education Studio Page Wrapper */}
-      <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] min-h-screen bg-[radial-gradient(circle_at_85%_10%,rgba(247,222,217,0.35)_0,transparent_32%),linear-gradient(135deg,#fffdfb,#f6f4ee)]">
+      <div className="grid grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)] min-h-screen bg-[radial-gradient(circle_at_85%_10%,rgba(197,160,89,0.12)_0,transparent_32%),linear-gradient(135deg,#fffdfb,#f6f4ee)]">
         
         {/* ======================================================== */}
         {/* 1. LEFT SIDEBAR (STICKY STUDIO PANEL)                     */}
@@ -455,15 +470,13 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
               </p>
             </div>
 
-            <a
-              href="https://wa.me/529841721536?text=Hi%20Kelvin%2C%20I%20have%20a%20question%20about%20Whole%20Harbor%20Wellness."
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#c5a059] hover:text-[#0c2340] transition-colors"
+            <button
+              onClick={() => navigate('contact')}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#c5a059] hover:text-[#0c2340] transition-colors cursor-pointer"
             >
-              <span>Contact Kelvin</span>
+              <span>Contact Support</span>
               <span>→</span>
-            </a>
+            </button>
           </div>
 
         </aside>
@@ -502,27 +515,138 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
                   Clarity for your wellness questions.
                 </h2>
                 <p className="text-sm text-[#5a6b7c] max-w-2xl leading-relaxed">
-                  Explore the catalog in plain language, understand product status and find the right next question to ask.
+                  Explore verified wellness guidance, calculate accurate dilutions, and understand your health pathways.
                 </p>
               </div>
+
+              {/* Official About Whole Harbor Wellness & Our Approach Feature */}
+              <section className="bg-white border border-[#dfd7c7] rounded-3xl p-6 sm:p-10 shadow-xs space-y-8">
+                <div className="border-b border-[#dfd7c7] pb-6 space-y-3">
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-[#c5a059] block">
+                    ABOUT WHOLE HARBOR WELLNESS
+                  </span>
+                  <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#0c2340]">
+                    Wellness Should Be Personal.
+                  </h2>
+                  <p className="text-xs sm:text-sm text-[#5a6b7c] leading-relaxed max-w-3xl">
+                    At Whole Harbor Wellness, we believe taking care of your health should be more than chasing the latest trend, buying a product, or following a one-size-fits-all program.
+                  </p>
+                  <p className="text-xs sm:text-sm font-semibold text-[#0c2340]">
+                    It should start with understanding you.
+                  </p>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1 text-xs text-[#0c2340] font-medium">
+                    <li className="flex items-center gap-2 bg-[#f6f4ee] px-3 py-2 rounded-xl border border-[#dfd7c7]/60">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#c5a059]"></span>
+                      <span>Your goals.</span>
+                    </li>
+                    <li className="flex items-center gap-2 bg-[#f6f4ee] px-3 py-2 rounded-xl border border-[#dfd7c7]/60">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#c5a059]"></span>
+                      <span>Your lifestyle.</span>
+                    </li>
+                    <li className="flex items-center gap-2 bg-[#f6f4ee] px-3 py-2 rounded-xl border border-[#dfd7c7]/60">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#c5a059]"></span>
+                      <span>Your challenges.</span>
+                    </li>
+                    <li className="flex items-center gap-2 bg-[#f6f4ee] px-3 py-2 rounded-xl border border-[#dfd7c7]/60">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#c5a059]"></span>
+                      <span>Your priorities.</span>
+                    </li>
+                    <li className="flex items-center gap-2 bg-[#f6f4ee] px-3 py-2 rounded-xl border border-[#dfd7c7]/60 sm:col-span-2 md:col-span-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#c5a059]"></span>
+                      <span>And the changes you want to make.</span>
+                    </li>
+                  </ul>
+                  <div className="pt-2 space-y-2 text-xs text-[#5a6b7c] leading-relaxed">
+                    <p>
+                      Whole Harbor was created to help people navigate today's rapidly changing wellness landscape with greater education, access, support and accountability.
+                    </p>
+                    <p>
+                      We bring together wellness resources, lifestyle strategies, nutrition, fitness, recovery and access to appropriate clinical treatment options to create a more complete approach to personal wellness.
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-[#0c2340] text-white flex items-center justify-between gap-4 mt-3">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold tracking-widest text-[#c5a059] block">OUR GOAL IS SIMPLE</span>
+                      <p className="text-xs sm:text-sm text-[#dfd7c7] font-medium mt-0.5">
+                        Help people take greater ownership of their health and become active participants in their own wellness journey.
+                      </p>
+                    </div>
+                    <span className="font-serif text-3xl text-[#c5a059] hidden sm:block">✦</span>
+                  </div>
+                </div>
+
+                {/* OUR APPROACH */}
+                <div className="space-y-4 pt-2">
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-[#c5a059] block">
+                    OUR APPROACH
+                  </span>
+                  <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[#0c2340]">
+                    We Look at the Whole Person—Not Just One Goal.
+                  </h3>
+                  <div className="text-xs sm:text-sm text-[#5a6b7c] space-y-2 leading-relaxed">
+                    <p>
+                      Someone may come to us because they want to lose weight.
+                    </p>
+                    <p>
+                      Someone else may want to improve their fitness, change their body composition, improve their lifestyle or explore new approaches to wellness.
+                    </p>
+                    <p className="font-medium text-[#0c2340]">
+                      Those goals may look different, but the philosophy remains the same.
+                    </p>
+                    <blockquote className="p-3.5 bg-[#f6f4ee] rounded-xl border-l-4 border-[#c5a059] text-xs sm:text-sm font-serif italic text-[#0c2340]">
+                      "Start with the person. Understand the goal. Build the right pathway."
+                    </blockquote>
+                  </div>
+
+                  <div className="pt-3">
+                    <p className="text-xs font-bold text-[#0c2340] mb-3">
+                      Whole Harbor encourages a broader approach that can include:
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 text-xs">
+                      {[
+                        'Nutrition',
+                        'Physical activity',
+                        'Strength training',
+                        'Recovery',
+                        'Sleep & lifestyle habits',
+                        'Weight management',
+                        'Metabolic wellness',
+                        'Wellness education',
+                        'Accountability',
+                        'Peptide Education & Resources'
+                      ].map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-1.5 p-2.5 rounded-xl bg-[#f6f4ee] border border-[#dfd7c7] text-[#0c2340] font-medium text-[11px]">
+                          <span className="text-[#c5a059] font-bold">✓</span>
+                          <span>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
 
               {/* Interactive Q&A Assistant Console */}
               <div className="bg-white rounded-3xl border border-[#dfd7c7] shadow-md overflow-hidden">
                 
                 {/* Chat Header */}
-                <div className="px-6 py-4 bg-[#f6f4ee] border-b border-[#dfd7c7] flex items-center justify-between">
+                <div className="px-6 py-4 bg-[#f6f4ee] border-b border-[#dfd7c7] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-[#c5a059] text-white flex items-center justify-center font-serif text-base">
                       ✦
                     </div>
                     <div>
                       <h3 className="font-serif text-base font-bold text-[#0c2340]">Whole Harbor Guidance Desk</h3>
-                      <p className="text-[10px] text-[#5a6b7c]">Automated Verified Knowledge &amp; Guidance</p>
+                      <p className="text-[10px] text-[#5a6b7c]">Verified Whole Harbor Knowledge • 100% Private to WHW</p>
                     </div>
                   </div>
-                  <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded bg-[#c5a059]/10 text-[#c5a059]">
-                    Active
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      🔒 No External Third-Party Access
+                    </span>
+                    <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded bg-[#c5a059]/10 text-[#c5a059]">
+                      Active
+                    </span>
+                  </div>
                 </div>
 
                 {/* Messages Feed */}

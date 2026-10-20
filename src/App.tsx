@@ -190,14 +190,13 @@ function MainApp() {
                 <span className="hidden sm:inline">Search</span>
               </button>
 
-              <a
-                href="https://wa.me/529841721536?text=Hi%20Kelvin%2C%20I%20have%20a%20question%20about%20Whole%20Harbor%20Wellness."
-                target="_blank"
-                rel="noreferrer"
+              <button
+                onClick={() => navigate('contact')}
                 className="topbar-contact cursor-pointer"
+                title="Support & Inquiries"
               >
-                Contact Kelvin
-              </a>
+                Contact
+              </button>
 
               <button
                 className="profile-shortcut cursor-pointer"

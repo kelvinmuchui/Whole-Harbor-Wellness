@@ -286,7 +286,7 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
         <div className="bg-[#c5a059] text-[#fffdfb] rounded-3xl p-8 text-center space-y-4">
           <h3 className="font-serif text-2xl font-bold">Questions Regarding Your Protocol?</h3>
           <p className="text-xs text-[#dfd7c7] max-w-md mx-auto">
-            Contact your care team at {partner.name} or consult our Whole Harbor clinical concierges.
+            Contact your team at {partner.name} or reach out to Whole Harbor client support.
           </p>
           <button
             onClick={() => navigate('shop')}

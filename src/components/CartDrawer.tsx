@@ -111,7 +111,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onOpenCheckout, navigate
                 </div>
                 <h3 className="font-serif text-lg text-[#0c2340] mb-1">Your Protocol is Empty</h3>
                 <p className="text-xs max-w-xs text-[#5a6b7c] mb-6">
-                  Select metabolic kits or physician-guided longevity formulations from our catalog.
+                  Select metabolic kits or specialized longevity formulations from our catalog.
                 </p>
                 <button
                   onClick={() => {

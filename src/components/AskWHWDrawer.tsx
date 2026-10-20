@@ -69,7 +69,7 @@ export const AskWHWDrawer: React.FC<AskWHWDrawerProps> = ({ currentPath, navigat
         sender: 'assistant',
         text: match
           ? match.a
-          : `For specific questions regarding "${text}", explore our verified guides on the Learn page or reach out directly to Kelvin via WhatsApp. Always confirm instructions with a licensed clinician.`
+          : `For specific questions regarding "${text}", explore our verified guides on the Learn page or submit an inquiry through our Contact page. Always confirm instructions with a licensed clinician.`
       };
       setMessages((prev) => [...prev, botMsg]);
     }, 350);
@@ -109,9 +109,14 @@ export const AskWHWDrawer: React.FC<AskWHWDrawerProps> = ({ currentPath, navigat
                   ✦
                 </div>
                 <div>
-                  <p className="text-[9px] uppercase font-bold tracking-widest text-[#c5a059]">
-                    EDUCATIONAL GUIDE
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[9px] uppercase font-bold tracking-widest text-[#c5a059]">
+                      EDUCATIONAL GUIDE
+                    </p>
+                    <span className="text-[8px] uppercase tracking-wider font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">
+                      🔒 100% Local &amp; Private
+                    </span>
+                  </div>
                   <h2 className="font-serif text-xl font-bold text-[#0c2340]">
                     Ask Whole Harbor
                   </h2>

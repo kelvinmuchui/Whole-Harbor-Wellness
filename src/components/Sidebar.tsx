@@ -58,6 +58,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </a>
 
         <a
+          href="#learn"
+          className={isLearnActive ? 'active' : ''}
+          onClick={(e) => {
+            e.preventDefault();
+            navigate('learn');
+          }}
+        >
+          <span>▤</span>
+          Learn Studio
+        </a>
+
+        <a
+          href="#partners"
+          className={currentPath === 'partners' || currentPath === 'partner-portal' ? 'active font-bold text-[#c5a059]' : ''}
+          onClick={(e) => {
+            e.preventDefault();
+            navigate('partners');
+          }}
+          title="Whole Harbor Wellness Ecosystem & Community Infrastructure"
+        >
+          <span>⚓</span>
+          Ecosystem
+        </a>
+
+        <a
           href="#wellness-programs"
           className={isProgramsActive ? 'active' : ''}
           onClick={(e) => {
@@ -114,19 +139,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           }}
         >
           <span>✉</span>
-          Contact Concierge
-        </a>
-
-        <a
-          href="#learn"
-          className={isLearnActive ? 'active' : ''}
-          onClick={(e) => {
-            e.preventDefault();
-            navigate('learn');
-          }}
-        >
-          <span>▤</span>
-          Learn
+          Contact Us
         </a>
 
         <button

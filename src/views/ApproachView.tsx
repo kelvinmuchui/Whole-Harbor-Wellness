@@ -22,8 +22,8 @@ export const ApproachView: React.FC<ApproachViewProps> = ({ navigate }) => {
         </p>
       </div>
 
-      {/* 4 Pillars Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* 3 Pillars Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-[#f6f4ee] border border-[#dfd7c7] p-6 rounded-3xl space-y-3">
           <div className="w-12 h-12 rounded-2xl bg-[#c5a059] text-white flex items-center justify-center">
             <span className="material-symbols-outlined text-[24px]">biotech</span>
@@ -57,18 +57,6 @@ export const ApproachView: React.FC<ApproachViewProps> = ({ navigate }) => {
           </h3>
           <p className="text-xs text-[#5a6b7c] leading-relaxed">
             Biological peptides undergo thermal denaturation when exposed to ambient transit heat. We ship strictly via insulated, cold-packed overnight couriers.
-          </p>
-        </div>
-
-        <div className="bg-[#f6f4ee] border border-[#dfd7c7] p-6 rounded-3xl space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-[#c5a059] text-white flex items-center justify-center">
-            <span className="material-symbols-outlined text-[24px]">handshake</span>
-          </div>
-          <h3 className="font-serif text-lg font-bold text-[#0c2340]">
-            4. Physician Integration
-          </h3>
-          <p className="text-xs text-[#5a6b7c] leading-relaxed">
-            Protocols are integrated with partner physicians and sports medicine clinics to ensure appropriate patient dosing and continuous biomarker feedback.
           </p>
         </div>
       </div>

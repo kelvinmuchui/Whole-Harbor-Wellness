@@ -29,15 +29,15 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ navigate }) => {
       
       {/* Header */}
       <div className="text-center max-w-3xl mx-auto space-y-4">
-        <span className="text-xs uppercase font-bold tracking-widest text-[#5a6b7c]">
-          Structured Protocols
+        <span className="text-xs uppercase font-bold tracking-widest text-[#c5a059]">
+          STRUCTURED WELLNESS PATHWAYS
         </span>
         <h1 className="font-serif text-3xl sm:text-5xl text-[#0c2340] font-bold">
-          Physician-Guided Longevity Programs
+          Holistic Longevity &amp; Wellness Programs
         </h1>
         <p className="text-xs sm:text-sm text-[#5a6b7c] leading-relaxed">
-          Comprehensive, research-backed protocols combining pharmaceutical-grade peptide therapy, 
-          continuous biomarker tracking, and personalized medical oversight from licensed longevity physicians.
+          Comprehensive, research-backed protocols combining verified peptide education, 
+          continuous biomarker tracking, lifestyle optimization, and structured wellness oversight.
         </p>
       </div>
 

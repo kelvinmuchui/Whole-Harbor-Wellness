@@ -326,9 +326,9 @@ export const INITIAL_PROGRAMS: WellnessProgram[] = [
     slug: 'metabolic-reset-protocol',
     duration: '12 Weeks',
     category: 'Metabolic Longevity',
-    tag: 'Physician Guided',
+    tag: 'Holistic Guided',
     shortDescription: 'A comprehensive clinical weight-loss and visceral fat mitigation system with continuous glucose monitoring and GLP-1 peptide pairing.',
-    fullDescription: 'Supervised directly by licensed integrative physicians, this 12-week protocol pairs biomarker-calibrated GLP-1 micro-dosing with continuous glucose sensor telemetry, weekly macronutrient timing, and lean muscle mass preservation.',
+    fullDescription: 'Structured around clinical wellness principles, this 12-week protocol pairs biomarker-calibrated GLP-1 micro-dosing with continuous glucose sensor telemetry, weekly macronutrient timing, and lean muscle mass preservation.',
     priceMonthly: 390.00,
     features: [
       'Baseline and mid-point comprehensive 60-marker venous blood panel',
@@ -414,7 +414,7 @@ export const INITIAL_PARTNERS: Partner[] = [
     contactPerson: 'Dr. Helena Vance, MD',
     email: 'helena@harborsanctuary.com',
     phone: '+1 (310) 555-0143',
-    description: 'Luxury integrative medical spa offering bespoke epigenetic therapies, hyperbaric oxygen, and physician-supervised metabolic protocols.',
+    description: 'Luxury integrative medical spa offering bespoke epigenetic therapies, hyperbaric oxygen, and specialized metabolic protocols.',
     category: 'Medical Spa / Aesthetic Clinic',
     address: '465 N Bedford Dr, Beverly Hills, CA 90210',
     status: 'APPROVED',
@@ -429,7 +429,7 @@ export const INITIAL_PARTNERS: Partner[] = [
     partnerId: 'WH-P-000003',
     name: 'Soma Longevity & Aesthetics',
     slug: 'soma-longevity',
-    contactPerson: 'Marcus Vance, MD',
+    contactPerson: 'Jordan Vance',
     email: 'marcus@somawellness.com',
     phone: '+1 (415) 555-0177',
     description: 'Holistic functional medicine clinic in the Presidio, combining cellular biology, peptide compounding, and preventative diagnostics.',
@@ -591,7 +591,7 @@ export const INITIAL_ORDERS: Order[] = [
     partnerId: 'partner-harbor-sanctuary',
     partnerSlug: 'harbor-sanctuary',
     partnerName: 'Harbor Sanctuary Beverly Hills',
-    referralSource: 'Clinic iPad Concierge',
+    referralSource: 'Studio Dedicated Link',
     partnerCommission: 128.56,
     commissionStatus: 'APPROVED',
     trackingNumber: 'FDX-77401-2290',
@@ -761,7 +761,7 @@ Chronological age merely measures trips around the sun. Biological age reflects 
 - **Insulin-Like Growth Factor 1 (IGF-1):** Needs delicate balance—sufficient for lean mass and tissue repair, but kept from excessive elevation which accelerates senescence.
     `,
     imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAlqV1fL4va9ua1fjn0h5BM2IM-ge3AHkvCOZlSKhf1VWGm-gxNXWuVmwGFzeUwe8kIyu8nSWD3R7jzXUyRtQSjbGtAJPgnUg8f2QQjHoESUOD0Cgc637PNuduoQyj9Roi0RkzDwM2Q-NGPy1jh8mxMOm-YfmeelSTd2HfF1B3SQoto7P57Mt3iJnJeegTff_rYZnBTMX_mPjCd18YKIxkKT8eRT0sIO3Tqm8vwPpf9w47HwpCQfGHi',
-    author: 'Marcus Vance, MD',
+    author: 'Jordan Vance',
     status: 'PUBLISHED',
     createdAt: '2026-03-01T00:00:00Z'
   }
@@ -792,7 +792,7 @@ export const INITIAL_FAQS: FAQ[] = [
   {
     id: 'faq-4',
     question: 'Do patients require a doctor consultation before starting?',
-    answer: 'Yes. Every clinical protocol and prescription-grade formulation includes an asynchronous telemedicine intake reviewed by our licensed integrative medical board. When appropriate, patients can also connect with certified local partner physicians.',
+    answer: 'Yes. Every clinical protocol and prescription-grade formulation includes an asynchronous telemedicine intake reviewed by our licensed integrative medical board. Clients also receive access to dedicated customer support and verified educational materials.',
     category: 'Clinical Governance',
     orderIndex: 4
   }
@@ -801,10 +801,10 @@ export const INITIAL_FAQS: FAQ[] = [
 export const INITIAL_TESTIMONIALS: Testimonial[] = [
   {
     id: 'test-1',
-    name: 'Marcus Vance, MD',
-    role: 'Integrative Physician',
+    name: 'Jordan Vance',
+    role: 'Wellness Studio Director',
     organization: 'Whole Harbor Cohort Member',
-    quote: 'Whole Harbor has completely replaced my fragmented stack of wellness apps, peptide suppliers, and functional labs. Having my CGM, physician protocols, and batch testing in a single beautiful dashboard has transformed how I manage my cellular health.',
+    quote: 'Whole Harbor has completely replaced my fragmented stack of wellness apps, peptide suppliers, and functional labs. Having my CGM, biomarker telemetry, and batch testing in a single beautiful dashboard has transformed how I manage my cellular health.',
     rating: 5,
     verified: true,
     featured: true

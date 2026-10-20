@@ -219,7 +219,7 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate
         <div className="bg-white border border-[#dfd7c7] rounded-3xl p-8 space-y-4">
           <h3 className="font-serif text-xl font-bold text-[#0c2340]">Saved Protocol Stacks</h3>
           <p className="text-xs text-[#5a6b7c]">
-            Bookmark your recurring monthly peptide regiments or physician recommendations.
+            Bookmark your recurring monthly peptide regiments or wellness routines.
           </p>
           <div className="pt-4 border-t border-[#dfd7c7]/50 flex items-center justify-between text-xs">
             <div>

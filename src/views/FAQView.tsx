@@ -138,7 +138,7 @@ export const FAQView: React.FC<FAQViewProps> = ({ navigate }) => {
             <span className="material-symbols-outlined text-[36px] text-[#c5a059]">help_outline</span>
             <h3 className="font-serif text-xl font-bold text-[#0c2340]">No matching questions found</h3>
             <p className="text-xs text-[#5a6b7c] max-w-md mx-auto">
-              We couldn't find an answer matching "{searchQuery}". Please reach out to our Clinical Concierge directly for personal guidance.
+              We couldn't find an answer matching "{searchQuery}". Please reach out to our Whole Harbor Care Team directly for personal guidance.
             </p>
             <button
               onClick={() => { setSearchQuery(''); setActiveCategory('all'); }}
@@ -157,7 +157,7 @@ export const FAQView: React.FC<FAQViewProps> = ({ navigate }) => {
             Still have questions about your protocol?
           </h3>
           <p className="text-xs text-[#5a6b7c] max-w-lg">
-            Our clinical team and concierge are available 6 days a week to assist with titration schedules, HPLC lab reports, or clinic partnership setup.
+            Our customer support team is available to assist with mixing guidance, HPLC lab reports, or partnership setup.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -165,17 +165,8 @@ export const FAQView: React.FC<FAQViewProps> = ({ navigate }) => {
             onClick={() => navigate('contact')}
             className="px-6 py-3 rounded-xl bg-[#0c2340] text-white text-xs font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer"
           >
-            Contact Concierge
+            Contact Support
           </button>
-          <a
-            href="https://wa.me/529841721536?text=Hi%20Kelvin%2C%20I%20have%20a%20question%20about%20Whole%20Harbor%20Wellness."
-            target="_blank"
-            rel="noreferrer"
-            className="px-5 py-3 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] text-xs font-semibold hover:bg-[#fffdfb] transition-colors cursor-pointer inline-flex items-center gap-1.5"
-          >
-            <span>WhatsApp Kelvin</span>
-            <span>→</span>
-          </a>
         </div>
       </div>
     </div>

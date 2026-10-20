@@ -15,9 +15,9 @@ interface AuthContextType {
 
 const DEFAULT_USERS: Record<UserRole, UserProfile> = {
   ADMIN: {
-    uid: 'admin-kelvin',
-    email: 'muchuikelvin423@gmail.com',
-    displayName: 'Chief Clinical Director',
+    uid: 'admin-whw',
+    email: 'director@wholeharborwellness.com',
+    displayName: 'Director of Wellness',
     role: 'ADMIN',
     createdAt: '2026-01-01T00:00:00Z'
   },
