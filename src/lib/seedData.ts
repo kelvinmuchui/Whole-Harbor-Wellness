@@ -11,37 +11,199 @@ import {
 
 export const INITIAL_PRODUCTS: Product[] = [
   {
-    id: 'prod-semaglutide-b12',
-    name: 'Semaglutide + B12',
-    slug: 'semaglutide-b12',
+    id: 'prod-tirzepatide',
+    name: 'Tirzepatide',
+    slug: 'tirzepatide',
     sku: 'WH-MET-001',
     category: 'metabolic',
+    categoryLabel: 'Metabolic Health',
+    shortDescription: 'Dual GIP/GLP-1 receptor agonist studied for body recomposition and glucose tolerance.',
+    description: 'Next-generation twin incretin mimetic activating both glucose-dependent insulinotropic polypeptide (GIP) and GLP-1 pathways for glycemic control and body composition.',
+    price: 50.00,
+    wholesalePrice: 400.00,
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBOgCeS50V0T7Km2GEjEEq9qTsuuhYXeQvz2cx5O9JotRS8HzOPWVRkDuwzutO-SxdNN4C4VXL8WU-6MLWkgmOylXP739D-T11tR7MBj30d7enb0JvJp1WJGh7HBpuzlDLCkrKQojPqjlLjSObWVMlMzX9KRfMSylYKkyCn2f55TO6NZoG3BBphY2duUIgwpjl0JvhH-hQt_fYTXDDi3fXb7Rt4NGDhUGAZBr7MJfC5wlf4IYgtBKzx',
+    stockQuantity: 150,
+    status: 'ACTIVE',
+    featured: true,
+    lotNumber: 'Lot #9012-C',
+    purity: '≥ 99.7%',
+    strengths: [
+      { label: '10 MG (1 Vial)', vialsCount: 1, price: 50.00, pricePerVial: 50.00 },
+      { label: '40 MG (1 Vial)', vialsCount: 1, price: 100.00, pricePerVial: 100.00 }
+    ],
+    wholesaleStrengths: [
+      { label: '5 MG (10-Vial Kit)', vialsCount: 10, price: 400.00, pricePerVial: 40.00 },
+      { label: '10 MG (10-Vial Kit)', vialsCount: 10, price: 500.00, pricePerVial: 50.00 },
+      { label: '15 MG (10-Vial Kit)', vialsCount: 10, price: 600.00, pricePerVial: 60.00 },
+      { label: '20 MG (10-Vial Kit)', vialsCount: 10, price: 700.00, pricePerVial: 70.00 },
+      { label: '30 MG (10-Vial Kit)', vialsCount: 10, price: 800.00, pricePerVial: 80.00 },
+      { label: '40 MG (10-Vial Kit)', vialsCount: 10, price: 900.00, pricePerVial: 90.00 },
+      { label: '50 MG (10-Vial Kit)', vialsCount: 10, price: 1000.00, pricePerVial: 100.00 },
+      { label: '60 MG (10-Vial Kit)', vialsCount: 10, price: 1100.00, pricePerVial: 110.00 },
+      { label: '70 MG (10-Vial Kit)', vialsCount: 10, price: 1200.00, pricePerVial: 120.00 },
+      { label: '80 MG (10-Vial Kit)', vialsCount: 10, price: 1300.00, pricePerVial: 130.00 },
+      { label: '90 MG (10-Vial Kit)', vialsCount: 10, price: 1400.00, pricePerVial: 140.00 },
+      { label: '100 MG (10-Vial Kit)', vialsCount: 10, price: 1500.00, pricePerVial: 150.00 },
+      { label: '120 MG (10-Vial Kit)', vialsCount: 10, price: 1600.00, pricePerVial: 160.00 }
+    ],
+    createdAt: '2026-01-15T00:00:00Z'
+  },
+  {
+    id: 'prod-retatrutide',
+    name: 'Retatrutide',
+    slug: 'retatrutide',
+    sku: 'WH-MET-002',
+    category: 'metabolic',
+    categoryLabel: 'Triple Agonist Research',
+    shortDescription: 'Triple-receptor (GLP-1/GIP/Glucagon) molecule for metabolic energy expenditure.',
+    description: 'Triple hormone receptor agonist designed to co-activate GLP-1, GIP, and Glucagon receptors, promoting heightened basal thermogenesis and visceral fat clearance.',
+    price: 60.00,
+    wholesalePrice: 400.00,
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAjf0pMXjH9zHGnKZIF6-q1ifUrH06jHk1gGn53tnoQm3tCD1dIn12-OYzs9cv4yXhJT4F3epXT0Mria-kI1FkQZd5D97yOpxL9fp4f3w2nhfkkyuLFfYrafKzXNvqPgl6V1d40REF2ewIUtL9JhVeXbMeb9ivWY0WnQXiwJayNPNr-XinYxH42M14ME_j2YXlZxBukjPvrClY2x4KOsMv3tkrSpA10OnLPZyXWMI388G7RC9h-Gkhy',
+    stockQuantity: 110,
+    status: 'ACTIVE',
+    featured: true,
+    lotNumber: 'Lot #4189-B',
+    purity: '≥ 99.8%',
+    strengths: [
+      { label: '10 MG (1 Vial)', vialsCount: 1, price: 60.00, pricePerVial: 60.00 },
+      { label: '40 MG (1 Vial)', vialsCount: 1, price: 120.00, pricePerVial: 120.00 }
+    ],
+    wholesaleStrengths: [
+      { label: '5 MG (10-Vial Kit)', vialsCount: 10, price: 400.00, pricePerVial: 40.00 },
+      { label: '10 MG (10-Vial Kit)', vialsCount: 10, price: 500.00, pricePerVial: 50.00 },
+      { label: '15 MG (10-Vial Kit)', vialsCount: 10, price: 550.00, pricePerVial: 55.00 },
+      { label: '20 MG (10-Vial Kit)', vialsCount: 10, price: 600.00, pricePerVial: 60.00 },
+      { label: '30 MG (10-Vial Kit)', vialsCount: 10, price: 650.00, pricePerVial: 65.00 },
+      { label: '40 MG (10-Vial Kit)', vialsCount: 10, price: 700.00, pricePerVial: 70.00 },
+      { label: '50 MG (10-Vial Kit)', vialsCount: 10, price: 750.00, pricePerVial: 75.00 },
+      { label: '60 MG (10-Vial Kit)', vialsCount: 10, price: 820.00, pricePerVial: 82.00 }
+    ],
+    createdAt: '2026-01-16T00:00:00Z'
+  },
+  {
+    id: 'prod-semaglutide-b12',
+    name: 'Semaglutide',
+    slug: 'semaglutide-b12',
+    sku: 'WH-MET-003',
+    category: 'metabolic',
     categoryLabel: 'Metabolic Support',
-    shortDescription: 'Synergistic GLP-1 receptor agonist enhanced with methylcobalamin for cellular support.',
-    description: 'A dual-action formulation combining pharmaceutical-grade Semaglutide with bioavailable methylcobalamin (B12). Engineered to promote glycemic equilibrium, support satiety hormones, and maintain vital cellular methylation during active metabolic optimization.',
-    price: 145.00,
+    shortDescription: 'GLP-1 receptor agonist studied for appetite regulation and metabolic balance.',
+    description: 'High-purity lyophilized Semaglutide peptide assayed at ≥ 99.6% purity. Calibrated for graduated titration and metabolic health regimens.',
+    price: 50.00,
+    wholesalePrice: 300.00,
     imageUrl: '/images/featured-semaglutide.png',
-    stockQuantity: 120,
+    stockQuantity: 200,
     status: 'ACTIVE',
     featured: true,
     lotNumber: 'Lot #8841-A',
     purity: '≥ 99.6%',
     strengths: [
-      { label: '5mg / 10 Vials', vialsCount: 10, price: 145.00, pricePerVial: 14.50 },
-      { label: '10mg / 10 Vials', vialsCount: 10, price: 210.00, pricePerVial: 21.00 }
+      { label: '10 MG (1 Vial)', vialsCount: 1, price: 50.00, pricePerVial: 50.00 },
+      { label: '30 MG (1 Vial)', vialsCount: 1, price: 80.00, pricePerVial: 80.00 }
     ],
-    createdAt: '2026-01-15T00:00:00Z'
+    wholesaleStrengths: [
+      { label: '5 MG (10-Vial Kit)', vialsCount: 10, price: 300.00, pricePerVial: 30.00 },
+      { label: '10 MG (10-Vial Kit)', vialsCount: 10, price: 420.00, pricePerVial: 42.00 },
+      { label: '20 MG (10-Vial Kit)', vialsCount: 10, price: 520.00, pricePerVial: 52.00 },
+      { label: '30 MG (10-Vial Kit)', vialsCount: 10, price: 620.00, pricePerVial: 62.00 }
+    ],
+    createdAt: '2026-01-18T00:00:00Z'
+  },
+  {
+    id: 'prod-tesamorelin',
+    name: 'Tesamorelin',
+    slug: 'tesamorelin',
+    sku: 'WH-LON-004',
+    category: 'longevity',
+    categoryLabel: 'Growth Hormone Secretagogue',
+    shortDescription: 'GHRH analog studied for visceral adipose reduction and pulsatile GH support.',
+    description: 'Stabilized growth hormone-releasing hormone (GHRH) analog supporting endogenous somatotropin release, lean tissue preservation, and visceral lipid metabolism.',
+    price: 47.50,
+    wholesalePrice: 250.00,
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB1OoDk-P1JFw7mtA_QQ-0MT9E3QnbWNVR0JNORAZK9gIwq-p6--JjLxKCsMDrW5FTq5fJpitimeb9PZUmMAZ8NKGWLU7ieK-SbAuufv5Z987pEXUNze4vqJOrkTA5nB_EI_Rs_yc59MlyO1xmQ_g8PWB1sQ3uT3O4oYnvm6Pn9VryjvsVyWXTyy70Wfg0ZC0kdjM3YFFl5vu2AqdYiop6swZ79GFmnpPpvilwOStsSCLVJUlyoSvAY',
+    stockQuantity: 90,
+    status: 'ACTIVE',
+    featured: false,
+    lotNumber: 'Lot #5104-T',
+    purity: '≥ 99.6%',
+    strengths: [
+      { label: '10 MG (1 Vial)', vialsCount: 1, price: 47.50, pricePerVial: 47.50 },
+      { label: '20 MG (1 Vial)', vialsCount: 1, price: 78.75, pricePerVial: 78.75 }
+    ],
+    wholesaleStrengths: [
+      { label: '2 MG (10-Vial Kit)', vialsCount: 10, price: 250.00, pricePerVial: 25.00 },
+      { label: '5 MG (10-Vial Kit)', vialsCount: 10, price: 400.00, pricePerVial: 40.00 },
+      { label: '10 MG (10-Vial Kit)', vialsCount: 10, price: 475.00, pricePerVial: 47.50 },
+      { label: '20 MG (10-Vial Kit)', vialsCount: 10, price: 787.00, pricePerVial: 78.70 }
+    ],
+    createdAt: '2026-01-19T00:00:00Z'
+  },
+  {
+    id: 'prod-glow-70',
+    name: 'GLOW 70',
+    slug: 'glow-70',
+    sku: 'WH-STK-005',
+    category: 'stacks',
+    categoryLabel: 'Dermal & Tissue Matrix',
+    shortDescription: 'BPC-157 10MG + GHK-Cu 50MG + TB-500 10MG (70MG total) synergistic blend.',
+    description: 'Tri-peptide regenerative matrix combining BPC-157 (10mg), GHK-Cu (50mg), and TB-500 (10mg) for dermal collagen remodeling, angiogenesis, and cellular repair.',
+    price: 100.00,
+    wholesalePrice: 450.00,
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDRpTWQqHwr7RSmFlJUpyiHY-OW2byBZUFc_OeYqhEj-uh1GW3Y9QBm7EkI9BNxCPz2IUkSUfvisRgSeRsA-tR_sxSOr9dzU1xgQ1vhwCciAaRz7lfGNT9NN8XKlhWfln_UFz5RqnVWitDXDTsavX-ET--3pn4jY35MwkF9ZQcd2YzYDYtHcZmtSAeNt9vSIMqRURXJcYqWeFC8dqYyM52Q9qsNA8MqJ0f9ivlrZI9ENGBHmmd7y7sW',
+    stockQuantity: 65,
+    status: 'ACTIVE',
+    featured: true,
+    isStack: true,
+    stackItems: ['BPC-157 10MG', 'GHK-Cu 50MG', 'TB-500 10MG'],
+    lotNumber: 'Lot #7011-G',
+    purity: '≥ 99.6%',
+    strengths: [
+      { label: '70 MG (1 Vial)', vialsCount: 1, price: 100.00, pricePerVial: 100.00 }
+    ],
+    wholesaleStrengths: [
+      { label: '70 MG (10-Vial Kit)', vialsCount: 10, price: 450.00, pricePerVial: 45.00 }
+    ],
+    createdAt: '2026-01-20T00:00:00Z'
+  },
+  {
+    id: 'prod-klow-80',
+    name: 'KLOW 80',
+    slug: 'klow-80',
+    sku: 'WH-STK-006',
+    category: 'stacks',
+    categoryLabel: 'Quad-Peptide Recovery',
+    shortDescription: 'BPC-157 10MG + GHK-Cu 50MG + TB-500 10MG + KPV 10MG (80MG total) blend.',
+    description: 'Comprehensive four-peptide cellular recovery and anti-inflammatory matrix pairing BPC-157 (10mg), GHK-Cu (50mg), TB-500 (10mg), and KPV (10mg).',
+    price: 100.00,
+    wholesalePrice: 500.00,
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAsThipw4ifzUb4VOZb2XEHMvhGe7jFxslNKjPCeA4zfT_v7N3f4Q_RqppkorL76l-kXR2mp8dYcO0nyTTWDG8dWul8P2XdCpqGzuhepK8yIOiuhAoNIjkf8IwVzp33bDoiJhNrbWmgmalS5OmjpMfuZm5BZf-gmTvLxrwBl6zndiLUTAyQAaMfz0QeO7LGaVZYuaPGL4GVV05DW3OcO9pUekXMVEqk7DEkaWW49FcTg6T-4rUA5CPK',
+    stockQuantity: 60,
+    status: 'ACTIVE',
+    featured: true,
+    isStack: true,
+    stackItems: ['BPC-157 10MG', 'GHK-Cu 50MG', 'TB-500 10MG', 'KPV 10MG'],
+    lotNumber: 'Lot #8022-K',
+    purity: '≥ 99.6%',
+    strengths: [
+      { label: '80 MG (1 Vial)', vialsCount: 1, price: 100.00, pricePerVial: 100.00 }
+    ],
+    wholesaleStrengths: [
+      { label: '80 MG (10-Vial Kit)', vialsCount: 10, price: 500.00, pricePerVial: 50.00 }
+    ],
+    createdAt: '2026-01-21T00:00:00Z'
   },
   {
     id: 'prod-bpc-tb',
-    name: 'BPC-157 & TB-500 Duo',
+    name: 'Wolverine Blend (BPC-157 + TB-500)',
     slug: 'bpc-157-tb-500',
-    sku: 'WH-REC-002',
+    sku: 'WH-REC-007',
     category: 'recovery',
     categoryLabel: 'Tissue & Gut Recovery',
-    shortDescription: 'Potent pentadecapeptide composite designed for localized tissue healing and tendon repair.',
-    description: 'Synergistic cellular recovery combination linking Body Protection Compound-157 with Thymosin Beta-4. Promotes angiogenic micro-vessel formation, connective tissue tensile integrity, and epithelial gut mucosal lining restoration.',
-    price: 165.00,
+    shortDescription: 'Potent pentadecapeptide & Thymosin Beta-4 composite for tissue healing and tendon repair.',
+    description: 'Synergistic cellular recovery combination linking Body Protection Compound-157 with Thymosin Beta-4 for connective tissue tensile integrity and gut mucosal restoration.',
+    price: 50.00,
+    wholesalePrice: 350.00,
     imageUrl: '/images/featured-bpc157-clean.png',
     stockQuantity: 95,
     status: 'ACTIVE',
@@ -49,216 +211,23 @@ export const INITIAL_PRODUCTS: Product[] = [
     lotNumber: 'Lot #3312-E',
     purity: '≥ 99.8%',
     strengths: [
-      { label: '10mg Blend (10 Vials)', vialsCount: 10, price: 165.00, pricePerVial: 16.50 },
-      { label: '20mg Max (10 Vials)', vialsCount: 10, price: 245.00, pricePerVial: 24.50 }
-    ],
-    createdAt: '2026-01-18T00:00:00Z'
-  },
-  {
-    id: 'prod-mots-c',
-    name: 'MOTS-C Activator',
-    slug: 'mots-c-activator',
-    sku: 'WH-CEL-003',
-    category: 'cellular',
-    categoryLabel: 'Cellular Energy & Mitochondria',
-    shortDescription: 'Mitochondria-encoded peptide stimulating AMPK pathways and metabolic bio-resilience.',
-    description: 'Mitochondrial-derived 16-amino-acid peptide that modulates whole-body metabolic homeostasis. Stimulates skeletal muscle glucose uptake, enhances fatty acid oxidation, and mimics cellular longevity adaptations.',
-    price: 285.00,
-    imageUrl: '/images/featured-motsc.png',
-    stockQuantity: 60,
-    status: 'ACTIVE',
-    featured: true,
-    lotNumber: 'Lot #7729-M',
-    purity: '≥ 99.5%',
-    strengths: [
-      { label: '20mg / 10 Vials', vialsCount: 10, price: 285.00, pricePerVial: 28.50 },
-      { label: '40mg / 10 Vials', vialsCount: 10, price: 390.00, pricePerVial: 39.00 }
-    ],
-    createdAt: '2026-02-01T00:00:00Z'
-  },
-  {
-    id: 'prod-nad-plus',
-    name: 'NAD+ Solution',
-    slug: 'nad-plus-solution',
-    sku: 'WH-CEL-004',
-    category: 'longevity',
-    categoryLabel: 'DNA Repair & Sirtuins',
-    shortDescription: 'Pharmaceutical grade co-enzyme for mitochondrial phosphorylation and neuro-preservation.',
-    description: 'Direct cellular Nicotinamide Adenine Dinucleotide (NAD+) lyophilized preparation. Essential co-factor fueling PARP DNA repair enzymes, Sirtuin deacetylases, and continuous mitochondrial ATP generation.',
-    price: 195.00,
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBd7d5eg3_68ThJpJZybjIKieTDbZpajK6ta4wsdTf0naBre3-qH63I2AnlFUpveL7aWz3p4m19xIokoMMiGFsHaTomk5TE82SJFK2az5QWdnW-FSn5bH49_cBYN57Ri0XVl1XlUs6inzSTQl9cTmF6ChdM02w52Dvvmla3sO-X8Q_AkWetZU-Fmf_cnXOvoQUfdLk_uIIctKPXUt8Kinkj2_WDJNN6uymZUEc2QQBbFYcJSplHkS3G',
-    stockQuantity: 80,
-    status: 'ACTIVE',
-    featured: true,
-    lotNumber: 'Lot #9910-N',
-    purity: '≥ 99.9%',
-    strengths: [
-      { label: '500mg Lyophilized', vialsCount: 1, price: 195.00, pricePerVial: 195.00 },
-      { label: '1000mg Multi-dose', vialsCount: 1, price: 295.00, pricePerVial: 295.00 }
-    ],
-    createdAt: '2026-02-05T00:00:00Z'
-  },
-  // Stacks & Blends
-  {
-    id: 'prod-stack-metabolic',
-    name: 'Metabolic Optimizer Stack',
-    slug: 'metabolic-optimizer-stack',
-    sku: 'WH-STK-001',
-    category: 'stacks',
-    categoryLabel: 'Triple Pathway',
-    shortDescription: 'Comprehensive clinical protocol combining Semaglutide, Cagrilintide, and L-Carnitine.',
-    description: 'A multi-pathway clinical stack pairing GLP-1 and Amylin receptor agonism with injectable L-Carnitine to mobilize lipid fuel substrates, preserve resting lean mass, and balance daily glucose curves.',
-    price: 340.00,
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBsolGHbAioiVo5bIkaxBNt3TPR8Z-5aPb3r8mZYox_grrIqcJWCYUaw0ax9TTBtF101odx1kqkNV76kWVjPHpNBKGsx9ENB4dJYaph06LF-MT_EbuhwiZISLEkHHBzcGgesb-VNUyfp682fBRTqemZyRH3zsjcNLLEodKE_n3NPZpRzuHpEyFFW51q0WOGoIjJg8dc0xWac69Shia8WjiJTPA0bjbjaacBD4II6deKz2wLGuIRec5M',
-    stockQuantity: 45,
-    status: 'ACTIVE',
-    featured: true,
-    isStack: true,
-    stackItems: [
-      'Semaglutide 5mg (10 Vials)',
-      'Cagrilintide 5mg (10 Vials)',
-      'Injectable L-Carnitine 600mg/mL (30mL)'
-    ],
-    strengths: [
-      { label: 'Complete Clinical Kit', vialsCount: 20, price: 340.00 }
-    ],
-    createdAt: '2026-02-10T00:00:00Z'
-  },
-  {
-    id: 'prod-stack-collagen',
-    name: 'Glow & Rebuild Collagen Matrix',
-    slug: 'glow-rebuild-collagen-matrix',
-    sku: 'WH-STK-002',
-    category: 'stacks',
-    categoryLabel: 'Dermal & Telomere',
-    shortDescription: 'Regenerative bio-cosmetic stack pairing GHK-Cu copper peptide with Epithalon.',
-    description: 'Accelerates deep dermal fibroblast collagen remodeling, vascular matrix elasticity, and pineal bioregulatory signaling for total skin and tissue regeneration.',
-    price: 410.00,
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDRpTWQqHwr7RSmFlJUpyiHY-OW2byBZUFc_OeYqhEj-uh1GW3Y9QBm7EkI9BNxCPz2IUkSUfvisRgSeRsA-tR_sxSOr9dzU1xgQ1vhwCciAaRz7lfGNT9NN8XKlhWfln_UFz5RqnVWitDXDTsavX-ET--3pn4jY35MwkF9ZQcd2YzYDYtHcZmtSAeNt9vSIMqRURXJcYqWeFC8dqYyM52Q9qsNA8MqJ0f9ivlrZI9ENGBHmmd7y7sW',
-    stockQuantity: 30,
-    status: 'ACTIVE',
-    featured: true,
-    isStack: true,
-    stackItems: [
-      'GHK-Cu Copper Peptide 50mg (10 Vials)',
-      'Epithalon 10mg (10 Vials)',
-      'Bacteriostatic Reconstitution Saline (30mL)'
-    ],
-    strengths: [
-      { label: 'Complete Dermal Kit', vialsCount: 20, price: 410.00 }
-    ],
-    createdAt: '2026-02-12T00:00:00Z'
-  },
-  {
-    id: 'prod-stack-sleep-gh',
-    name: 'Sleep Architecture & GH Blend',
-    slug: 'sleep-architecture-gh-blend',
-    sku: 'WH-STK-003',
-    category: 'stacks',
-    categoryLabel: 'Nocturnal GH Surge',
-    shortDescription: 'Restorative nighttime secretagogue formula designed to prolong stage-4 slow-wave restorative sleep.',
-    description: 'Synchronizes slow-wave delta sleep architecture, triggers natural pulsatile somatotropin growth hormone secretion, and accelerates systemic nervous system recovery.',
-    price: 290.00,
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB1OoDk-P1JFw7mtA_QQ-0MT9E3QnbWNVR0JNORAZK9gIwq-p6--JjLxKCsMDrW5FTq5fJpitimeb9PZUmMAZ8NKGWLU7ieK-SbAuufv5Z987pEXUNze4vqJOrkTA5nB_EI_Rs_yc59MlyO1xmQ_g8PWB1sQ3uT3O4oYnvm6Pn9VryjvsVyWXTyy70Wfg0ZC0kdjM3YFFl5vu2AqdYiop6swZ79GFmnpPpvilwOStsSCLVJUlyoSvAY',
-    stockQuantity: 50,
-    status: 'ACTIVE',
-    featured: true,
-    isStack: true,
-    stackItems: [
-      'Sermorelin Acetate 5mg (10 Vials)',
-      'Ipamorelin 2mg (10 Vials)',
-      'Liposomal Glycine Complex (60 Servings)'
-    ],
-    strengths: [
-      { label: 'Complete Nocturnal Kit', vialsCount: 20, price: 290.00 }
-    ],
-    createdAt: '2026-02-14T00:00:00Z'
-  },
-  // Multi-Dose Catalog Families
-  {
-    id: 'prod-semaglutide-pure',
-    name: 'Semaglutide Pure',
-    slug: 'semaglutide-pure',
-    sku: 'WH-MET-005',
-    category: 'metabolic',
-    categoryLabel: 'Metabolic Health',
-    shortDescription: 'A dual GLP-1 receptor agonist associated with metabolic balance and appetite signaling.',
-    description: 'Pure high-performance lyophilized Semaglutide peptide assayed at >99.4% purity. Calibrated for graduated medical titration and metabolic health regimens.',
-    price: 95.00,
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCh1qPD-t_R4MR8itc_mT_7w_y4Fd85iBfQD_5ZkNhx9yMitYXxQYJ2YLtysgJr70noE7QQGU9_s5UsWATvnfIocQPjrFMG8M1l_9nwRQB-jT1Jc1U2ucWuREyiQZHkD30I0O39DM8iQmhOhomVxe-kcvh35bDfs8UafWo7QSI3wAjRb1cmRoCXh4DotDMiqVe2qfJg3gc6CZSdNVfAZNmz8PcZI1bk7rSypZ5_jSpRiVrL_KB-Jby6',
-    stockQuantity: 200,
-    status: 'ACTIVE',
-    featured: false,
-    lotNumber: 'Lot #8841-A',
-    purity: '≥ 99.6%',
-    strengths: [
-      { label: '5mg (10 vials)', vialsCount: 10, price: 95.00, pricePerVial: 9.50 },
-      { label: '10mg (10 vials)', vialsCount: 10, price: 132.50, pricePerVial: 13.25 },
-      { label: '15mg (10 vials)', vialsCount: 10, price: 175.00, pricePerVial: 17.50 },
-      { label: '20mg (10 vials)', vialsCount: 10, price: 200.00, pricePerVial: 20.00 },
-      { label: '30mg (10 vials)', vialsCount: 10, price: 250.00, pricePerVial: 25.00 }
-    ],
-    createdAt: '2026-01-20T00:00:00Z'
-  },
-  {
-    id: 'prod-tirzepatide',
-    name: 'Tirzepatide',
-    slug: 'tirzepatide',
-    sku: 'WH-MET-006',
-    category: 'metabolic',
-    categoryLabel: 'Metabolic Health',
-    shortDescription: 'A dual GIP/GLP-1 receptor agonist studied for body recomposition and glucose tolerance.',
-    description: 'Next-generation twin incretin mimetic activating both glucose-dependent insulinotropic polypeptide (GIP) and GLP-1 pathways for profound glycemic control and body composition.',
-    price: 100.00,
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBOgCeS50V0T7Km2GEjEEq9qTsuuhYXeQvz2cx5O9JotRS8HzOPWVRkDuwzutO-SxdNN4C4VXL8WU-6MLWkgmOylXP739D-T11tR7MBj30d7enb0JvJp1WJGh7HBpuzlDLCkrKQojPqjlLjSObWVMlMzX9KRfMSylYKkyCn2f55TO6NZoG3BBphY2duUIgwpjl0JvhH-hQt_fYTXDDi3fXb7Rt4NGDhUGAZBr7MJfC5wlf4IYgtBKzx',
-    stockQuantity: 150,
-    status: 'ACTIVE',
-    featured: false,
-    lotNumber: 'Lot #9012-C',
-    purity: '≥ 99.7%',
-    strengths: [
-      { label: '5mg (10 vials)', vialsCount: 10, price: 100.00, pricePerVial: 10.00 },
-      { label: '10mg (10 vials)', vialsCount: 10, price: 150.00, pricePerVial: 15.00 },
-      { label: '15mg (10 vials)', vialsCount: 10, price: 187.50, pricePerVial: 18.75 },
-      { label: '30mg (10 vials)', vialsCount: 10, price: 262.50, pricePerVial: 26.25 },
-      { label: '60mg (10 vials)', vialsCount: 10, price: 450.00, pricePerVial: 45.00 }
+      { label: '5 MG (1 Vial)', vialsCount: 1, price: 50.00, pricePerVial: 50.00 },
+      { label: '10 MG (1 Vial)', vialsCount: 1, price: 100.00, pricePerVial: 100.00 },
+      { label: '15 MG (1 Vial)', vialsCount: 1, price: 140.00, pricePerVial: 140.00 }
     ],
     createdAt: '2026-01-22T00:00:00Z'
   },
   {
-    id: 'prod-retatrutide',
-    name: 'Retatrutide',
-    slug: 'retatrutide',
-    sku: 'WH-MET-007',
-    category: 'metabolic',
-    categoryLabel: 'Triple Agonist Research',
-    shortDescription: 'A triple-receptor (GLP-1/GIP/Glucagon) breakthrough molecule for metabolic energy expenditure.',
-    description: 'Triple hormone receptor agonist designed to co-activate GLP-1, GIP, and Glucagon receptors, promoting heightened basal thermogenesis and visceral fat clearance.',
-    price: 170.00,
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAjf0pMXjH9zHGnKZIF6-q1ifUrH06jHk1gGn53tnoQm3tCD1dIn12-OYzs9cv4yXhJT4F3epXT0Mria-kI1FkQZd5D97yOpxL9fp4f3w2nhfkkyuLFfYrafKzXNvqPgl6V1d40REF2ewIUtL9JhVeXbMeb9ivWY0WnQXiwJayNPNr-XinYxH42M14ME_j2YXlZxBukjPvrClY2x4KOsMv3tkrSpA10OnLPZyXWMI388G7RC9h-Gkhy',
-    stockQuantity: 70,
-    status: 'ACTIVE',
-    featured: false,
-    lotNumber: 'Lot #4189-B',
-    purity: '≥ 99.8%',
-    strengths: [
-      { label: '5mg (10 vials)', vialsCount: 10, price: 170.00, pricePerVial: 17.00 },
-      { label: '10mg (10 vials)', vialsCount: 10, price: 237.50, pricePerVial: 23.75 },
-      { label: '20mg (10 vials)', vialsCount: 10, price: 305.00, pricePerVial: 30.50 },
-      { label: '40mg (10 vials)', vialsCount: 10, price: 550.00, pricePerVial: 55.00 }
-    ],
-    createdAt: '2026-01-25T00:00:00Z'
-  },
-  {
     id: 'prod-bpc-pure',
-    name: 'BPC-157 Pure',
+    name: 'BPC-157',
     slug: 'bpc-157-pure',
     sku: 'WH-REC-008',
     category: 'recovery',
     categoryLabel: 'Recovery & Gut Mucosa',
     shortDescription: 'Body Protection Compound pentadecapeptide targeted for angiogenic regeneration and tissue repair.',
-    description: 'A 15-amino acid peptide isolated for its powerful cytoprotective effects across the stomach, intestinal epithelial barrier, tendons, ligaments, and muscular micro-tears.',
-    price: 110.00,
+    description: 'A 15-amino acid peptide isolated for its cytoprotective effects across the stomach, intestinal epithelial barrier, tendons, ligaments, and muscular micro-tears.',
+    price: 30.00,
+    wholesalePrice: 210.00,
     imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBoByVsRHp4-nKVyA7uA-WF1tRyh47MFGvlMhLc1bk1fY1kKwPtuDOiCD7GeZuxm9hUxl3NvuLNrspRvozF2ELw_0r-pabzIFm5eyYD1pTHV-j1_ihSxA3ygi7g-MhiHGaloqZvX6lNmMPzn0M8BvPkflHwQE3o0piBkknbvGWn7DghezRRyYlhkBWA1yqEPPjMsnJwmCPOgUWKyXk75HkHnH3dasYhkt83YnHSG-3OGLOlj3cR_3FG',
     stockQuantity: 180,
     status: 'ACTIVE',
@@ -266,56 +235,318 @@ export const INITIAL_PRODUCTS: Product[] = [
     lotNumber: 'Lot #3312-E',
     purity: '≥ 99.8%',
     strengths: [
-      { label: '5mg (10 vials)', vialsCount: 10, price: 110.00, pricePerVial: 11.00 },
-      { label: '10mg (10 vials)', vialsCount: 10, price: 150.00, pricePerVial: 15.00 },
-      { label: '20mg (10 vials)', vialsCount: 10, price: 240.00, pricePerVial: 24.00 }
+      { label: '5 MG (1 Vial)', vialsCount: 1, price: 30.00, pricePerVial: 30.00 },
+      { label: '10 MG (1 Vial)', vialsCount: 1, price: 50.00, pricePerVial: 50.00 }
+    ],
+    createdAt: '2026-01-23T00:00:00Z'
+  },
+  {
+    id: 'prod-tb-500',
+    name: 'TB-500',
+    slug: 'tb-500',
+    sku: 'WH-REC-009',
+    category: 'recovery',
+    categoryLabel: 'Soft Tissue & Mobility',
+    shortDescription: 'Synthetic Thymosin Beta-4 fragment supporting actin sequestration and cellular migration.',
+    description: 'Lyophilized Thymosin Beta-4 (TB-500) studied for systemic soft-tissue recovery, angiogenesis, and musculoskeletal flexibility.',
+    price: 30.00,
+    wholesalePrice: 210.00,
+    imageUrl: '/images/featured-bpc157-clean.png',
+    stockQuantity: 130,
+    status: 'ACTIVE',
+    featured: false,
+    lotNumber: 'Lot #4410-TB',
+    purity: '≥ 99.6%',
+    strengths: [
+      { label: '5 MG (1 Vial)', vialsCount: 1, price: 30.00, pricePerVial: 30.00 },
+      { label: '10 MG (1 Vial)', vialsCount: 1, price: 60.00, pricePerVial: 60.00 }
+    ],
+    createdAt: '2026-01-24T00:00:00Z'
+  },
+  {
+    id: 'prod-mazdutide',
+    name: 'Mazdutide',
+    slug: 'mazdutide',
+    sku: 'WH-MET-010',
+    category: 'metabolic',
+    categoryLabel: 'Dual GLP-1 / Glucagon',
+    shortDescription: 'Dual GLP-1 and glucagon receptor agonist for metabolic and hepatic lipid balance.',
+    description: 'Oxyntomodulin-derived dual agonist targeting both GLP-1 and glucagon receptors to support energy expenditure and metabolic homeostasis.',
+    price: 50.00,
+    wholesalePrice: 400.00,
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCh1qPD-t_R4MR8itc_mT_7w_y4Fd85iBfQD_5ZkNhx9yMitYXxQYJ2YLtysgJr70noE7QQGU9_s5UsWATvnfIocQPjrFMG8M1l_9nwRQB-jT1Jc1U2ucWuREyiQZHkD30I0O39DM8iQmhOhomVxe-kcvh35bDfs8UafWo7QSI3wAjRb1cmRoCXh4DotDMiqVe2qfJg3gc6CZSdNVfAZNmz8PcZI1bk7rSypZ5_jSpRiVrL_KB-Jby6',
+    stockQuantity: 85,
+    status: 'ACTIVE',
+    featured: false,
+    lotNumber: 'Lot #5519-MZ',
+    purity: '≥ 99.6%',
+    strengths: [
+      { label: '5 MG (1 Vial)', vialsCount: 1, price: 50.00, pricePerVial: 50.00 },
+      { label: '10 MG (1 Vial)', vialsCount: 1, price: 80.00, pricePerVial: 80.00 }
+    ],
+    wholesaleStrengths: [
+      { label: '5 MG (10-Vial Kit)', vialsCount: 10, price: 400.00, pricePerVial: 40.00 },
+      { label: '10 MG (10-Vial Kit)', vialsCount: 10, price: 550.00, pricePerVial: 55.00 }
+    ],
+    createdAt: '2026-01-25T00:00:00Z'
+  },
+  {
+    id: 'prod-survodutide',
+    name: 'Survodutide',
+    slug: 'survodutide',
+    sku: 'WH-MET-011',
+    category: 'metabolic',
+    categoryLabel: 'Dual Glucagon / GLP-1',
+    shortDescription: 'Dual glucagon/GLP-1 receptor agonist (10MG 10-Vial Kit) for metabolic research.',
+    description: 'Potent dual glucagon and GLP-1 receptor agonist supplied as a 10-vial lyophilized kit for advanced metabolic research.',
+    price: 700.00,
+    wholesalePrice: 700.00,
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBsolGHbAioiVo5bIkaxBNt3TPR8Z-5aPb3r8mZYox_grrIqcJWCYUaw0ax9TTBtF101odx1kqkNV76kWVjPHpNBKGsx9ENB4dJYaph06LF-MT_EbuhwiZISLEkHHBzcGgesb-VNUyfp682fBRTqemZyRH3zsjcNLLEodKE_n3NPZpRzuHpEyFFW51q0WOGoIjJg8dc0xWac69Shia8WjiJTPA0bjbjaacBD4II6deKz2wLGuIRec5M',
+    stockQuantity: 40,
+    status: 'ACTIVE',
+    featured: false,
+    lotNumber: 'Lot #6610-SV',
+    purity: '≥ 99.6%',
+    strengths: [
+      { label: '10 MG (10-Vial Kit)', vialsCount: 10, price: 700.00, pricePerVial: 70.00 }
+    ],
+    wholesaleStrengths: [
+      { label: '10 MG (10-Vial Kit)', vialsCount: 10, price: 700.00, pricePerVial: 70.00 }
+    ],
+    createdAt: '2026-01-26T00:00:00Z'
+  },
+  {
+    id: 'prod-eloralintide',
+    name: 'Eloralintide',
+    slug: 'eloralintide',
+    sku: 'WH-MET-012',
+    category: 'metabolic',
+    categoryLabel: 'Amylin Receptor Agonist',
+    shortDescription: 'Selective amylin receptor agonist supplied in 5MG and 10MG 10-vial kits.',
+    description: 'Long-acting amylin analog studied for satiety signaling, gastric emptying modulation, and metabolic weight management.',
+    price: 450.00,
+    wholesalePrice: 450.00,
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBsolGHbAioiVo5bIkaxBNt3TPR8Z-5aPb3r8mZYox_grrIqcJWCYUaw0ax9TTBtF101odx1kqkNV76kWVjPHpNBKGsx9ENB4dJYaph06LF-MT_EbuhwiZISLEkHHBzcGgesb-VNUyfp682fBRTqemZyRH3zsjcNLLEodKE_n3NPZpRzuHpEyFFW51q0WOGoIjJg8dc0xWac69Shia8WjiJTPA0bjbjaacBD4II6deKz2wLGuIRec5M',
+    stockQuantity: 35,
+    status: 'ACTIVE',
+    featured: false,
+    lotNumber: 'Lot #7102-EL',
+    purity: '≥ 99.5%',
+    strengths: [
+      { label: '5 MG (10-Vial Kit)', vialsCount: 10, price: 450.00, pricePerVial: 45.00 },
+      { label: '10 MG (10-Vial Kit)', vialsCount: 10, price: 875.00, pricePerVial: 87.50 }
+    ],
+    wholesaleStrengths: [
+      { label: '5 MG (10-Vial Kit)', vialsCount: 10, price: 450.00, pricePerVial: 45.00 },
+      { label: '10 MG (10-Vial Kit)', vialsCount: 10, price: 875.00, pricePerVial: 87.50 }
+    ],
+    createdAt: '2026-01-27T00:00:00Z'
+  },
+  {
+    id: 'prod-lipo-mino-mix',
+    name: 'Lipo Mino Mix',
+    slug: 'lipo-mino-mix',
+    sku: 'WH-CEL-013',
+    category: 'cellular',
+    categoryLabel: 'Lipotropic & Amino Complex',
+    shortDescription: '244.40mg / 10mL multi-dose vial (10 x 1mL doses or 20 x 0.5mL doses).',
+    description: 'Lipotropic MIC (Methionine, Inositol, Choline) + B-vitamin and amino acid complex formulated to support hepatic lipid metabolism and cellular energy.',
+    price: 100.00,
+    wholesalePrice: 700.00,
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBd7d5eg3_68ThJpJZybjIKieTDbZpajK6ta4wsdTf0naBre3-qH63I2AnlFUpveL7aWz3p4m19xIokoMMiGFsHaTomk5TE82SJFK2az5QWdnW-FSn5bH49_cBYN57Ri0XVl1XlUs6inzSTQl9cTmF6ChdM02w52Dvvmla3sO-X8Q_AkWetZU-Fmf_cnXOvoQUfdLk_uIIctKPXUt8Kinkj2_WDJNN6uymZUEc2QQBbFYcJSplHkS3G',
+    stockQuantity: 100,
+    status: 'ACTIVE',
+    featured: false,
+    lotNumber: 'Lot #2440-LM',
+    purity: '≥ 99.5%',
+    strengths: [
+      { label: '244.40mg / 10mL (1 Vial • 10–20 doses)', vialsCount: 1, price: 100.00, pricePerVial: 100.00 }
     ],
     createdAt: '2026-01-28T00:00:00Z'
   },
   {
-    id: 'prod-ghk-cu',
-    name: 'GHK-Cu',
-    slug: 'ghk-cu',
-    sku: 'WH-LON-009',
-    category: 'longevity',
-    categoryLabel: 'Skin & Cellular Remodeling',
-    shortDescription: 'Bioactive copper tripeptide promoting extracellular matrix elasticity and vascular health.',
-    description: 'Human plasma copper tripeptide that naturally upregulates pro-collagen, decorin, and elastin gene transcription while reducing inflammatory cytokines and oxidative stress.',
-    price: 135.00,
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAsThipw4ifzUb4VOZb2XEHMvhGe7jFxslNKjPCeA4zfT_v7N3f4Q_RqppkorL76l-kXR2mp8dYcO0nyTTWDG8dWul8P2XdCpqGzuhepK8yIOiuhAoNIjkf8IwVzp33bDoiJhNrbWmgmalS5OmjpMfuZm5BZf-gmTvLxrwBl6zndiLUTAyQAaMfz0QeO7LGaVZYuaPGL4GVV05DW3OcO9pUekXMVEqk7DEkaWW49FcTg6T-4rUA5CPK',
-    stockQuantity: 110,
+    id: 'prod-super-shred',
+    name: 'Super Shred',
+    slug: 'super-shred',
+    sku: 'WH-CEL-014',
+    category: 'cellular',
+    categoryLabel: 'Thermogenic & Metabolic Blend',
+    shortDescription: '350.25mg / 10mL high-potency lipotropic & metabolic support vial.',
+    description: 'Concentrated 350.25mg/10mL lipotropic, amino acid, and cofactor blend engineered for metabolic rate support and body composition protocols.',
+    price: 100.00,
+    wholesalePrice: 700.00,
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBd7d5eg3_68ThJpJZybjIKieTDbZpajK6ta4wsdTf0naBre3-qH63I2AnlFUpveL7aWz3p4m19xIokoMMiGFsHaTomk5TE82SJFK2az5QWdnW-FSn5bH49_cBYN57Ri0XVl1XlUs6inzSTQl9cTmF6ChdM02w52Dvvmla3sO-X8Q_AkWetZU-Fmf_cnXOvoQUfdLk_uIIctKPXUt8Kinkj2_WDJNN6uymZUEc2QQBbFYcJSplHkS3G',
+    stockQuantity: 90,
     status: 'ACTIVE',
     featured: false,
-    lotNumber: 'Lot #6021-G',
+    lotNumber: 'Lot #3502-SS',
     purity: '≥ 99.5%',
     strengths: [
-      { label: '50mg (10 vials)', vialsCount: 10, price: 135.00, pricePerVial: 13.50 },
-      { label: '100mg (10 vials)', vialsCount: 10, price: 215.00, pricePerVial: 21.50 },
-      { label: '200mg (10 vials)', vialsCount: 10, price: 340.00, pricePerVial: 34.00 }
+      { label: '350.25mg / 10mL (1 Vial)', vialsCount: 1, price: 100.00, pricePerVial: 100.00 }
+    ],
+    createdAt: '2026-01-29T00:00:00Z'
+  },
+  {
+    id: 'prod-mots-c',
+    name: 'MOTS-C',
+    slug: 'mots-c-activator',
+    sku: 'WH-CEL-015',
+    category: 'cellular',
+    categoryLabel: 'Cellular Energy & Mitochondria',
+    shortDescription: 'Mitochondria-encoded peptide stimulating AMPK pathways and metabolic bio-resilience.',
+    description: 'Mitochondrial-derived 16-amino-acid peptide that modulates whole-body metabolic homeostasis and stimulates skeletal muscle glucose uptake.',
+    price: 30.00,
+    wholesalePrice: 300.00,
+    imageUrl: '/images/featured-motsc.png',
+    stockQuantity: 75,
+    status: 'ACTIVE',
+    featured: true,
+    lotNumber: 'Lot #7729-M',
+    purity: '≥ 99.5%',
+    strengths: [
+      { label: '20 MG (10-Vial Kit)', vialsCount: 10, price: 300.00, pricePerVial: 30.00 },
+      { label: '40 MG (10-Vial Kit)', vialsCount: 10, price: 410.00, pricePerVial: 41.00 }
+    ],
+    wholesaleStrengths: [
+      { label: '20 MG (10-Vial Kit)', vialsCount: 10, price: 300.00, pricePerVial: 30.00 },
+      { label: '40 MG (10-Vial Kit)', vialsCount: 10, price: 410.00, pricePerVial: 41.00 }
+    ],
+    createdAt: '2026-02-01T00:00:00Z'
+  },
+  {
+    id: 'prod-cagrilintide',
+    name: 'Cagrilintide',
+    slug: 'cagrilintide',
+    sku: 'WH-MET-016',
+    category: 'metabolic',
+    categoryLabel: 'Amylin Receptor Agonist',
+    shortDescription: 'Long-acting amylin analog (5MG & 10MG 10-Vial Kits) for satiety and metabolic synergy.',
+    description: 'Acylated amylin receptor agonist studied for synergistic appetite regulation alongside GLP-1 pathways.',
+    price: 300.00,
+    wholesalePrice: 300.00,
+    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCh1qPD-t_R4MR8itc_mT_7w_y4Fd85iBfQD_5ZkNhx9yMitYXxQYJ2YLtysgJr70noE7QQGU9_s5UsWATvnfIocQPjrFMG8M1l_9nwRQB-jT1Jc1U2ucWuREyiQZHkD30I0O39DM8iQmhOhomVxe-kcvh35bDfs8UafWo7QSI3wAjRb1cmRoCXh4DotDMiqVe2qfJg3gc6CZSdNVfAZNmz8PcZI1bk7rSypZ5_jSpRiVrL_KB-Jby6',
+    stockQuantity: 60,
+    status: 'ACTIVE',
+    featured: false,
+    lotNumber: 'Lot #3005-CG',
+    purity: '≥ 99.6%',
+    strengths: [
+      { label: '5 MG (10-Vial Kit)', vialsCount: 10, price: 300.00, pricePerVial: 30.00 },
+      { label: '10 MG (10-Vial Kit)', vialsCount: 10, price: 475.00, pricePerVial: 47.50 }
+    ],
+    wholesaleStrengths: [
+      { label: '5 MG (10-Vial Kit)', vialsCount: 10, price: 300.00, pricePerVial: 30.00 },
+      { label: '10 MG (10-Vial Kit)', vialsCount: 10, price: 475.00, pricePerVial: 47.50 }
     ],
     createdAt: '2026-02-02T00:00:00Z'
   },
   {
-    id: 'prod-epithalon',
-    name: 'Epithalon',
-    slug: 'epithalon',
-    sku: 'WH-LON-010',
-    category: 'longevity',
-    categoryLabel: 'Telomerase & Circadian',
-    shortDescription: 'Synthetic pineal peptide bioregulator studied for telomere protection and neuroendocrine homeostasis.',
-    description: 'Synthetic tetrapeptide based on natural epithalamin that induces telomerase activity, extends cellular hayflick replication limits, and stabilizes melatonin diurnal rhythm.',
-    price: 190.00,
-    imageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuASadVIF669Sym5htvKjut-gE7ym7oRGVtkbXTNgd7ufBdpQrByLrlYAV7L8on3ARBLRceJ76_v-xRLijZM-kK5-Hh1vjaUrh7BAF_3vHCvObjj-xWFKKlfS3VeEGqCOXP3KE3_ZXYvhKVwm29-nwNp_uNvvdf6TWqo62w2DHWKvGBXlNXsHfaPApQNGJ4yppD2WSptyJeN3vpDvf2at3YjiuAbghcf3gdSldG6Vv8FOfUEAM1mJtwk',
-    stockQuantity: 75,
+    id: 'prod-aod-9604',
+    name: 'AOD-9604',
+    slug: 'aod-9604',
+    sku: 'WH-MET-017',
+    category: 'metabolic',
+    categoryLabel: 'Lipolytic Peptide Fragment',
+    shortDescription: 'C-terminal hGH fragment (10MG 10-Vial Kit) studied for targeted lipolysis.',
+    description: 'Modified fragment of human growth hormone (amino acids 176–191) studied for lipolytic activity without impacting IGF-1 or glucose.',
+    price: 400.00,
+    wholesalePrice: 400.00,
+    imageUrl: '/images/featured-motsc.png',
+    stockQuantity: 70,
     status: 'ACTIVE',
     featured: false,
-    lotNumber: 'Lot #1194-L',
-    purity: '≥ 99.7%',
+    lotNumber: 'Lot #9604-AO',
+    purity: '≥ 99.5%',
     strengths: [
-      { label: '10mg (10 vials)', vialsCount: 10, price: 190.00, pricePerVial: 19.00 },
-      { label: '50mg (10 vials)', vialsCount: 10, price: 380.00, pricePerVial: 38.00 }
+      { label: '10 MG (10-Vial Kit)', vialsCount: 10, price: 400.00, pricePerVial: 40.00 }
+    ],
+    wholesaleStrengths: [
+      { label: '10 MG (10-Vial Kit)', vialsCount: 10, price: 400.00, pricePerVial: 40.00 }
+    ],
+    createdAt: '2026-02-03T00:00:00Z'
+  },
+  {
+    id: 'prod-adipotide',
+    name: 'Adipotide / FTTP',
+    slug: 'adipotide-fttp',
+    sku: 'WH-MET-018',
+    category: 'metabolic',
+    categoryLabel: 'Adipose Vascular Research',
+    shortDescription: 'Peptidomimetic (5MG & 10MG 10-Vial Kits) studied for white adipose tissue research.',
+    description: 'Proapoptotic peptidomimetic researched for selective targeting of white adipose tissue vasculature.',
+    price: 362.50,
+    wholesalePrice: 362.50,
+    imageUrl: '/images/featured-motsc.png',
+    stockQuantity: 45,
+    status: 'ACTIVE',
+    featured: false,
+    lotNumber: 'Lot #3625-AD',
+    purity: '≥ 99.5%',
+    strengths: [
+      { label: '5 MG (10-Vial Kit)', vialsCount: 10, price: 362.50, pricePerVial: 36.25 },
+      { label: '10 MG (10-Vial Kit)', vialsCount: 10, price: 712.50, pricePerVial: 71.25 }
+    ],
+    wholesaleStrengths: [
+      { label: '5 MG (10-Vial Kit)', vialsCount: 10, price: 362.50, pricePerVial: 36.25 },
+      { label: '10 MG (10-Vial Kit)', vialsCount: 10, price: 712.50, pricePerVial: 71.25 }
     ],
     createdAt: '2026-02-04T00:00:00Z'
+  },
+  {
+    id: 'prod-5-amino-1mq',
+    name: '5-Amino-1MQ',
+    slug: '5-amino-1mq',
+    sku: 'WH-CEL-019',
+    category: 'cellular',
+    categoryLabel: 'NNMT Inhibitor & NAD+ Support',
+    shortDescription: 'Small-molecule NNMT inhibitor (5MG, 10MG, 50MG 10-Vial Kits) for cellular NAD+ preservation.',
+    description: 'Potent nicotinamide N-methyltransferase (NNMT) inhibitor studied for elevating intracellular NAD+ and SAM levels in adipocytes.',
+    price: 120.00,
+    wholesalePrice: 120.00,
+    imageUrl: '/images/featured-motsc.png',
+    stockQuantity: 85,
+    status: 'ACTIVE',
+    featured: false,
+    lotNumber: 'Lot #1205-AM',
+    purity: '≥ 99.5%',
+    strengths: [
+      { label: '5 MG (10-Vial Kit)', vialsCount: 10, price: 120.00, pricePerVial: 12.00 },
+      { label: '10 MG (10-Vial Kit)', vialsCount: 10, price: 162.00, pricePerVial: 16.20 },
+      { label: '50 MG (10-Vial Kit)', vialsCount: 10, price: 300.00, pricePerVial: 30.00 }
+    ],
+    wholesaleStrengths: [
+      { label: '5 MG (10-Vial Kit)', vialsCount: 10, price: 120.00, pricePerVial: 12.00 },
+      { label: '10 MG (10-Vial Kit)', vialsCount: 10, price: 162.00, pricePerVial: 16.20 },
+      { label: '50 MG (10-Vial Kit)', vialsCount: 10, price: 300.00, pricePerVial: 30.00 }
+    ],
+    createdAt: '2026-02-05T00:00:00Z'
+  },
+  {
+    id: 'prod-aicar',
+    name: 'AICAR',
+    slug: 'aicar',
+    sku: 'WH-CEL-020',
+    category: 'cellular',
+    categoryLabel: 'AMPK Bioenergetics',
+    shortDescription: 'AMPK activator (50MG & 100MG 10-Vial Kits) for cellular endurance and glucose uptake.',
+    description: '5-Aminoimidazole-4-carboxamide ribonucleotide (AICAR), an endogenous AMPK activator studied for mitochondrial biogenesis and metabolic endurance.',
+    price: 200.00,
+    wholesalePrice: 200.00,
+    imageUrl: '/images/featured-motsc.png',
+    stockQuantity: 65,
+    status: 'ACTIVE',
+    featured: false,
+    lotNumber: 'Lot #2004-AI',
+    purity: '≥ 99.5%',
+    strengths: [
+      { label: '50 MG (10-Vial Kit)', vialsCount: 10, price: 200.00, pricePerVial: 20.00 },
+      { label: '100 MG (10-Vial Kit)', vialsCount: 10, price: 400.00, pricePerVial: 40.00 }
+    ],
+    wholesaleStrengths: [
+      { label: '50 MG (10-Vial Kit)', vialsCount: 10, price: 200.00, pricePerVial: 20.00 },
+      { label: '100 MG (10-Vial Kit)', vialsCount: 10, price: 400.00, pricePerVial: 40.00 }
+    ],
+    createdAt: '2026-02-06T00:00:00Z'
   }
 ];
 

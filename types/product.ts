@@ -9,11 +9,17 @@ export type ProductCategoryType =
   | 'longevity' 
   | 'stacks';
 
-export type ProductStatus = 'ACTIVE' | 'DRAFT' | 'ARCHIVED' | 'OUT_OF_STOCK';
+export type ProductStatus =
+  | 'ACTIVE'
+  | 'DISABLED'
+  | 'UNAVAILABLE'
+  | 'DRAFT'
+  | 'ARCHIVED'
+  | 'OUT_OF_STOCK';
 
 export interface ProductStrength {
-  label: string; // e.g. "5mg (10 Vials)"
-  vialsCount: number; // e.g. 10
+  label: string; // e.g. "10mg (1 Vial)" or "10mg (10-Vial Kit)"
+  vialsCount: number; // e.g. 1 for individual vial, 10 for kit
   price: number;
   pricePerVial?: number;
 }
@@ -28,6 +34,7 @@ export interface Product {
   shortDescription: string;
   description: string;
   price: number;
+  wholesalePrice?: number;
   salePrice?: number;
   imageUrl: string;
   galleryImages?: string[];
@@ -37,9 +44,12 @@ export interface Product {
   isStack?: boolean;
   stackItems?: string[];
   strengths: ProductStrength[];
+  wholesaleStrengths?: ProductStrength[];
   lotNumber?: string;
   purity?: string; // e.g. ">99.4% HPLC"
   coaUrl?: string;
+  disclosures?: string;
+  educationalMaterial?: string;
   createdAt: string;
   updatedAt?: string;
   deletedAt?: string | null;

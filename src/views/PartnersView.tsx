@@ -11,26 +11,32 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ navigate }) => {
   const [contactPerson, setContactPerson] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [category, setCategory] = useState('Medical Spa & Aesthetics');
+  const [category, setCategory] = useState('Fitness / Yoga Studio');
   const [website, setWebsite] = useState('');
+  const [location, setLocation] = useState('');
   const [address, setAddress] = useState('');
-  const [description, setDescription] = useState('');
+  const [populationServed, setPopulationServed] = useState('');
+  const [memberBaseSize, setMemberBaseSize] = useState('');
+  const [currentWellnessServices, setCurrentWellnessServices] = useState('');
+  const [whyPartner, setWhyPartner] = useState('');
+  const [marketingStrategy, setMarketingStrategy] = useState('');
+  const [promotionPlan, setPromotionPlan] = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [createdPartner, setCreatedPartner] = useState<Partner | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!agreedToTerms) return;
     setLoading(true);
 
     try {
-      // Generate clean slug
       const slug = businessName
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)+/g, '');
 
-      // Formatted ID
       const count = await dbService.getPartners().then((p) => p.length);
       const partnerId = `WH-P-${String(count + 1).padStart(6, '0')}`;
 
@@ -43,11 +49,20 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ navigate }) => {
         phone,
         category,
         website,
-        address,
-        description,
-        status: 'PENDING',
-        commissionRate: 0.25, // default 25%
-        memberDiscountRate: 0.15, // default 15% VIP discount
+        location,
+        address: address || location,
+        populationServed,
+        memberBaseSize,
+        currentWellnessServices,
+        whyPartner,
+        marketingStrategy,
+        promotionPlan,
+        description: whyPartner || currentWellnessServices || `${category} serving ${populationServed}`,
+        agreedToTerms: true,
+        agreedAt: new Date().toISOString(),
+        status: 'NEW',
+        commissionRate: 0.25,
+        memberDiscountRate: 0.15,
         createdAt: new Date().toISOString()
       };
 
@@ -314,163 +329,295 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ navigate }) => {
             </div>
 
             <p className="text-xs text-[#5a6b7c] max-w-md mx-auto">
-              Our clinical partnership team reviews all applications within 24 hours. You can preview your store or explore the partner portal below.
+              Your application has been logged with status <strong>NEW</strong>. Our partnership review team evaluates all applications before granting wholesale &amp; co-branded storefront access.
             </p>
 
             <div className="pt-2 flex flex-col sm:flex-row justify-center gap-3">
               <button
-                onClick={() => navigate('partner-page', createdPartner.slug)}
+                onClick={() => navigate('partner-portal')}
                 className="px-6 py-2.5 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] cursor-pointer"
               >
-                Preview Co-Branded Store
+                Explore Partner Portal
               </button>
               <button
-                onClick={() => navigate('partner-portal')}
+                onClick={() => navigate('shop')}
                 className="px-6 py-2.5 rounded-xl border border-[#dfd7c7] text-[#5a6b7c] text-xs font-semibold uppercase tracking-wider hover:bg-[#f6f4ee] cursor-pointer"
               >
-                Access Partner Portal
+                Return to Storefront
               </button>
             </div>
           </div>
         ) : (
           <div>
             <div className="border-b border-[#dfd7c7] pb-6 mb-6">
+              <span className="text-[11px] uppercase font-bold tracking-widest text-[#c5a059] block mb-1">
+                Partner Application
+              </span>
               <h2 className="font-serif text-2xl font-bold text-[#0c2340]">
-                Partner Onboarding Application
+                Become a Whole Harbor Partner
               </h2>
               <p className="text-xs text-[#5a6b7c] mt-1">
-                Complete the profile below to generate your unique Partner ID and referral ecosystem.
+                Complete all required fields below. Applications enter our review queue (Status: NEW) and wholesale access is provisioned upon approval.
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[#5a6b7c] font-medium mb-1">
-                    Business / Organization Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Lumina Longevity Clinic"
-                    value={businessName}
-                    onChange={(e) => setBusinessName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
-                  />
-                </div>
+              {/* Section 1: Organization & Contact */}
+              <div className="space-y-4">
+                <h3 className="font-serif text-sm font-bold text-[#0c2340] border-b border-[#dfd7c7]/60 pb-1.5">
+                  1. Organization &amp; Contact Information
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[#5a6b7c] font-medium mb-1">
+                      1. Business Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Harbor Peak Fitness &amp; Wellness"
+                      value={businessName}
+                      onChange={(e) => setBusinessName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-[#5a6b7c] font-medium mb-1">
-                    Primary Contact Person *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Dr. Elena Rostova"
-                    value={contactPerson}
-                    onChange={(e) => setContactPerson(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
-                  />
-                </div>
+                  <div>
+                    <label className="block text-[#5a6b7c] font-medium mb-1">
+                      2. Owner / Primary Contact *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Full Name &amp; Title"
+                      value={contactPerson}
+                      onChange={(e) => setContactPerson(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-[#5a6b7c] font-medium mb-1">
-                    Business Email *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="partners@clinic.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
-                  />
-                </div>
+                  <div>
+                    <label className="block text-[#5a6b7c] font-medium mb-1">
+                      3. Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="partners@organization.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-[#5a6b7c] font-medium mb-1">
-                    Direct Phone Number *
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="+1 (555) 000-0000"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
-                  />
-                </div>
+                  <div>
+                    <label className="block text-[#5a6b7c] font-medium mb-1">
+                      4. Phone Number *
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="+1 (555) 000-0000"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-[#5a6b7c] font-medium mb-1">
-                    Practice / Organization Category *
-                  </label>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059] cursor-pointer"
-                  >
-                    <option value="Medical Spa & Aesthetics">Medical Spa &amp; Aesthetics</option>
-                    <option value="Integrative & Longevity Medicine">Integrative &amp; Longevity Medicine</option>
-                    <option value="Performance Gym & Athletics">Performance Gym &amp; Athletics</option>
-                    <option value="Physical Therapy & Sports Rehab">Physical Therapy &amp; Sports Rehab</option>
-                    <option value="Functional Medicine Clinic">Functional Medicine Clinic</option>
-                  </select>
-                </div>
+                  <div>
+                    <label className="block text-[#5a6b7c] font-medium mb-1">
+                      5. Website
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="https://example.com"
+                      value={website}
+                      onChange={(e) => setWebsite(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-[#5a6b7c] font-medium mb-1">
-                    Website URL
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="https://example.com"
-                    value={website}
-                    onChange={(e) => setWebsite(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
-                  />
-                </div>
+                  <div>
+                    <label className="block text-[#5a6b7c] font-medium mb-1">
+                      6. Business Type *
+                    </label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059] cursor-pointer"
+                    >
+                      <option value="Fitness / Yoga Studio">Fitness / Yoga Studio</option>
+                      <option value="Wellness Practice / Clinic">Wellness Practice / Clinic</option>
+                      <option value="Gym / Athletic Organization">Gym / Athletic Organization</option>
+                      <option value="Health &amp; Wellness Coaching">Health &amp; Wellness Coaching</option>
+                      <option value="Medical Spa &amp; Aesthetics">Medical Spa &amp; Aesthetics</option>
+                      <option value="Community Health Program">Community Health Program</option>
+                    </select>
+                  </div>
 
-                <div className="sm:col-span-2">
-                  <label className="block text-[#5a6b7c] font-medium mb-1">
-                    Facility Physical Address
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="100 Wellness Way, Suite 400, Austin, TX 78701"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
-                  />
-                </div>
+                  <div>
+                    <label className="block text-[#5a6b7c] font-medium mb-1">
+                      7. Location (City, State / Region) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Austin, TX"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
+                    />
+                  </div>
 
-                <div className="sm:col-span-2">
-                  <label className="block text-[#5a6b7c] font-medium mb-1">
-                    Practice Description &amp; Patient Demographic *
-                  </label>
-                  <textarea
-                    rows={3}
-                    required
-                    placeholder="Briefly describe your practice and the primary protocols your patients seek..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
-                  />
+                  <div>
+                    <label className="block text-[#5a6b7c] font-medium mb-1">
+                      Street Address (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="100 Wellness Way, Suite 400"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
+                    />
+                  </div>
                 </div>
               </div>
 
+              {/* Section 2: Community & Wellness Profile */}
+              <div className="space-y-4">
+                <h3 className="font-serif text-sm font-bold text-[#0c2340] border-b border-[#dfd7c7]/60 pb-1.5">
+                  2. Community &amp; Wellness Profile
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[#5a6b7c] font-medium mb-1">
+                      8. Population Served *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Active adults, endurance athletes, longevity seekers"
+                      value={populationServed}
+                      onChange={(e) => setPopulationServed(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[#5a6b7c] font-medium mb-1">
+                      9. Approximate Customer / Member Base *
+                    </label>
+                    <select
+                      required
+                      value={memberBaseSize}
+                      onChange={(e) => setMemberBaseSize(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059] cursor-pointer"
+                    >
+                      <option value="">Select member base size...</option>
+                      <option value="Under 100">Under 100 members</option>
+                      <option value="100 - 500">100 – 500 members</option>
+                      <option value="500 - 1,500">500 – 1,500 members</option>
+                      <option value="1,500 - 5,000">1,500 – 5,000 members</option>
+                      <option value="5,000+">5,000+ members</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-[#5a6b7c] font-medium mb-1">
+                      10. Current Wellness Services *
+                    </label>
+                    <textarea
+                      rows={2}
+                      required
+                      placeholder="Describe the wellness, fitness, recovery, or coaching services you currently offer..."
+                      value={currentWellnessServices}
+                      onChange={(e) => setCurrentWellnessServices(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Partnership Alignment & Promotion */}
+              <div className="space-y-4">
+                <h3 className="font-serif text-sm font-bold text-[#0c2340] border-b border-[#dfd7c7]/60 pb-1.5">
+                  3. Partnership Alignment &amp; Promotion Plan
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[#5a6b7c] font-medium mb-1">
+                      11. Why You Want to Partner with Whole Harbor *
+                    </label>
+                    <textarea
+                      rows={2}
+                      required
+                      placeholder="Share your goals for partnering with Whole Harbor Wellness..."
+                      value={whyPartner}
+                      onChange={(e) => setWhyPartner(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[#5a6b7c] font-medium mb-1">
+                      12. Marketing Strategy *
+                    </label>
+                    <textarea
+                      rows={2}
+                      required
+                      placeholder="Describe your primary marketing channels (email newsletters, in-studio signage, social media, workshops)..."
+                      value={marketingStrategy}
+                      onChange={(e) => setMarketingStrategy(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[#5a6b7c] font-medium mb-1">
+                      13. How You Intend to Promote Whole Harbor *
+                    </label>
+                    <textarea
+                      rows={2}
+                      required
+                      placeholder="How will you introduce your dedicated Whole Harbor link and educational resources to your community?"
+                      value={promotionPlan}
+                      onChange={(e) => setPromotionPlan(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 14. Agreement Checkbox */}
+              <div className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7]">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    required
+                    checked={agreedToTerms}
+                    onChange={(e) => setAgreedToTerms(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 accent-[#c5a059] rounded cursor-pointer"
+                  />
+                  <span className="text-xs text-[#0c2340] leading-relaxed">
+                    <strong>14. Partner Program Agreement *:</strong> I confirm that the information provided is accurate and I agree to represent Whole Harbor Wellness educational materials and referral links in accordance with brand and compliance guidelines. I understand that submitting this application does not automatically grant wholesale access until reviewed and approved.
+                  </span>
+                </label>
+              </div>
+
+              {/* 15. Submit Application Button */}
               <div className="pt-2">
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || !agreedToTerms}
                   className="w-full py-3.5 px-4 rounded-xl bg-[#c5a059] text-[#fffdfb] text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] disabled:opacity-50 transition-colors shadow-md flex items-center justify-center gap-2 cursor-pointer"
                 >
                   {loading ? (
-                    <span>Registering Partner Profile...</span>
+                    <span>Submitting Application...</span>
                   ) : (
                     <>
                       <span className="material-symbols-outlined text-[18px]">verified</span>
-                      <span>Submit Application &amp; Generate Partner ID</span>
+                      <span>15. Submit Partner Application</span>
                     </>
                   )}
                 </button>

@@ -173,7 +173,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ slug, navi
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {product.strengths.map((str) => {
                 const isSelected = selectedStrength.label === str.label;
-                const vialPrice = (str.price / str.vialsCount).toFixed(0);
+                const vialPrice = (str.pricePerVial ?? (str.price / (str.vialsCount || 1))).toFixed(2);
                 return (
                   <div
                     key={str.label}
@@ -189,12 +189,12 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ slug, navi
                         {str.label}
                       </span>
                       <span className="font-serif font-bold text-sm text-[#c5a059]">
-                        ${str.price}
+                        ${vialPrice} / vial
                       </span>
                     </div>
                     <div className="text-[11px] text-[#5a6b7c] flex items-center justify-between">
-                      <span>{str.vialsCount} Sealed Vials</span>
-                      <span className="font-medium text-[#0c2340]">${vialPrice}/vial</span>
+                      <span>{str.vialsCount} Individual Vials</span>
+                      <span className="font-medium text-[#0c2340]">${str.price.toFixed(2)} pack</span>
                     </div>
                   </div>
                 );

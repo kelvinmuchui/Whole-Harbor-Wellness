@@ -1,45 +1,74 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/dbService.ts';
-import { Partner, Order, PartnerEarning } from '../types/index.ts';
+import { Partner, Order, PartnerEarning, Product } from '../types/index.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 
 interface PartnerDashboardViewProps {
   navigate: (path: string, param?: string) => void;
 }
 
+interface WholesaleCartItem {
+  product: Product;
+  strengthLabel: string;
+  kitPrice: number;
+  kitsCount: number;
+}
+
 export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navigate }) => {
-  const { currentUser, role } = useAuth();
+  const { currentUser } = useAuth();
+  const [allPartners, setAllPartners] = useState<Partner[]>([]);
   const [partner, setPartner] = useState<Partner | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [earnings, setEarnings] = useState<PartnerEarning[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters & State
   const [dateFilter, setDateFilter] = useState<'current_month' | 'prev_month' | 'ytd' | 'all'>('all');
-  const [activeTab, setActiveTab] = useState<'sales' | 'ledger' | 'assets'>('sales');
+  const [activeTab, setActiveTab] = useState<'wholesale' | 'sales' | 'ledger' | 'assets'>('wholesale');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Wholesale 10-Vial Kit Cart State
+  const [wholesaleCart, setWholesaleCart] = useState<WholesaleCartItem[]>([]);
+  const [selectedWholesaleTier, setSelectedWholesaleTier] = useState<Record<string, number>>({});
+  const [wholesaleShippingNotes, setWholesaleShippingNotes] = useState('');
+  const [submittingWholesale, setSubmittingWholesale] = useState(false);
+  const [wholesaleOrderSuccess, setWholesaleOrderSuccess] = useState<string | null>(null);
+
+  const loadPartnerDetails = async (selectedPartner: Partner | null) => {
+    setPartner(selectedPartner);
+    if (selectedPartner) {
+      const [allOrders, allEarnings] = await Promise.all([
+        dbService.getOrders(),
+        dbService.getPartnerEarnings(selectedPartner.id)
+      ]);
+      const partnerOrders = allOrders.filter(
+        (o) => o.partnerId === selectedPartner.id || o.partnerSlug === selectedPartner.slug
+      );
+      setOrders(partnerOrders);
+      setEarnings(allEarnings);
+    } else {
+      setOrders([]);
+      setEarnings([]);
+    }
+  };
 
   useEffect(() => {
     const loadDashboard = async () => {
       try {
-        // Load default partner or partner associated with current user
-        const partners = await dbService.getPartners();
-        const currentPartner = partners[0] || null; // default to Apex Performance or first
-        setPartner(currentPartner);
+        const [partnersList, productsList] = await Promise.all([
+          dbService.getPartners(),
+          dbService.getProducts()
+        ]);
+        setAllPartners(partnersList);
+        setProducts(productsList.filter((p) => p.status === 'ACTIVE'));
 
-        if (currentPartner) {
-          const [allOrders, allEarnings] = await Promise.all([
-            dbService.getOrders(),
-            dbService.getPartnerEarnings(currentPartner.id)
-          ]);
-          // Filter orders attributed to this partner
-          const partnerOrders = allOrders.filter(
-            (o) => o.partnerId === currentPartner.id || o.partnerSlug === currentPartner.slug
-          );
-          setOrders(partnerOrders);
-          setEarnings(allEarnings);
-        }
+        const matchedPartner =
+          partnersList.find((p) => currentUser?.email && p.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+          partnersList[0] ||
+          null;
+        await loadPartnerDetails(matchedPartner);
       } catch (err) {
         console.error('Failed to load partner dashboard', err);
       } finally {
@@ -148,8 +177,27 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
           </p>
         </div>
 
-        {/* Header Action Buttons */}
-        <div className="flex items-center gap-3">
+        {/* Header Action Buttons & Partner Account Switcher */}
+        <div className="flex flex-wrap items-center gap-3">
+          {allPartners.length > 1 && (
+            <select
+              value={partner.id}
+              onChange={(e) => {
+                const found = allPartners.find((p) => p.id === e.target.value) || null;
+                setWholesaleCart([]);
+                setWholesaleOrderSuccess(null);
+                loadPartnerDetails(found);
+              }}
+              className="px-3 py-2 rounded-xl bg-[#f6f4ee] border border-[#dfd7c7] text-[#0c2340] text-xs font-semibold cursor-pointer"
+              aria-label="Switch Partner Account"
+            >
+              {allPartners.map((pt) => (
+                <option key={pt.id} value={pt.id}>
+                  {pt.name} ({pt.status})
+                </option>
+              ))}
+            </select>
+          )}
           <button
             onClick={() => navigate('partners')}
             className="px-4 py-2 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] hover:bg-[#f6f4ee] text-xs font-semibold transition-colors cursor-pointer"
@@ -408,10 +456,23 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
         
         {/* Navigation Tabs and Date Filter Bar */}
         <div className="p-4 bg-[#f6f4ee] border-b border-[#dfd7c7] flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto">
+            <button
+              onClick={() => setActiveTab('wholesale')}
+              className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                activeTab === 'wholesale'
+                  ? 'bg-[#c5a059] text-white'
+                  : 'text-[#5a6b7c] hover:bg-[#dfd7c7]/50'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[15px]">
+                {partner.status === 'APPROVED' ? 'inventory_2' : 'lock'}
+              </span>
+              <span>Wholesale 10-Vial Kits</span>
+            </button>
             <button
               onClick={() => setActiveTab('sales')}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer ${
+              className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap ${
                 activeTab === 'sales'
                   ? 'bg-[#c5a059] text-white'
                   : 'text-[#5a6b7c] hover:bg-[#dfd7c7]/50'
@@ -421,7 +482,7 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
             </button>
             <button
               onClick={() => setActiveTab('ledger')}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer ${
+              className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap ${
                 activeTab === 'ledger'
                   ? 'bg-[#c5a059] text-white'
                   : 'text-[#5a6b7c] hover:bg-[#dfd7c7]/50'
@@ -431,7 +492,7 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
             </button>
             <button
               onClick={() => setActiveTab('assets')}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer ${
+              className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap ${
                 activeTab === 'assets'
                   ? 'bg-[#c5a059] text-white'
                   : 'text-[#5a6b7c] hover:bg-[#dfd7c7]/50'
@@ -462,6 +523,355 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
             </button>
           </div>
         </div>
+
+        {/* Tab 0: Approval-Gated Private Wholesale 10-Vial Kit Portal */}
+        {activeTab === 'wholesale' && (
+          <div className="p-6 sm:p-8">
+            {partner.status !== 'APPROVED' ? (
+              <div className="max-w-2xl mx-auto text-center py-10 space-y-5">
+                <div className="w-16 h-16 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7] text-[#c5a059] flex items-center justify-center mx-auto">
+                  <span className="material-symbols-outlined text-[32px]">lock</span>
+                </div>
+                <div className="space-y-2">
+                  <span className="px-3 py-1 rounded-full bg-[#0c2340] text-white text-[10px] font-bold uppercase tracking-widest">
+                    Approval-Gated Wholesale Access
+                  </span>
+                  <h3 className="font-serif text-2xl font-bold text-[#0c2340]">
+                    Wholesale 10-Vial Kit Pricing Is Restricted to Approved Partners
+                  </h3>
+                  <p className="text-xs text-[#5a6b7c] leading-relaxed max-w-lg mx-auto">
+                    Your organization (<strong>{partner.name}</strong>) currently has application status{' '}
+                    <strong className="text-[#0c2340]">{partner.status}</strong>. Once an administrator reviews and approves your partner application, private 10-vial kit wholesale pricing and direct ordering will unlock here.
+                  </p>
+                </div>
+
+                {partner.adminNotes && (
+                  <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-left text-xs max-w-lg mx-auto">
+                    <span className="text-[10px] uppercase font-bold text-amber-800 block mb-1">
+                      Reviewer Notes
+                    </span>
+                    <p className="text-[#0c2340]">{partner.adminNotes}</p>
+                  </div>
+                )}
+
+                <div className="pt-2 flex justify-center gap-3">
+                  <button
+                    onClick={() => navigate('partners')}
+                    className="px-6 py-2.5 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] transition-colors cursor-pointer"
+                  >
+                    View Partner Application
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#dfd7c7] pb-4">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-[#c5a059]">
+                      Approved Partner Wholesale Catalog • 10-Vial Kits Only
+                    </span>
+                    <h3 className="font-serif text-2xl font-bold text-[#0c2340]">
+                      Private Wholesale 10-Vial Kit Ordering
+                    </h3>
+                    <p className="text-xs text-[#5a6b7c]">
+                      Public retail shows individual vial pricing. Approved partners order sealed 10-vial kits at wholesale tier rates.
+                    </p>
+                  </div>
+                  <span className="px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 text-xs font-bold self-start">
+                    ✓ APPROVED WHOLESALE TIER
+                  </span>
+                </div>
+
+                {wholesaleOrderSuccess && (
+                  <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center justify-between">
+                    <span>
+                      <strong>Wholesale Order Submitted:</strong> {wholesaleOrderSuccess}
+                    </span>
+                    <button
+                      onClick={() => setWholesaleOrderSuccess(null)}
+                      className="text-emerald-700 font-bold cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                  {/* 10-Vial Kit Product Grid */}
+                  <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {products.map((prod) => {
+                      const tiers = prod.wholesaleStrengths && prod.wholesaleStrengths.length > 0
+                        ? prod.wholesaleStrengths
+                        : [
+                            {
+                              label: '10-Vial Wholesale Kit',
+                              vialsCount: 10,
+                              price: prod.wholesalePrice ?? Math.round(prod.price * 0.7)
+                            }
+                          ];
+                      const activeTierIdx = selectedWholesaleTier[prod.id] ?? 0;
+                      const activeTier = tiers[activeTierIdx] || tiers[0];
+                      const kitPrice = activeTier.price;
+                      const wholesalePerVial = (kitPrice / (activeTier.vialsCount || 10)).toFixed(2);
+                      const inCart = wholesaleCart.find(
+                        (c) => c.product.id === prod.id && c.strengthLabel === activeTier.label
+                      );
+
+                      return (
+                        <div
+                          key={prod.id}
+                          className="p-4 rounded-2xl border border-[#dfd7c7] bg-[#fffdfb] flex flex-col justify-between space-y-3"
+                        >
+                          <div className="flex items-start gap-3">
+                            <img
+                              src={prod.imageUrl}
+                              alt={prod.name}
+                              className="w-14 h-14 rounded-xl object-cover border border-[#dfd7c7] bg-[#f6f4ee] shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[#c5a059]">
+                                {prod.categoryLabel}
+                              </span>
+                              <h4 className="font-serif text-base font-bold text-[#0c2340] truncate">
+                                {prod.name}
+                              </h4>
+                              <span className="font-mono text-[10px] text-[#5a6b7c]">
+                                HPLC {prod.purity || '99.5%'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {tiers.length > 1 && (
+                            <div>
+                              <label className="block text-[10px] font-semibold text-[#5a6b7c] mb-1">
+                                Select 10-Vial Kit Strength:
+                              </label>
+                              <select
+                                value={activeTierIdx}
+                                onChange={(e) =>
+                                  setSelectedWholesaleTier((prev) => ({
+                                    ...prev,
+                                    [prod.id]: Number(e.target.value)
+                                  }))
+                                }
+                                className="w-full px-2.5 py-1.5 rounded-lg bg-white border border-[#dfd7c7] text-xs font-semibold text-[#0c2340] cursor-pointer"
+                              >
+                                {tiers.map((t, idx) => (
+                                  <option key={t.label} value={idx}>
+                                    {t.label} — ${t.price.toFixed(2)}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+
+                          <div className="p-3 rounded-xl bg-[#f6f4ee] border border-[#dfd7c7]/70 flex items-center justify-between text-xs">
+                            <div>
+                              <span className="text-[10px] text-[#5a6b7c] block">{activeTier.label}</span>
+                              <strong className="font-serif text-lg text-[#0c2340]">${kitPrice.toFixed(2)}</strong>
+                              <span className="text-[10px] text-[#c5a059] font-semibold block">
+                                ${wholesalePerVial} / vial
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setWholesaleCart((prev) => {
+                                  const existing = prev.find(
+                                    (item) =>
+                                      item.product.id === prod.id &&
+                                      item.strengthLabel === activeTier.label
+                                  );
+                                  if (existing) {
+                                    return prev.map((item) =>
+                                      item.product.id === prod.id &&
+                                      item.strengthLabel === activeTier.label
+                                        ? { ...item, kitsCount: item.kitsCount + 1 }
+                                        : item
+                                    );
+                                  }
+                                  return [
+                                    ...prev,
+                                    {
+                                      product: prod,
+                                      strengthLabel: activeTier.label,
+                                      kitPrice,
+                                      kitsCount: 1
+                                    }
+                                  ];
+                                });
+                              }}
+                              className="px-3.5 py-2 rounded-xl bg-[#0c2340] text-white text-xs font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer"
+                            >
+                              {inCart ? `+ Add Kit (${inCart.kitsCount})` : '+ Add 10-Vial Kit'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Wholesale Order Summary */}
+                  <div className="lg:col-span-4 bg-[#f6f4ee] border border-[#dfd7c7] rounded-2xl p-5 space-y-4">
+                    <h4 className="font-serif text-lg font-bold text-[#0c2340] border-b border-[#dfd7c7] pb-2">
+                      Wholesale 10-Vial Kit Order
+                    </h4>
+
+                    {wholesaleCart.length === 0 ? (
+                      <p className="text-xs text-[#5a6b7c] py-4">
+                        Select 10-vial kits from the catalog to build your wholesale facility order.
+                      </p>
+                    ) : (
+                      <div className="space-y-3 text-xs">
+                        {wholesaleCart.map((item) => (
+                          <div
+                            key={`${item.product.id}-${item.strengthLabel}`}
+                            className="p-3 rounded-xl bg-white border border-[#dfd7c7] flex items-center justify-between gap-2"
+                          >
+                            <div>
+                              <span className="font-semibold text-[#0c2340] block">{item.product.name}</span>
+                              <span className="text-[10px] text-[#5a6b7c]">
+                                {item.kitsCount} × {item.strengthLabel} (${item.kitPrice.toFixed(2)}/kit)
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() =>
+                                  setWholesaleCart((prev) =>
+                                    prev
+                                      .map((c) =>
+                                        c.product.id === item.product.id &&
+                                        c.strengthLabel === item.strengthLabel
+                                          ? { ...c, kitsCount: c.kitsCount - 1 }
+                                          : c
+                                      )
+                                      .filter((c) => c.kitsCount > 0)
+                                  )
+                                }
+                                className="w-6 h-6 rounded bg-[#f6f4ee] text-[#0c2340] font-bold cursor-pointer"
+                              >
+                                -
+                              </button>
+                              <span className="font-bold text-[#0c2340] w-5 text-center">{item.kitsCount}</span>
+                              <button
+                                onClick={() =>
+                                  setWholesaleCart((prev) =>
+                                    prev.map((c) =>
+                                      c.product.id === item.product.id &&
+                                      c.strengthLabel === item.strengthLabel
+                                        ? { ...c, kitsCount: c.kitsCount + 1 }
+                                        : c
+                                    )
+                                  )
+                                }
+                                className="w-6 h-6 rounded bg-[#f6f4ee] text-[#0c2340] font-bold cursor-pointer"
+                              >
+                                +
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+
+                        <div>
+                          <label className="block text-[10px] uppercase font-bold text-[#5a6b7c] mb-1">
+                            Facility Delivery / Cold-Chain Notes
+                          </label>
+                          <textarea
+                            rows={2}
+                            placeholder="Receiving hours, suite number, or cold-chain instructions..."
+                            value={wholesaleShippingNotes}
+                            onChange={(e) => setWholesaleShippingNotes(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340]"
+                          />
+                        </div>
+
+                        <div className="pt-2 border-t border-[#dfd7c7] space-y-1">
+                          <div className="flex justify-between text-[#5a6b7c]">
+                            <span>Total Kits (10 vials/kit):</span>
+                            <span className="font-semibold text-[#0c2340]">
+                              {wholesaleCart.reduce((acc, i) => acc + i.kitsCount, 0)} kits (
+                              {wholesaleCart.reduce((acc, i) => acc + i.kitsCount * 10, 0)} vials)
+                            </span>
+                          </div>
+                          <div className="flex justify-between text-sm font-bold text-[#0c2340]">
+                            <span>Wholesale Total:</span>
+                            <span className="font-serif text-[#c5a059]">
+                              $
+                              {wholesaleCart
+                                .reduce((acc, i) => acc + i.kitPrice * i.kitsCount, 0)
+                                .toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          disabled={submittingWholesale}
+                          onClick={async () => {
+                            setSubmittingWholesale(true);
+                            try {
+                              const subtotal = wholesaleCart.reduce(
+                                (acc, i) => acc + i.kitPrice * i.kitsCount,
+                                0
+                              );
+                              const createdOrder = await dbService.createOrder({
+                                customerName: `${partner.name} (Wholesale)`,
+                                customerEmail: partner.email,
+                                shippingAddress: {
+                                  fullName: partner.contactPerson || partner.name,
+                                  addressLine1: partner.address || partner.location || 'Partner Facility',
+                                  city: partner.location || 'Austin',
+                                  state: 'TX',
+                                  postalCode: '78701',
+                                  country: 'US',
+                                  phone: partner.phone
+                                },
+                                items: wholesaleCart.map((c) => ({
+                                  productId: c.product.id,
+                                  productName: `${c.product.name} [Wholesale 10-Vial Kit]`,
+                                  productSlug: c.product.slug,
+                                  selectedStrength: {
+                                    label: c.strengthLabel,
+                                    vialsCount: 10,
+                                    price: c.kitPrice
+                                  },
+                                  unitPrice: c.kitPrice,
+                                  quantity: c.kitsCount,
+                                  imageUrl: c.product.imageUrl
+                                })),
+                                subtotal,
+                                volumeDiscount: 0,
+                                partnerDiscount: 0,
+                                shipping: 0,
+                                tax: 0,
+                                total: subtotal,
+                                status: 'CONFIRMED',
+                                paymentStatus: 'PAID',
+                                partnerId: partner.id,
+                                partnerSlug: partner.slug,
+                                partnerName: partner.name,
+                                referralSource: wholesaleShippingNotes || 'Wholesale 10-Vial Kit Order',
+                                partnerCommission: 0,
+                                commissionStatus: 'NONE'
+                              });
+                              setWholesaleOrderSuccess(`${createdOrder.orderNumber} ($${subtotal.toFixed(2)})`);
+                              setWholesaleCart([]);
+                              setWholesaleShippingNotes('');
+                              await loadPartnerDetails(partner);
+                            } finally {
+                              setSubmittingWholesale(false);
+                            }
+                          }}
+                          className="w-full py-3 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] transition-colors cursor-pointer"
+                        >
+                          {submittingWholesale ? 'Submitting Wholesale Order...' : 'Submit Wholesale 10-Vial Order'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Tab 1: Sales & Orders */}
         {activeTab === 'sales' && (

@@ -200,13 +200,7 @@ function MainApp() {
 
               <button
                 className="profile-shortcut cursor-pointer"
-                onClick={() => {
-                  if (currentUser) {
-                    navigate('customer-portal');
-                  } else {
-                    setAuthOpen(true);
-                  }
-                }}
+                onClick={() => navigate('customer-portal')}
               >
                 <span className="avatar">♙</span>
                 <b>{currentUser ? currentUser.displayName.split(' ')[0] : 'Profile'}</b>

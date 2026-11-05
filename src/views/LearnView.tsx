@@ -369,7 +369,7 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
       ]
     },
     {
-      id: 'about',
+      id: 'quality-standards',
       icon: '✦',
       title: 'About Us & Quality Standards',
       summary: 'Our commitment to a premium, private, and deeply supportive wellness experience.',

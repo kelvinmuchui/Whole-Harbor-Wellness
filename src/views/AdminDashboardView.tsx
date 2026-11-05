@@ -1,13 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/dbService.ts';
-import { Partner, Order, Product, WellnessProgram, EducationalArticle, FAQ, Testimonial, PartnerEarning, PartnerStatus, OrderStatus } from '../types/index.ts';
+import {
+  Partner,
+  Order,
+  Product,
+  ProductStatus,
+  WellnessProgram,
+  EducationalArticle,
+  FAQ,
+  Testimonial,
+  PartnerEarning,
+  PartnerStatus,
+  OrderStatus,
+  AuditLogEntry
+} from '../types/index.ts';
 
 interface AdminDashboardViewProps {
   navigate: (path: string, param?: string) => void;
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  metabolic: 'Metabolic Support',
+  cellular: 'Cellular Optimization',
+  recovery: 'Tissue Recovery',
+  longevity: 'Longevity & Vitality',
+  stacks: 'Synergy Multi-Kits'
+};
+
+const PARTNER_STATUS_OPTIONS: PartnerStatus[] = [
+  'NEW',
+  'UNDER REVIEW',
+  'APPROVED',
+  'NEEDS INFORMATION',
+  'DECLINED',
+  'SUSPENDED'
+];
+
 export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'partners' | 'orders' | 'payouts' | 'products' | 'content'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'partners' | 'orders' | 'payouts' | 'products' | 'content' | 'audit'>('overview');
   const [loading, setLoading] = useState(true);
 
   // Data states
@@ -19,23 +49,39 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   const [articles, setArticles] = useState<EducationalArticle[]>([]);
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
 
   // Search & Filters
   const [searchPartner, setSearchPartner] = useState('');
+  const [partnerStatusFilter, setPartnerStatusFilter] = useState<string>('ALL');
   const [searchOrder, setSearchOrder] = useState('');
-  const [newProductModal, setNewProductModal] = useState(false);
 
-  // New Product Form State
-  const [newProdName, setNewProdName] = useState('');
-  const [newProdCategory, setNewProdCategory] = useState<'metabolic' | 'cellular' | 'recovery' | 'longevity' | 'stacks'>('metabolic');
-  const [newProdPrice, setNewProdPrice] = useState(250);
-  const [newProdPurity, setNewProdPurity] = useState('99.5%');
-  const [newProdStock, setNewProdStock] = useState(50);
-  const [newProdShortDesc, setNewProdShortDesc] = useState('');
+  // Partner Review Modal State
+  const [reviewingPartner, setReviewingPartner] = useState<Partner | null>(null);
+  const [partnerAdminNotes, setPartnerAdminNotes] = useState('');
+  const [savingPartnerReview, setSavingPartnerReview] = useState(false);
+
+  // Add / Edit Product Modal State
+  const [productModalOpen, setProductModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [prodName, setProdName] = useState('');
+  const [prodSku, setProdSku] = useState('');
+  const [prodCategory, setProdCategory] = useState<'metabolic' | 'cellular' | 'recovery' | 'longevity' | 'stacks'>('metabolic');
+  const [prodStatus, setProdStatus] = useState<ProductStatus>('ACTIVE');
+  const [prodPrice, setProdPrice] = useState(250);
+  const [prodWholesalePrice, setProdWholesalePrice] = useState(175);
+  const [prodPurity, setProdPurity] = useState('99.5%');
+  const [prodStock, setProdStock] = useState(50);
+  const [prodLotNumber, setProdLotNumber] = useState('2026-A');
+  const [prodImageUrl, setProdImageUrl] = useState('https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=800&q=80');
+  const [prodShortDesc, setProdShortDesc] = useState('');
+  const [prodDescription, setProdDescription] = useState('');
+  const [prodDisclosures, setProdDisclosures] = useState('');
+  const [prodEducationalMaterial, setProdEducationalMaterial] = useState('');
 
   const reloadData = async () => {
     try {
-      const [pts, ords, erngs, prods, progs, arts, fqs, tests] = await Promise.all([
+      const [pts, ords, erngs, prods, progs, arts, fqs, tests, logs] = await Promise.all([
         dbService.getPartners(),
         dbService.getOrders(),
         dbService.getPartnerEarnings(),
@@ -43,7 +89,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
         dbService.getPrograms(),
         dbService.getArticles(),
         dbService.getFaqs(),
-        dbService.getTestimonials()
+        dbService.getTestimonials(),
+        dbService.getAuditLogs()
       ]);
       setPartners(pts);
       setOrders(ords);
@@ -53,6 +100,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
       setArticles(arts);
       setFaqs(fqs);
       setTestimonials(tests);
+      setAuditLogs(logs);
     } catch (err) {
       console.error('Failed to load admin data', err);
     } finally {
@@ -72,9 +120,22 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   const totalPartnerEarnings = earnings.reduce((acc, e) => acc + e.earningAmount, 0);
 
   // Partner status updater
-  const handleUpdatePartnerStatus = async (partnerId: string, status: PartnerStatus) => {
-    await dbService.updatePartnerStatus(partnerId, status);
-    await reloadData();
+  const handleUpdatePartnerStatus = async (partnerId: string, status: PartnerStatus, notes?: string) => {
+    setSavingPartnerReview(true);
+    try {
+      await dbService.updatePartnerStatus(partnerId, status, notes, 'SUPER_ADMIN');
+      await reloadData();
+      if (reviewingPartner && reviewingPartner.id === partnerId) {
+        setReviewingPartner((prev) => (prev ? { ...prev, status, adminNotes: notes ?? prev.adminNotes } : null));
+      }
+    } finally {
+      setSavingPartnerReview(false);
+    }
+  };
+
+  const openPartnerReviewModal = (partner: Partner) => {
+    setReviewingPartner(partner);
+    setPartnerAdminNotes(partner.adminNotes || '');
   };
 
   // Order status updater
@@ -89,43 +150,128 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
     await reloadData();
   };
 
-  // Create Product handler
-  const handleCreateProduct = async (e: React.FormEvent) => {
+  // Open Product Modal for Create or Edit
+  const openCreateProductModal = () => {
+    setEditingProduct(null);
+    setProdName('');
+    setProdSku('');
+    setProdCategory('metabolic');
+    setProdStatus('ACTIVE');
+    setProdPrice(250);
+    setProdWholesalePrice(175);
+    setProdPurity('99.5%');
+    setProdStock(50);
+    setProdLotNumber('2026-A');
+    setProdImageUrl('https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=800&q=80');
+    setProdShortDesc('');
+    setProdDescription('');
+    setProdDisclosures('For research and educational wellness use. Store lyophilized vials at 2°C–8°C protected from light.');
+    setProdEducationalMaterial('');
+    setProductModalOpen(true);
+  };
+
+  const openEditProductModal = (product: Product) => {
+    setEditingProduct(product);
+    setProdName(product.name);
+    setProdSku(product.sku);
+    setProdCategory(product.category);
+    setProdStatus(product.status);
+    setProdPrice(product.price);
+    setProdWholesalePrice(product.wholesalePrice ?? Math.round(product.price * 0.7));
+    setProdPurity(product.purity || '99.5%');
+    setProdStock(product.stockQuantity);
+    setProdLotNumber(product.lotNumber || '2026-A');
+    setProdImageUrl(product.imageUrl);
+    setProdShortDesc(product.shortDescription);
+    setProdDescription(product.description);
+    setProdDisclosures(product.disclosures || '');
+    setProdEducationalMaterial(product.educationalMaterial || '');
+    setProductModalOpen(true);
+  };
+
+  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setProdImageUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Save Product (Create or Update)
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
-    const slug = newProdName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-    const categoryLabels: Record<string, string> = {
-      metabolic: 'Metabolic Support',
-      cellular: 'Cellular Optimization',
-      recovery: 'Tissue Recovery',
-      longevity: 'Longevity & Vitality',
-      stacks: 'Synergy Multi-Kits'
-    };
+    const slug = prodName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+    const numericPrice = Number(prodPrice);
+    const numericWholesale = Number(prodWholesalePrice);
 
-    const newProd: Omit<Product, 'id'> = {
-      name: newProdName,
-      slug,
-      sku: `WH-${slug.slice(0, 4).toUpperCase()}-2026`,
-      category: newProdCategory,
-      categoryLabel: categoryLabels[newProdCategory] || 'Peptide',
-      shortDescription: newProdShortDesc,
-      description: newProdShortDesc,
-      price: Number(newProdPrice),
-      stockQuantity: Number(newProdStock),
-      status: 'ACTIVE',
-      featured: false,
-      purity: newProdPurity,
-      imageUrl: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=800&q=80',
-      strengths: [
-        { label: '5mg (10 Vials)', vialsCount: 10, price: Number(newProdPrice) },
-        { label: '10mg (10 Vials)', vialsCount: 10, price: Number(newProdPrice) * 1.75 }
-      ],
-      createdAt: new Date().toISOString()
-    };
+    if (editingProduct) {
+      const updatedStrengths = editingProduct.strengths?.length
+        ? editingProduct.strengths.map((s, idx) =>
+            idx === 0 ? { ...s, price: numericPrice } : s
+          )
+        : [
+            { label: '5mg (10 Vials)', vialsCount: 10, price: numericPrice },
+            { label: '10mg (10 Vials)', vialsCount: 10, price: Math.round(numericPrice * 1.75) }
+          ];
 
-    await dbService.createProduct(newProd);
-    setNewProductModal(false);
-    setNewProdName('');
-    setNewProdShortDesc('');
+      await dbService.updateProduct(editingProduct.id, {
+        name: prodName,
+        sku: prodSku || editingProduct.sku,
+        category: prodCategory,
+        categoryLabel: CATEGORY_LABELS[prodCategory] || 'Peptide',
+        status: prodStatus,
+        price: numericPrice,
+        wholesalePrice: numericWholesale,
+        purity: prodPurity,
+        stockQuantity: Number(prodStock),
+        lotNumber: prodLotNumber,
+        imageUrl: prodImageUrl,
+        shortDescription: prodShortDesc,
+        description: prodDescription || prodShortDesc,
+        disclosures: prodDisclosures,
+        educationalMaterial: prodEducationalMaterial,
+        strengths: updatedStrengths
+      });
+    } else {
+      const newProd: Omit<Product, 'id'> = {
+        name: prodName,
+        slug,
+        sku: prodSku || `WH-${slug.slice(0, 4).toUpperCase()}-2026`,
+        category: prodCategory,
+        categoryLabel: CATEGORY_LABELS[prodCategory] || 'Peptide',
+        shortDescription: prodShortDesc,
+        description: prodDescription || prodShortDesc,
+        disclosures: prodDisclosures,
+        educationalMaterial: prodEducationalMaterial,
+        price: numericPrice,
+        wholesalePrice: numericWholesale,
+        stockQuantity: Number(prodStock),
+        status: prodStatus,
+        featured: false,
+        purity: prodPurity,
+        lotNumber: prodLotNumber,
+        imageUrl: prodImageUrl,
+        strengths: [
+          { label: '5mg (10 Vials)', vialsCount: 10, price: numericPrice },
+          { label: '10mg (10 Vials)', vialsCount: 10, price: Math.round(numericPrice * 1.75) }
+        ],
+        createdAt: new Date().toISOString()
+      };
+
+      await dbService.createProduct(newProd);
+    }
+
+    setProductModalOpen(false);
+    setEditingProduct(null);
+    await reloadData();
+  };
+
+  const handleQuickProductStatus = async (product: Product, newStatus: ProductStatus) => {
+    await dbService.updateProduct(product.id, { status: newStatus });
     await reloadData();
   };
 
@@ -162,7 +308,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
 
         <div className="flex gap-2">
           <button
-            onClick={() => setNewProductModal(true)}
+            onClick={openCreateProductModal}
             className="px-4 py-2.5 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
           >
             <span className="material-symbols-outlined text-[16px]">add</span>
@@ -258,6 +404,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
           >
             CMS &amp; Education
           </button>
+          <button
+            onClick={() => setActiveTab('audit')}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap ${
+              activeTab === 'audit' ? 'bg-[#c5a059] text-white' : 'text-[#5a6b7c] hover:bg-[#dfd7c7]/50'
+            }`}
+          >
+            Audit Logs ({auditLogs.length})
+          </button>
         </div>
 
         {/* Tab 1: Overview Analytics */}
@@ -323,15 +477,33 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
         {/* Tab 2: Partner Management */}
         {activeTab === 'partners' && (
           <div>
-            <div className="p-4 border-b border-[#dfd7c7]/50 flex items-center gap-3">
-              <span className="material-symbols-outlined text-[#5a6b7c] text-[18px]">search</span>
-              <input
-                type="text"
-                placeholder="Search partners by name, ID, or contact email..."
-                value={searchPartner}
-                onChange={(e) => setSearchPartner(e.target.value)}
-                className="w-full text-xs text-[#0c2340] placeholder-[#5a6b7c] focus:outline-none"
-              />
+            <div className="p-4 border-b border-[#dfd7c7]/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 flex-1">
+                <span className="material-symbols-outlined text-[#5a6b7c] text-[18px]">search</span>
+                <input
+                  type="text"
+                  placeholder="Search partners by name, ID, location, or contact email..."
+                  value={searchPartner}
+                  onChange={(e) => setSearchPartner(e.target.value)}
+                  className="w-full text-xs text-[#0c2340] placeholder-[#5a6b7c] focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                {(['ALL', 'NEW', 'UNDER REVIEW', 'APPROVED', 'NEEDS INFORMATION', 'DECLINED', 'SUSPENDED'] as const).map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => setPartnerStatusFilter(st)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer whitespace-nowrap transition-colors ${
+                      partnerStatusFilter === st
+                        ? 'bg-[#0c2340] text-white'
+                        : 'bg-[#f6f4ee] text-[#5a6b7c] hover:bg-[#dfd7c7]/60'
+                    }`}
+                  >
+                    {st}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -339,67 +511,90 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                 <thead className="bg-[#fffdfb] text-[#0c2340] font-serif border-b border-[#dfd7c7]">
                   <tr>
                     <th className="p-4 font-bold">Partner ID</th>
-                    <th className="p-4 font-bold">Practice Name</th>
-                    <th className="p-4 font-bold">Contact Person</th>
-                    <th className="p-4 font-bold">Category</th>
-                    <th className="p-4 font-bold">Commission</th>
-                    <th className="p-4 font-bold">VIP Discount</th>
+                    <th className="p-4 font-bold">Business / Organization</th>
+                    <th className="p-4 font-bold">Owner / Contact</th>
+                    <th className="p-4 font-bold">Type &amp; Location</th>
+                    <th className="p-4 font-bold">Member Base</th>
                     <th className="p-4 font-bold">Status</th>
-                    <th className="p-4 font-bold text-right">Actions</th>
+                    <th className="p-4 font-bold text-right">Review &amp; Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#dfd7c7]/40 text-[#5a6b7c]">
                   {partners
-                    .filter((p) => p.name.toLowerCase().includes(searchPartner.toLowerCase()) || p.partnerId.toLowerCase().includes(searchPartner.toLowerCase()))
-                    .map((p) => (
-                      <tr key={p.id} className="hover:bg-[#fffdfb]/50 transition-colors">
-                        <td className="p-4 font-mono font-bold text-[#c5a059]">{p.partnerId}</td>
-                        <td className="p-4 font-medium text-[#0c2340]">
-                          <div>{p.name}</div>
-                          <button
-                            onClick={() => navigate('partner-page', p.slug)}
-                            className="text-[10px] text-[#c5a059] hover:underline"
-                          >
-                            /partner/{p.slug}
-                          </button>
-                        </td>
-                        <td className="p-4">{p.contactPerson} ({p.email})</td>
-                        <td className="p-4">{p.category}</td>
-                        <td className="p-4 font-semibold text-[#0c2340]">{(p.commissionRate * 100).toFixed(0)}%</td>
-                        <td className="p-4 font-semibold text-[#0c2340]">{(p.memberDiscountRate * 100).toFixed(0)}%</td>
-                        <td className="p-4">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            p.status === 'APPROVED'
-                              ? 'bg-[#dfd7c7] text-[#c5a059]'
-                              : p.status === 'PENDING'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-red-100 text-red-700'
-                          }`}>
-                            {p.status}
-                          </span>
-                        </td>
-                        <td className="p-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            {p.status !== 'APPROVED' && (
+                    .filter((p) => {
+                      const matchesFilter = partnerStatusFilter === 'ALL' || p.status === partnerStatusFilter;
+                      const q = searchPartner.toLowerCase();
+                      const matchesSearch =
+                        !q ||
+                        p.name.toLowerCase().includes(q) ||
+                        p.partnerId.toLowerCase().includes(q) ||
+                        p.email.toLowerCase().includes(q) ||
+                        (p.location || '').toLowerCase().includes(q);
+                      return matchesFilter && matchesSearch;
+                    })
+                    .map((p) => {
+                      const statusBadgeClass =
+                        p.status === 'APPROVED'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : p.status === 'NEW'
+                          ? 'bg-blue-100 text-blue-800'
+                          : p.status === 'UNDER REVIEW' || p.status === 'PENDING'
+                          ? 'bg-amber-100 text-amber-800'
+                          : p.status === 'NEEDS INFORMATION'
+                          ? 'bg-orange-100 text-orange-800'
+                          : 'bg-red-100 text-red-700';
+
+                      return (
+                        <tr key={p.id} className="hover:bg-[#fffdfb]/50 transition-colors">
+                          <td className="p-4 font-mono font-bold text-[#c5a059]">{p.partnerId}</td>
+                          <td className="p-4 font-medium text-[#0c2340]">
+                            <div>{p.name}</div>
+                            <button
+                              onClick={() => navigate('partner-page', p.slug)}
+                              className="text-[10px] text-[#c5a059] hover:underline cursor-pointer"
+                            >
+                              /partner/{p.slug}
+                            </button>
+                          </td>
+                          <td className="p-4">
+                            <div className="font-medium text-[#0c2340]">{p.contactPerson}</div>
+                            <div className="text-[11px] text-[#5a6b7c]">{p.email}</div>
+                          </td>
+                          <td className="p-4">
+                            <div>{p.category}</div>
+                            {p.location && <div className="text-[11px] text-[#5a6b7c]">{p.location}</div>}
+                          </td>
+                          <td className="p-4">{p.memberBaseSize || '—'}</td>
+                          <td className="p-4">
+                            <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase ${statusBadgeClass}`}>
+                              {p.status}
+                            </span>
+                          </td>
+                          <td className="p-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
                               <button
-                                onClick={() => handleUpdatePartnerStatus(p.id, 'APPROVED')}
-                                className="px-2.5 py-1 rounded bg-[#c5a059] text-white text-[10px] font-semibold hover:bg-[#0c2340] cursor-pointer"
+                                onClick={() => openPartnerReviewModal(p)}
+                                className="px-2.5 py-1 rounded bg-[#0c2340] text-white text-[10px] font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer"
                               >
-                                Approve
+                                Review Application
                               </button>
-                            )}
-                            {p.status !== 'SUSPENDED' && (
-                              <button
-                                onClick={() => handleUpdatePartnerStatus(p.id, 'SUSPENDED')}
-                                className="px-2.5 py-1 rounded border border-[#dfd7c7] text-[#5a6b7c] text-[10px] font-semibold hover:bg-[#f6f4ee] cursor-pointer"
+                              <select
+                                value={p.status}
+                                onChange={(e) => handleUpdatePartnerStatus(p.id, e.target.value as PartnerStatus, p.adminNotes)}
+                                className="px-2 py-1 rounded bg-white border border-[#dfd7c7] text-[10px] font-semibold text-[#0c2340] cursor-pointer"
+                                aria-label={`Change status for ${p.name}`}
                               >
-                                Suspend
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                                {PARTNER_STATUS_OPTIONS.map((opt) => (
+                                  <option key={opt} value={opt}>
+                                    {opt}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>
@@ -532,37 +727,124 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
 
         {/* Tab 5: Product Catalog CMS */}
         {activeTab === 'products' && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-[#fffdfb] text-[#0c2340] font-serif border-b border-[#dfd7c7]">
-                <tr>
-                  <th className="p-4 font-bold">SKU</th>
-                  <th className="p-4 font-bold">Formulation Name</th>
-                  <th className="p-4 font-bold">Category</th>
-                  <th className="p-4 font-bold">Base Price</th>
-                  <th className="p-4 font-bold">Purity</th>
-                  <th className="p-4 font-bold">Stock</th>
-                  <th className="p-4 font-bold">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#dfd7c7]/40 text-[#5a6b7c]">
-                {products.map((p) => (
-                  <tr key={p.id} className="hover:bg-[#fffdfb]/50">
-                    <td className="p-4 font-mono text-[#5a6b7c]">{p.sku}</td>
-                    <td className="p-4 font-semibold text-[#0c2340]">{p.name}</td>
-                    <td className="p-4">{p.categoryLabel}</td>
-                    <td className="p-4 font-bold text-[#0c2340]">${p.price.toFixed(2)}</td>
-                    <td className="p-4 font-semibold text-[#c5a059]">{p.purity || '99.4%'}</td>
-                    <td className="p-4">{p.stockQuantity} kits</td>
-                    <td className="p-4">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#dfd7c7] text-[#c5a059]">
-                        {p.status}
-                      </span>
-                    </td>
+          <div>
+            <div className="p-4 border-b border-[#dfd7c7]/50 flex items-center justify-between">
+              <div>
+                <h3 className="font-serif text-base font-bold text-[#0c2340]">
+                  Full Product Catalog Management
+                </h3>
+                <p className="text-[11px] text-[#5a6b7c]">
+                  Edit formulations, adjust retail &amp; wholesale pricing, upload images, update disclosures, or disable/mark unavailable.
+                </p>
+              </div>
+              <button
+                onClick={openCreateProductModal}
+                className="px-3.5 py-2 rounded-xl bg-[#0c2340] text-white text-xs font-semibold hover:bg-[#c5a059] transition-colors flex items-center gap-1 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+                <span>Add Product</span>
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-[#fffdfb] text-[#0c2340] font-serif border-b border-[#dfd7c7]">
+                  <tr>
+                    <th className="p-4 font-bold">Product</th>
+                    <th className="p-4 font-bold">Category</th>
+                    <th className="p-4 font-bold">Retail / Wholesale</th>
+                    <th className="p-4 font-bold">Purity</th>
+                    <th className="p-4 font-bold">Stock</th>
+                    <th className="p-4 font-bold">Status</th>
+                    <th className="p-4 font-bold text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[#dfd7c7]/40 text-[#5a6b7c]">
+                  {products.map((p) => {
+                    const statusClass =
+                      p.status === 'ACTIVE'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : p.status === 'UNAVAILABLE' || p.status === 'OUT_OF_STOCK'
+                        ? 'bg-amber-100 text-amber-800'
+                        : p.status === 'DISABLED'
+                        ? 'bg-red-100 text-red-700'
+                        : 'bg-[#dfd7c7] text-[#0c2340]';
+
+                    return (
+                      <tr key={p.id} className="hover:bg-[#fffdfb]/50">
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={p.imageUrl}
+                              alt={p.name}
+                              className="w-10 h-10 rounded-lg object-cover bg-[#f6f4ee] border border-[#dfd7c7]"
+                            />
+                            <div>
+                              <span className="font-semibold text-[#0c2340] block">{p.name}</span>
+                              <span className="font-mono text-[10px] text-[#5a6b7c]">{p.sku}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-4">{p.categoryLabel}</td>
+                        <td className="p-4">
+                          <span className="font-bold text-[#0c2340]">${p.price.toFixed(2)}</span>
+                          <span className="block text-[10px] text-[#c5a059]">
+                            Wholesale: ${(p.wholesalePrice ?? Math.round(p.price * 0.7)).toFixed(2)}
+                          </span>
+                        </td>
+                        <td className="p-4 font-semibold text-[#c5a059]">{p.purity || '99.4%'}</td>
+                        <td className="p-4">{p.stockQuantity} kits</td>
+                        <td className="p-4">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${statusClass}`}>
+                            {p.status}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => openEditProductModal(p)}
+                              className="px-2.5 py-1 rounded bg-[#0c2340] text-white text-[10px] font-semibold hover:bg-[#c5a059] cursor-pointer"
+                            >
+                              Edit
+                            </button>
+                            {p.status !== 'UNAVAILABLE' ? (
+                              <button
+                                onClick={() => handleQuickProductStatus(p, 'UNAVAILABLE')}
+                                className="px-2.5 py-1 rounded border border-amber-300 text-amber-800 bg-amber-50 text-[10px] font-semibold hover:bg-amber-100 cursor-pointer"
+                              >
+                                Mark Unavailable
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleQuickProductStatus(p, 'ACTIVE')}
+                                className="px-2.5 py-1 rounded border border-emerald-300 text-emerald-800 bg-emerald-50 text-[10px] font-semibold hover:bg-emerald-100 cursor-pointer"
+                              >
+                                Mark Active
+                              </button>
+                            )}
+                            {p.status !== 'DISABLED' ? (
+                              <button
+                                onClick={() => handleQuickProductStatus(p, 'DISABLED')}
+                                className="px-2.5 py-1 rounded border border-red-200 text-red-700 bg-red-50 text-[10px] font-semibold hover:bg-red-100 cursor-pointer"
+                              >
+                                Disable
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleQuickProductStatus(p, 'ACTIVE')}
+                                className="px-2.5 py-1 rounded border border-emerald-300 text-emerald-800 bg-emerald-50 text-[10px] font-semibold hover:bg-emerald-100 cursor-pointer"
+                              >
+                                Enable
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -607,40 +889,237 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
           </div>
         )}
 
+        {/* Tab 7: Audit Logs */}
+        {activeTab === 'audit' && (
+          <div>
+            <div className="p-4 border-b border-[#dfd7c7]/50">
+              <h3 className="font-serif text-base font-bold text-[#0c2340]">
+                Administrative Audit Trail
+              </h3>
+              <p className="text-[11px] text-[#5a6b7c]">
+                Immutable log of partner application reviews, status transitions, and product catalog modifications.
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-[#fffdfb] text-[#0c2340] font-serif border-b border-[#dfd7c7]">
+                  <tr>
+                    <th className="p-4 font-bold">Timestamp</th>
+                    <th className="p-4 font-bold">Action</th>
+                    <th className="p-4 font-bold">Resource</th>
+                    <th className="p-4 font-bold">Actor</th>
+                    <th className="p-4 font-bold">Details</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#dfd7c7]/40 text-[#5a6b7c]">
+                  {auditLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="p-8 text-center text-[#5a6b7c]">
+                        No audit events recorded yet. Partner status changes and product edits will appear here.
+                      </td>
+                    </tr>
+                  ) : (
+                    auditLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-[#fffdfb]/50">
+                        <td className="p-4 font-mono text-[11px]">
+                          {new Date(log.timestamp).toLocaleString()}
+                        </td>
+                        <td className="p-4">
+                          <span className="px-2 py-0.5 rounded bg-[#0c2340] text-white text-[10px] font-bold">
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="p-4 font-mono text-[11px] text-[#0c2340]">
+                          {log.resource}: {log.resourceId || '—'}
+                        </td>
+                        <td className="p-4 font-semibold text-[#c5a059]">{log.userRole || 'ADMIN'}</td>
+                        <td className="p-4 text-[11px] max-w-md truncate">
+                          {log.metadata ? JSON.stringify(log.metadata) : '—'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
       </div>
 
-      {/* New Formulation Modal */}
-      {newProductModal && (
-        <div className="fixed inset-0 z-50 bg-[#0c2340]/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#fffdfb] w-full max-w-lg rounded-3xl border border-[#dfd7c7] shadow-2xl p-6 sm:p-8 space-y-4 text-xs animate-in zoom-in-95">
+      {/* Partner Application Review Modal */}
+      {reviewingPartner && (
+        <div className="fixed inset-0 z-50 bg-[#0c2340]/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#fffdfb] w-full max-w-2xl rounded-3xl border border-[#dfd7c7] shadow-2xl p-6 sm:p-8 space-y-5 text-xs my-8">
+            <div className="flex justify-between items-start border-b border-[#dfd7c7] pb-4">
+              <div>
+                <span className="text-[10px] uppercase font-bold tracking-widest text-[#c5a059]">
+                  Partner Application Review • {reviewingPartner.partnerId}
+                </span>
+                <h3 className="font-serif text-2xl font-bold text-[#0c2340] mt-0.5">
+                  {reviewingPartner.name}
+                </h3>
+                <p className="text-[11px] text-[#5a6b7c]">
+                  Submitted {new Date(reviewingPartner.createdAt).toLocaleString()}
+                </p>
+              </div>
+              <button
+                onClick={() => setReviewingPartner(null)}
+                className="text-[#5a6b7c] hover:text-[#0c2340] cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[22px]">close</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#f6f4ee] p-4 rounded-2xl border border-[#dfd7c7]">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Owner / Contact</span>
+                <span className="font-semibold text-[#0c2340]">{reviewingPartner.contactPerson}</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Email &amp; Phone</span>
+                <span className="font-semibold text-[#0c2340]">{reviewingPartner.email} • {reviewingPartner.phone}</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Business Type</span>
+                <span className="font-semibold text-[#0c2340]">{reviewingPartner.category}</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Location</span>
+                <span className="font-semibold text-[#0c2340]">{reviewingPartner.location || reviewingPartner.address || '—'}</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Website</span>
+                <span className="font-semibold text-[#c5a059] break-all">{reviewingPartner.website || '—'}</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Member Base</span>
+                <span className="font-semibold text-[#0c2340]">{reviewingPartner.memberBaseSize || '—'}</span>
+              </div>
+              <div className="sm:col-span-2">
+                <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Population Served</span>
+                <span className="text-[#0c2340]">{reviewingPartner.populationServed || '—'}</span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Current Wellness Services</span>
+                <p className="p-2.5 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] mt-1">
+                  {reviewingPartner.currentWellnessServices || reviewingPartner.description || '—'}
+                </p>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Why They Want to Partner</span>
+                <p className="p-2.5 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] mt-1">
+                  {reviewingPartner.whyPartner || '—'}
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Marketing Strategy</span>
+                  <p className="p-2.5 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] mt-1">
+                    {reviewingPartner.marketingStrategy || '—'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Promotion Plan</span>
+                  <p className="p-2.5 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] mt-1">
+                    {reviewingPartner.promotionPlan || '—'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] uppercase font-bold text-[#5a6b7c] mb-1">
+                Admin Reviewer Notes (Internal)
+              </label>
+              <textarea
+                rows={2}
+                placeholder="Add verification notes, follow-up questions, or approval conditions..."
+                value={partnerAdminNotes}
+                onChange={(e) => setPartnerAdminNotes(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
+              />
+            </div>
+
+            <div className="pt-2 border-t border-[#dfd7c7] space-y-2">
+              <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">
+                Set Application Status (Current: <strong className="text-[#0c2340]">{reviewingPartner.status}</strong>)
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {PARTNER_STATUS_OPTIONS.map((st) => (
+                  <button
+                    key={st}
+                    disabled={savingPartnerReview}
+                    onClick={() => handleUpdatePartnerStatus(reviewingPartner.id, st, partnerAdminNotes)}
+                    className={`px-3 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider cursor-pointer transition-colors ${
+                      reviewingPartner.status === st
+                        ? 'bg-[#c5a059] text-white'
+                        : 'bg-[#f6f4ee] text-[#0c2340] hover:bg-[#0c2340] hover:text-white'
+                    }`}
+                  >
+                    {st}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Product Modal */}
+      {productModalOpen && (
+        <div className="fixed inset-0 z-50 bg-[#0c2340]/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#fffdfb] w-full max-w-2xl rounded-3xl border border-[#dfd7c7] shadow-2xl p-6 sm:p-8 space-y-4 text-xs my-8">
             <div className="flex justify-between items-center border-b border-[#dfd7c7] pb-3">
               <h3 className="font-serif text-xl font-bold text-[#0c2340]">
-                Add Clinical Formulation
+                {editingProduct ? `Edit Product: ${editingProduct.name}` : 'Add Clinical Formulation'}
               </h3>
-              <button onClick={() => setNewProductModal(false)} className="text-[#5a6b7c] cursor-pointer">
+              <button
+                onClick={() => {
+                  setProductModalOpen(false);
+                  setEditingProduct(null);
+                }}
+                className="text-[#5a6b7c] cursor-pointer"
+              >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
 
-            <form onSubmit={handleCreateProduct} className="space-y-4">
-              <div>
-                <label className="block text-[#5a6b7c] font-medium mb-1">Formulation Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Epithalon Telomeric Activator"
-                  value={newProdName}
-                  onChange={(e) => setNewProdName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
-                />
+            <form onSubmit={handleSaveProduct} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-[#5a6b7c] font-medium mb-1">Formulation Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Epithalon Telomeric Activator"
+                    value={prodName}
+                    onChange={(e) => setProdName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#5a6b7c] font-medium mb-1">SKU *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="WH-EPIT-2026"
+                    value={prodSku}
+                    onChange={(e) => setProdSku(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[#5a6b7c] font-medium mb-1">Category</label>
+                  <label className="block text-[#5a6b7c] font-medium mb-1">Category *</label>
                   <select
-                    value={newProdCategory}
-                    onChange={(e) => setNewProdCategory(e.target.value as any)}
+                    value={prodCategory}
+                    onChange={(e) => setProdCategory(e.target.value as any)}
                     className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
                   >
                     <option value="metabolic">Metabolic Support</option>
@@ -651,57 +1130,144 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[#5a6b7c] font-medium mb-1">Base Price ($)</label>
+                  <label className="block text-[#5a6b7c] font-medium mb-1">Catalog Status *</label>
+                  <select
+                    value={prodStatus}
+                    onChange={(e) => setProdStatus(e.target.value as ProductStatus)}
+                    className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                  >
+                    <option value="ACTIVE">ACTIVE (Visible &amp; Purchasable)</option>
+                    <option value="UNAVAILABLE">UNAVAILABLE (Visible, Out of Stock)</option>
+                    <option value="DISABLED">DISABLED (Hidden from Storefront)</option>
+                    <option value="DRAFT">DRAFT</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-[#5a6b7c] font-medium mb-1">Retail Price ($) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={prodPrice}
+                    onChange={(e) => setProdPrice(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#5a6b7c] font-medium mb-1">Wholesale Price ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={prodWholesalePrice}
+                    onChange={(e) => setProdWholesalePrice(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#5a6b7c] font-medium mb-1">HPLC Purity *</label>
+                  <input
+                    type="text"
+                    required
+                    value={prodPurity}
+                    onChange={(e) => setProdPurity(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#5a6b7c] font-medium mb-1">Stock Quantity *</label>
                   <input
                     type="number"
                     required
-                    value={newProdPrice}
-                    onChange={(e) => setNewProdPrice(Number(e.target.value))}
+                    value={prodStock}
+                    onChange={(e) => setProdStock(Number(e.target.value))}
                     className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[#5a6b7c] font-medium mb-1">HPLC Purity</label>
-                  <input
-                    type="text"
-                    required
-                    value={newProdPurity}
-                    onChange={(e) => setNewProdPurity(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[#5a6b7c] font-medium mb-1">Stock Quantity</label>
-                  <input
-                    type="number"
-                    required
-                    value={newProdStock}
-                    onChange={(e) => setNewProdStock(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
-                  />
+              {/* Product Image Upload & URL */}
+              <div className="p-3.5 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7] space-y-2">
+                <label className="block text-[#0c2340] font-semibold">Product Image</label>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                  {prodImageUrl && (
+                    <img
+                      src={prodImageUrl}
+                      alt="Product preview"
+                      className="w-16 h-16 rounded-xl object-cover border border-[#dfd7c7] bg-white shrink-0"
+                    />
+                  )}
+                  <div className="flex-1 w-full space-y-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageFileUpload}
+                      className="block w-full text-[11px] text-[#5a6b7c] file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0c2340] file:text-white hover:file:bg-[#c5a059] cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Or paste image URL..."
+                      value={prodImageUrl}
+                      onChange={(e) => setProdImageUrl(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340] text-[11px]"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-[#5a6b7c] font-medium mb-1">Short Description</label>
+                <label className="block text-[#5a6b7c] font-medium mb-1">Short Description *</label>
                 <textarea
                   rows={2}
                   required
                   placeholder="Clinical mechanism and indication..."
-                  value={newProdShortDesc}
-                  onChange={(e) => setNewProdShortDesc(e.target.value)}
+                  value={prodShortDesc}
+                  onChange={(e) => setProdShortDesc(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
                 />
+              </div>
+
+              <div>
+                <label className="block text-[#5a6b7c] font-medium mb-1">Full Description</label>
+                <textarea
+                  rows={2}
+                  placeholder="Detailed formulation overview..."
+                  value={prodDescription}
+                  onChange={(e) => setProdDescription(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[#5a6b7c] font-medium mb-1">Disclosures &amp; Storage</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Regulatory disclosures, storage temperature, handling..."
+                    value={prodDisclosures}
+                    onChange={(e) => setProdDisclosures(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#5a6b7c] font-medium mb-1">Educational Material</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Educational notes, protocol context, or resource links..."
+                    value={prodEducationalMaterial}
+                    onChange={(e) => setProdEducationalMaterial(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                </div>
               </div>
 
               <button
                 type="submit"
                 className="w-full py-3 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] cursor-pointer"
               >
-                Save Formulation to Database
+                {editingProduct ? 'Save Product Changes' : 'Save Formulation to Database'}
               </button>
             </form>
           </div>

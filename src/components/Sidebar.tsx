@@ -143,13 +143,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </a>
 
         <button
-          onClick={() => {
-            if (currentUser) {
-              navigate('customer-portal');
-            } else {
-              onOpenAuth();
-            }
-          }}
+          onClick={() => navigate('customer-portal')}
         >
           <span>♙</span>
           <span>{currentUser ? currentUser.displayName.split(' ')[0] : 'Profile'}</span>
@@ -171,13 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
 
         <button
-          onClick={() => {
-            if (currentUser) {
-              navigate('customer-portal');
-            } else {
-              onOpenAuth();
-            }
-          }}
+          onClick={() => navigate('customer-portal')}
           className={isOrdersActive ? 'active' : ''}
         >
           <span>□</span>

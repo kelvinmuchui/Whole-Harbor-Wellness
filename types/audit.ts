@@ -13,6 +13,7 @@ export interface AuditLogEntry {
     | 'PARTNER_APPROVED'
     | 'PARTNER_SUSPENDED'
     | 'PARTNER_REJECTED'
+    | 'PARTNER_STATUS_CHANGED'
     | 'ORDER_CREATED'
     | 'ORDER_STATUS_CHANGED'
     | 'PAYMENT_PROCESSED'
@@ -20,6 +21,9 @@ export interface AuditLogEntry {
     | 'EARNING_PAID'
     | 'PRODUCT_CREATED'
     | 'PRODUCT_UPDATED'
+    | 'PRODUCT_DISABLED'
+    | 'PRODUCT_UNAVAILABLE'
+    | 'PRODUCT_DELETED'
     | 'SECURITY_EVENT';
   resource: 'User' | 'Partner' | 'Order' | 'Product' | 'PartnerEarning' | 'Session';
   resourceId?: string;

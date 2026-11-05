@@ -87,6 +87,7 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
 
   const filteredCatalog = useMemo(() => {
     return products.filter((p) => {
+      if (p.status === 'DISABLED') return false;
       const matchesCat = selectedCategory === 'all' || p.category === selectedCategory;
       const matchesSearch =
         !searchQuery ||
@@ -231,13 +232,17 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
               Dual-action GLP-1 receptor agonist studied for appetite regulation and metabolic balance.
             </p>
             <div className="strength">
-              <span>Option</span>
-              <b>5mg • 10 vials</b>
+              <span>Retail Unit</span>
+              <b>Individual Vial (5mg)</b>
             </div>
             <div className="price-row">
               <div className="featured-price">
-                <small>From</small>
-                <strong>$145.00</strong>
+                <small>Individual Vial</small>
+                <strong>
+                  ${semaglutideProd?.strengths?.[0]
+                    ? (semaglutideProd.strengths[0].price / (semaglutideProd.strengths[0].vialsCount || 1)).toFixed(2)
+                    : '14.50'}
+                </strong>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -281,13 +286,17 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
               Synthesized pentadecapeptide studied for tendon, ligament, and gut mucosal tissue repair.
             </p>
             <div className="strength">
-              <span>Option</span>
-              <b>10mg • 10 vials</b>
+              <span>Retail Unit</span>
+              <b>Individual Vial (10mg)</b>
             </div>
             <div className="price-row">
               <div className="featured-price">
-                <small>From</small>
-                <strong>$165.00</strong>
+                <small>Individual Vial</small>
+                <strong>
+                  ${bpcProd?.strengths?.[0]
+                    ? (bpcProd.strengths[0].price / (bpcProd.strengths[0].vialsCount || 1)).toFixed(2)
+                    : '16.50'}
+                </strong>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -331,13 +340,17 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
               Mitochondrial-derived 16-amino acid peptide for intracellular AMPK bioenergetics and resilience.
             </p>
             <div className="strength">
-              <span>Option</span>
-              <b>20mg • 10 vials</b>
+              <span>Retail Unit</span>
+              <b>Individual Vial (20mg)</b>
             </div>
             <div className="price-row">
               <div className="featured-price">
-                <small>From</small>
-                <strong>$285.00</strong>
+                <small>Individual Vial</small>
+                <strong>
+                  ${motscProd?.strengths?.[0]
+                    ? (motscProd.strengths[0].price / (motscProd.strengths[0].vialsCount || 1)).toFixed(2)
+                    : '28.50'}
+                </strong>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -426,62 +439,68 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
         ) : (
           /* Catalog Grid */
           <div className="catalog-grid">
-            {filteredCatalog.map((prod) => (
-              <article key={prod.id} className="catalog-card">
-                <div className="catalog-card-head">
-                  <h3
-                    onClick={() => navigate('product-detail', prod.slug)}
-                    className="cursor-pointer hover:text-[var(--rose)] transition-colors"
-                  >
-                    {prod.name}
-                  </h3>
-                  <span>{prod.strengths.length} options</span>
-                </div>
-                <div className="catalog-purpose">
-                  <span>{prod.categoryLabel}</span>
-                  <p>{prod.shortDescription}</p>
-                  <button
-                    onClick={() => {
-                      setSelectedEducationProduct(prod);
-                      setModalSelectedStrength(prod.strengths[0] || null);
-                    }}
-                    className="cursor-pointer"
-                  >
-                    Learn more <b>→</b>
-                  </button>
-                </div>
+            {filteredCatalog.map((prod) => {
+              const isUnavailable = prod.status === 'UNAVAILABLE' || prod.status === 'OUT_OF_STOCK';
+              return (
+                <article key={prod.id} className={`catalog-card ${isUnavailable ? 'opacity-75' : ''}`}>
+                  <div className="catalog-card-head">
+                    <h3
+                      onClick={() => navigate('product-detail', prod.slug)}
+                      className="cursor-pointer hover:text-[var(--rose)] transition-colors"
+                    >
+                      {prod.name}
+                    </h3>
+                    <span>{isUnavailable ? 'Unavailable' : `${prod.strengths.length} options`}</span>
+                  </div>
+                  <div className="catalog-purpose">
+                    <span>{prod.categoryLabel}</span>
+                    <p>{prod.shortDescription}</p>
+                    <button
+                      onClick={() => {
+                        setSelectedEducationProduct(prod);
+                        setModalSelectedStrength(prod.strengths[0] || null);
+                      }}
+                      className="cursor-pointer"
+                    >
+                      Learn more <b>→</b>
+                    </button>
+                  </div>
 
-                {/* Variant List */}
-                <div className="variant-list">
-                  {prod.strengths.map((str, idx) => {
-                    const key = `${prod.id}-${str.label}`;
-                    const isAdded = !!addedItems[key];
-                    return (
-                      <div key={idx}>
-                        <span>
-                          <b>{str.label.split('/')[0].trim()}</b>
-                          <small>{str.vialsCount} vials • HPLC {prod.purity || '≥ 99.4%'}</small>
-                        </span>
-                        <span className="variant-price">
-                          <strong>${str.price.toFixed(2)}</strong>
-                          <small>
-                            ${(str.pricePerVial ?? (str.price / (str.vialsCount || 1))).toFixed(2)} / vial
-                          </small>
-                        </span>
-                        <button
-                          className={isAdded ? 'added' : ''}
-                          onClick={() => handleQuickAdd(prod, str)}
-                          aria-label={`Add ${prod.name} ${str.label} to cart`}
-                          title="Quick Add to Cart"
-                        >
-                          {isAdded ? '✓' : '+'}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </article>
-            ))}
+                  {/* Variant List */}
+                  <div className="variant-list">
+                    {prod.strengths.map((str, idx) => {
+                      const key = `${prod.id}-${str.label}`;
+                      const isAdded = !!addedItems[key];
+                      return (
+                        <div key={idx}>
+                          <span>
+                            <b>{str.label.split('/')[0].trim()}</b>
+                            <small>{str.vialsCount} vials • HPLC {prod.purity || '≥ 99.4%'}</small>
+                          </span>
+                          <span className="variant-price">
+                            <strong>
+                              ${(str.pricePerVial ?? (str.price / (str.vialsCount || 1))).toFixed(2)} / vial
+                            </strong>
+                            <small>
+                              ${str.price.toFixed(2)} total ({str.vialsCount} vials)
+                            </small>
+                          </span>
+                          <button
+                            className={isAdded ? 'added' : ''}
+                            disabled={isUnavailable}
+                            onClick={() => !isUnavailable && handleQuickAdd(prod, str)}
+                            aria-label={isUnavailable ? `${prod.name} unavailable` : `Add ${prod.name} ${str.label} to cart`}
+                            title={isUnavailable ? 'Currently Unavailable' : 'Quick Add to Cart'}
+                          >
+                            {isUnavailable ? '—' : isAdded ? '✓' : '+'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
 
@@ -676,8 +695,14 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
               <div>
                 <b>Clinical Reconstitution &amp; Storage</b>
                 <p>
-                  Lyophilized cake must be reconstituted with Bacteriostatic Reconstitution Saline (0.9% Benzyl Alcohol). Once reconstituted, store protected from light at 2°C–8°C and use within 28 days.
+                  {selectedEducationProduct.disclosures ||
+                    'Lyophilized cake must be reconstituted with Bacteriostatic Reconstitution Saline (0.9% Benzyl Alcohol). Once reconstituted, store protected from light at 2°C–8°C and use within 28 days.'}
                 </p>
+                {selectedEducationProduct.educationalMaterial && (
+                  <p className="mt-2 pt-2 border-t border-[#dfd7c7]">
+                    <strong>Educational Notes:</strong> {selectedEducationProduct.educationalMaterial}
+                  </p>
+                )}
               </div>
             </div>
 

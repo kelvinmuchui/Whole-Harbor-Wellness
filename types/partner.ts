@@ -2,7 +2,15 @@
  * Partner Ecosystem Type Definitions
  */
 
-export type PartnerStatus = 'PENDING' | 'APPROVED' | 'SUSPENDED' | 'REJECTED';
+export type PartnerStatus =
+  | 'NEW'
+  | 'UNDER REVIEW'
+  | 'APPROVED'
+  | 'DECLINED'
+  | 'NEEDS INFORMATION'
+  | 'PENDING'
+  | 'SUSPENDED'
+  | 'REJECTED';
 
 export interface Partner {
   id: string; // Database Primary Key UUID
@@ -16,8 +24,18 @@ export interface Partner {
   description: string;
   logoUrl?: string;
   website?: string;
-  category: string; // e.g. Medical Spa, Performance Gym, Longevity Practice
+  category: string; // Business type: e.g. Yoga Studio, Fitness Studio, Wellness Practice
   address?: string;
+  location?: string;
+  populationServed?: string;
+  memberBaseSize?: string;
+  currentWellnessServices?: string;
+  whyPartner?: string;
+  marketingStrategy?: string;
+  promotionPlan?: string;
+  agreedToTerms?: boolean;
+  agreedAt?: string;
+  adminNotes?: string;
   status: PartnerStatus;
   commissionRate: number; // e.g. 0.25 (25%)
   memberDiscountRate: number; // e.g. 0.15 (15%)

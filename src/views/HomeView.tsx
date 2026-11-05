@@ -51,6 +51,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
 
   const filteredCatalog = useMemo(() => {
     return products.filter(p => {
+      if (p.status === 'DISABLED') return false;
       const matchesCat = selectedCategory === 'all' || p.category === selectedCategory;
       const matchesSearch = !searchQuery || 
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

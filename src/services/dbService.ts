@@ -23,10 +23,10 @@ import {
   FAQ, 
   Testimonial,
   OrderStatus,
-  PartnerStatus
+  PartnerStatus,
+  AuditLogEntry
 } from '../types/index.ts';
 import { 
-  INITIAL_PRODUCTS, 
   INITIAL_PROGRAMS, 
   INITIAL_PARTNERS, 
   INITIAL_ORDERS, 
@@ -35,6 +35,7 @@ import {
   INITIAL_FAQS, 
   INITIAL_TESTIMONIALS 
 } from '../lib/seedData.ts';
+import { WHW_PRODUCTS } from '../lib/whwCatalog.ts';
 
 // Local storage keys for instant responsiveness and resilient fallback
 const STORAGE_PREFIX = 'whole_harbor_';
@@ -56,14 +57,25 @@ const setLocal = <T>(key: string, data: T) => {
 
 // --- INITIAL SEEDING HELPER ---
 let isSeeded = false;
+const CATALOG_VERSION = 'whw_prices_v3';
+
 export async function seedInitialDatabase(): Promise<void> {
   if (isSeeded) return;
   try {
+    const syncedVersion = localStorage.getItem(STORAGE_PREFIX + 'catalog_version');
+    if (syncedVersion !== CATALOG_VERSION) {
+      setLocal('products', WHW_PRODUCTS);
+      localStorage.setItem(STORAGE_PREFIX + 'catalog_version', CATALOG_VERSION);
+      for (const p of WHW_PRODUCTS) {
+        await setDoc(doc(db, 'products', p.id), p, { merge: true }).catch(() => {});
+      }
+    }
+
     // Check if products collection exists in Firestore
     const productsSnap = await getDocs(collection(db, 'products'));
     if (productsSnap.empty) {
       console.log('Seeding initial products into Firestore...');
-      for (const p of INITIAL_PRODUCTS) {
+      for (const p of WHW_PRODUCTS) {
         await setDoc(doc(db, 'products', p.id), p);
       }
       for (const prog of INITIAL_PROGRAMS) {
@@ -98,6 +110,15 @@ export async function seedInitialDatabase(): Promise<void> {
 
 // --- PRODUCTS ---
 export async function getProducts(): Promise<Product[]> {
+  const syncedVersion = localStorage.getItem(STORAGE_PREFIX + 'catalog_version');
+  if (syncedVersion !== CATALOG_VERSION) {
+    setLocal('products', WHW_PRODUCTS);
+    localStorage.setItem(STORAGE_PREFIX + 'catalog_version', CATALOG_VERSION);
+    for (const p of WHW_PRODUCTS) {
+      await setDoc(doc(db, 'products', p.id), p, { merge: true }).catch(() => {});
+    }
+    return WHW_PRODUCTS;
+  }
   try {
     const snap = await getDocs(collection(db, 'products'));
     if (!snap.empty) {
@@ -108,7 +129,7 @@ export async function getProducts(): Promise<Product[]> {
   } catch (e) {
     console.warn('Using local fallback for products:', e);
   }
-  return getLocal('products', INITIAL_PRODUCTS);
+  return getLocal('products', WHW_PRODUCTS);
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
@@ -116,7 +137,7 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
   return all.find(p => p.slug === slug) || null;
 }
 
-export async function createProduct(prod: Omit<Product, 'id'>): Promise<Product> {
+export async function createProduct(prod: Omit<Product, 'id'>, actorRole = 'ADMIN'): Promise<Product> {
   const id = 'prod-' + Date.now();
   const newProduct: Product = { ...prod, id };
   try {
@@ -124,32 +145,71 @@ export async function createProduct(prod: Omit<Product, 'id'>): Promise<Product>
   } catch (e) {
     console.warn('Firestore createProduct local save:', e);
   }
-  const current = getLocal('products', INITIAL_PRODUCTS);
+  const current = getLocal('products', WHW_PRODUCTS);
   const updated = [newProduct, ...current];
   setLocal('products', updated);
+  await createAuditLog({
+    userRole: actorRole,
+    action: 'PRODUCT_CREATED',
+    resource: 'Product',
+    resourceId: id,
+    metadata: { name: newProduct.name, sku: newProduct.sku, price: newProduct.price, status: newProduct.status }
+  });
   return newProduct;
 }
 
-export async function updateProduct(id: string, updates: Partial<Product>): Promise<void> {
+export async function updateProduct(id: string, updates: Partial<Product>, actorRole = 'ADMIN'): Promise<void> {
+  const payload = { ...updates, updatedAt: new Date().toISOString() };
   try {
-    await updateDoc(doc(db, 'products', id), updates);
+    await updateDoc(doc(db, 'products', id), payload);
   } catch (e) {
     console.warn('Firestore updateProduct local save:', e);
   }
-  const current = getLocal('products', INITIAL_PRODUCTS);
-  const updated = current.map(p => p.id === id ? { ...p, ...updates } : p);
+  const current = getLocal('products', WHW_PRODUCTS);
+  const existing = current.find(p => p.id === id);
+  const updated = current.map(p => p.id === id ? { ...p, ...payload } : p);
   setLocal('products', updated);
+
+  const action =
+    updates.status === 'DISABLED'
+      ? 'PRODUCT_DISABLED'
+      : updates.status === 'UNAVAILABLE'
+      ? 'PRODUCT_UNAVAILABLE'
+      : 'PRODUCT_UPDATED';
+
+  await createAuditLog({
+    userRole: actorRole,
+    action,
+    resource: 'Product',
+    resourceId: id,
+    metadata: {
+      productName: updates.name || existing?.name || id,
+      changedFields: Object.keys(updates),
+      ...(updates.price !== undefined ? { newPrice: updates.price, previousPrice: existing?.price } : {}),
+      ...(updates.wholesalePrice !== undefined ? { newWholesalePrice: updates.wholesalePrice } : {}),
+      ...(updates.status !== undefined ? { newStatus: updates.status, previousStatus: existing?.status } : {}),
+      ...(updates.category !== undefined ? { newCategory: updates.category } : {})
+    }
+  });
 }
 
-export async function deleteProduct(id: string): Promise<void> {
+export async function deleteProduct(id: string, actorRole = 'ADMIN'): Promise<void> {
   try {
     await deleteDoc(doc(db, 'products', id));
   } catch (e) {
     console.warn('Firestore deleteProduct local delete:', e);
   }
-  const current = getLocal('products', INITIAL_PRODUCTS);
+  const current = getLocal('products', WHW_PRODUCTS);
+  const existing = current.find(p => p.id === id);
   const updated = current.filter(p => p.id !== id);
   setLocal('products', updated);
+  await createAuditLog({
+    userRole: actorRole,
+    action: 'PRODUCT_DELETED',
+    resource: 'Product',
+    resourceId: id,
+    metadata: { productName: existing?.name || id, sku: existing?.sku }
+  });
 }
 
 // --- WELLNESS PROGRAMS ---
@@ -249,7 +309,7 @@ export async function registerPartner(data: {
     category: data.category,
     website: data.website,
     address: data.address,
-    status: 'PENDING',
+    status: 'NEW',
     commissionRate: 0.25, // default 25%
     memberDiscountRate: 0.15, // default 15% VIP discount
     createdAt: new Date().toISOString()
@@ -262,18 +322,51 @@ export async function registerPartner(data: {
   }
   const current = getLocal('partners', INITIAL_PARTNERS);
   setLocal('partners', [newPartner, ...current]);
+  await createAuditLog({
+    userRole: 'PUBLIC_APPLICANT',
+    action: 'PARTNER_CREATED',
+    resource: 'Partner',
+    resourceId: id,
+    metadata: { partnerId, name: data.name, status: 'NEW' }
+  });
   return newPartner;
 }
 
-export async function updatePartnerStatus(id: string, status: PartnerStatus): Promise<void> {
+export async function updatePartnerStatus(
+  id: string,
+  status: PartnerStatus,
+  adminNotes?: string,
+  actorRole = 'ADMIN'
+): Promise<void> {
+  const updatedAt = new Date().toISOString();
+  const payload: Partial<Partner> = {
+    status,
+    updatedAt,
+    ...(adminNotes !== undefined ? { adminNotes } : {})
+  };
   try {
-    await updateDoc(doc(db, 'partners', id), { status, updatedAt: new Date().toISOString() });
+    await updateDoc(doc(db, 'partners', id), payload);
   } catch (e) {
     console.warn('Firestore updatePartnerStatus local save:', e);
   }
   const current = getLocal('partners', INITIAL_PARTNERS);
-  const updated = current.map(p => p.id === id ? { ...p, status, updatedAt: new Date().toISOString() } : p);
+  const existing = current.find(p => p.id === id);
+  const updated = current.map(p => p.id === id ? { ...p, ...payload } : p);
   setLocal('partners', updated);
+
+  await createAuditLog({
+    userRole: actorRole,
+    action: 'PARTNER_STATUS_CHANGED',
+    resource: 'Partner',
+    resourceId: id,
+    metadata: {
+      partnerName: existing?.name || id,
+      partnerId: existing?.partnerId,
+      previousStatus: existing?.status,
+      newStatus: status,
+      ...(adminNotes ? { adminNotes } : {})
+    }
+  });
 }
 
 export async function updatePartner(id: string, updates: Partial<Partner>): Promise<void> {
@@ -481,7 +574,7 @@ export async function createPartner(partner: Omit<Partner, 'id'>): Promise<Partn
     ...partner,
     id,
     partnerId,
-    status: partner.status || 'PENDING'
+    status: partner.status || 'NEW'
   };
 
   try {
@@ -491,7 +584,50 @@ export async function createPartner(partner: Omit<Partner, 'id'>): Promise<Partn
   }
   const current = getLocal('partners', INITIAL_PARTNERS);
   setLocal('partners', [newPartner, ...current]);
+  await createAuditLog({
+    userRole: 'PUBLIC_APPLICANT',
+    action: 'PARTNER_CREATED',
+    resource: 'Partner',
+    resourceId: id,
+    metadata: { partnerId, name: newPartner.name, status: newPartner.status }
+  });
   return newPartner;
+}
+
+// --- AUDIT LOGS ---
+export async function createAuditLog(
+  entry: Omit<AuditLogEntry, 'id' | 'timestamp'>
+): Promise<AuditLogEntry> {
+  const id = 'audit-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+  const fullEntry: AuditLogEntry = {
+    ...entry,
+    id,
+    timestamp: new Date().toISOString()
+  };
+  try {
+    await setDoc(doc(db, 'audit_logs', id), fullEntry);
+  } catch (e) {
+    console.warn('Firestore createAuditLog local save:', e);
+  }
+  const current = getLocal<AuditLogEntry[]>('audit_logs', []);
+  setLocal('audit_logs', [fullEntry, ...current].slice(0, 250));
+  return fullEntry;
+}
+
+export async function getAuditLogs(): Promise<AuditLogEntry[]> {
+  try {
+    const snap = await getDocs(collection(db, 'audit_logs'));
+    if (!snap.empty) {
+      const items = snap.docs
+        .map(d => ({ ...d.data(), id: d.id } as AuditLogEntry))
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setLocal('audit_logs', items);
+      return items;
+    }
+  } catch (e) {
+    console.warn('Using local fallback for audit_logs:', e);
+  }
+  return getLocal<AuditLogEntry[]>('audit_logs', []);
 }
 
 export const getFaqs = getFAQs;
@@ -532,7 +668,9 @@ export const dbService = {
   createArticle,
   getFAQs,
   getFaqs,
-  getTestimonials
+  getTestimonials,
+  createAuditLog,
+  getAuditLogs
 };
 
 export default dbService;
