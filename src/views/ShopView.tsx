@@ -443,6 +443,16 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
               const isUnavailable = prod.status === 'UNAVAILABLE' || prod.status === 'OUT_OF_STOCK';
               return (
                 <article key={prod.id} className={`catalog-card ${isUnavailable ? 'opacity-75' : ''}`}>
+                  <div
+                    onClick={() => navigate('product-detail', prod.slug)}
+                    className="mb-3 rounded-xl overflow-hidden bg-[#f7f4ef] border border-[var(--line)] aspect-[16/10] cursor-pointer group"
+                  >
+                    <img
+                      src={prod.imageUrl}
+                      alt={prod.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
                   <div className="catalog-card-head">
                     <h3
                       onClick={() => navigate('product-detail', prod.slug)}

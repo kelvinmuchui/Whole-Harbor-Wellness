@@ -57,7 +57,7 @@ const setLocal = <T>(key: string, data: T) => {
 
 // --- INITIAL SEEDING HELPER ---
 let isSeeded = false;
-const CATALOG_VERSION = 'whw_prices_v3';
+const CATALOG_VERSION = 'whw_prices_v4';
 
 export async function seedInitialDatabase(): Promise<void> {
   if (isSeeded) return;
