@@ -2,18 +2,25 @@
   "entities": {
     "User": {
       "title": "User",
-      "description": "User profile with role-based access",
+      "description": "User profile with role-based access for Clients, Partners, and Admins",
       "type": "object",
       "properties": {
         "uid": { "type": "string", "maxLength": 128 },
         "email": { "type": "string", "maxLength": 256 },
         "displayName": { "type": "string", "maxLength": 128 },
         "role": { "type": "string", "enum": ["CUSTOMER", "PARTNER_OWNER", "PARTNER_STAFF", "ADMIN", "SALES_ADMIN"] },
+        "status": { "type": "string", "enum": ["ACTIVE", "INACTIVE", "SUSPENDED", "PENDING_VERIFICATION"] },
         "partnerId": { "type": "string", "maxLength": 64 },
-        "createdAt": { "type": "string" },
-        "updatedAt": { "type": "string" }
+        "partnerSlug": { "type": "string", "maxLength": 128 },
+        "businessName": { "type": "string", "maxLength": 256 },
+        "wholesaleApprovalStatus": { "type": "string", "enum": ["NONE", "PENDING", "APPROVED", "DECLINED"] },
+        "mfaEnabled": { "type": "boolean" },
+        "phone": { "type": "string", "maxLength": 64 },
+        "avatarUrl": { "type": "string", "maxLength": 1024 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
       },
-      "required": ["uid", "email", "role"]
+      "required": ["uid", "email", "displayName", "role", "createdAt"]
     },
     "Partner": {
       "title": "Partner",
@@ -23,6 +30,7 @@
         "id": { "type": "string", "maxLength": 64 },
         "partnerId": { "type": "string", "maxLength": 64 },
         "name": { "type": "string", "maxLength": 256 },
+        "businessName": { "type": "string", "maxLength": 256 },
         "slug": { "type": "string", "maxLength": 128 },
         "contactPerson": { "type": "string", "maxLength": 128 },
         "email": { "type": "string", "maxLength": 256 },
@@ -32,14 +40,17 @@
         "website": { "type": "string", "maxLength": 512 },
         "category": { "type": "string", "maxLength": 128 },
         "address": { "type": "string", "maxLength": 512 },
-        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "SUSPENDED", "REJECTED"] },
+        "location": { "type": "string", "maxLength": 256 },
+        "status": { "type": "string", "enum": ["NEW", "UNDER REVIEW", "APPROVED", "DECLINED", "NEEDS INFORMATION", "PENDING", "SUSPENDED", "REJECTED"] },
         "commissionRate": { "type": "number" },
         "memberDiscountRate": { "type": "number" },
         "ownerUid": { "type": "string", "maxLength": 128 },
-        "createdAt": { "type": "string" },
-        "updatedAt": { "type": "string" }
+        "preferredCategories": { "type": "array" },
+        "adminNotes": { "type": "string", "maxLength": 2048 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
       },
-      "required": ["partnerId", "name", "slug", "email", "status"]
+      "required": ["partnerId", "name", "slug", "email", "status", "createdAt"]
     },
     "Product": {
       "title": "Product",
@@ -50,22 +61,27 @@
         "name": { "type": "string", "maxLength": 256 },
         "slug": { "type": "string", "maxLength": 128 },
         "sku": { "type": "string", "maxLength": 64 },
-        "category": { "type": "string", "maxLength": 64 },
+        "category": { "type": "string", "enum": ["metabolic", "cellular", "recovery", "longevity", "stacks"] },
+        "categoryLabel": { "type": "string", "maxLength": 128 },
         "shortDescription": { "type": "string", "maxLength": 512 },
         "description": { "type": "string", "maxLength": 4096 },
         "price": { "type": "number" },
+        "wholesalePrice": { "type": "number" },
         "salePrice": { "type": "number" },
-        "imageUrl": { "type": "string", "maxLength": 1024 },
+        "imageUrl": { "type": "string", "maxLength": 2048 },
         "stockQuantity": { "type": "number" },
-        "status": { "type": "string", "enum": ["ACTIVE", "DRAFT", "ARCHIVED"] },
+        "status": { "type": "string", "enum": ["ACTIVE", "UNAVAILABLE", "DISABLED", "DRAFT", "ARCHIVED", "OUT_OF_STOCK"] },
         "featured": { "type": "boolean" },
         "strengths": { "type": "array" },
+        "wholesaleStrengths": { "type": "array" },
         "lotNumber": { "type": "string", "maxLength": 64 },
         "purity": { "type": "string", "maxLength": 64 },
-        "createdAt": { "type": "string" },
-        "updatedAt": { "type": "string" }
+        "disclosures": { "type": "string", "maxLength": 2048 },
+        "educationalMaterial": { "type": "string", "maxLength": 4096 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
       },
-      "required": ["name", "slug", "category", "price", "status"]
+      "required": ["name", "slug", "category", "price", "status", "createdAt"]
     },
     "Order": {
       "title": "Order",
@@ -80,24 +96,25 @@
         "shippingAddress": { "type": "object" },
         "items": { "type": "array" },
         "subtotal": { "type": "number" },
-        "discount": { "type": "number" },
+        "volumeDiscount": { "type": "number" },
+        "partnerDiscount": { "type": "number" },
         "shipping": { "type": "number" },
         "tax": { "type": "number" },
         "total": { "type": "number" },
-        "status": { "type": "string", "enum": ["PENDING", "CONFIRMED", "PROCESSING", "COMPLETED", "CANCELLED"] },
-        "paymentStatus": { "type": "string", "enum": ["PENDING", "PAID", "FAILED", "REFUNDED"] },
+        "status": { "type": "string", "enum": ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "COMPLETED", "CANCELLED", "REFUNDED"] },
+        "paymentStatus": { "type": "string", "enum": ["PENDING", "AUTHORIZED", "PAID", "FAILED", "REFUNDED"] },
         "partnerId": { "type": "string", "maxLength": 64 },
         "partnerSlug": { "type": "string", "maxLength": 128 },
         "partnerName": { "type": "string", "maxLength": 256 },
         "referralSource": { "type": "string", "maxLength": 256 },
         "partnerCommission": { "type": "number" },
-        "commissionStatus": { "type": "string", "enum": ["NONE", "PENDING", "APPROVED", "PAID"] },
+        "commissionStatus": { "type": "string", "enum": ["NONE", "PENDING", "APPROVED", "PAID", "CANCELLED"] },
         "trackingNumber": { "type": "string", "maxLength": 128 },
         "coldChainLogged": { "type": "boolean" },
-        "createdAt": { "type": "string" },
-        "updatedAt": { "type": "string" }
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
       },
-      "required": ["orderNumber", "customerEmail", "items", "total", "status"]
+      "required": ["orderNumber", "customerName", "customerEmail", "items", "total", "status", "createdAt"]
     },
     "PartnerEarning": {
       "title": "PartnerEarning",
@@ -109,16 +126,17 @@
         "partnerSlug": { "type": "string", "maxLength": 128 },
         "orderId": { "type": "string", "maxLength": 64 },
         "orderNumber": { "type": "string", "maxLength": 64 },
+        "customerName": { "type": "string", "maxLength": 128 },
         "grossSales": { "type": "number" },
         "eligibleSales": { "type": "number" },
         "commissionRate": { "type": "number" },
         "earningAmount": { "type": "number" },
-        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "PAID"] },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "PAID", "CANCELLED"] },
         "payoutBatchId": { "type": "string", "maxLength": 64 },
-        "paidAt": { "type": "string" },
-        "createdAt": { "type": "string" }
+        "paidAt": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "maxLength": 64 }
       },
-      "required": ["partnerId", "orderId", "grossSales", "earningAmount", "status"]
+      "required": ["partnerId", "orderId", "grossSales", "earningAmount", "status", "createdAt"]
     },
     "WellnessProgram": {
       "title": "WellnessProgram",
@@ -137,9 +155,9 @@
         "features": { "type": "array" },
         "status": { "type": "string", "enum": ["ACTIVE", "DRAFT", "ARCHIVED"] },
         "featured": { "type": "boolean" },
-        "createdAt": { "type": "string" }
+        "createdAt": { "type": "string", "maxLength": 64 }
       },
-      "required": ["name", "slug", "priceMonthly", "status"]
+      "required": ["name", "slug", "priceMonthly", "status", "createdAt"]
     },
     "EducationalArticle": {
       "title": "EducationalArticle",
@@ -155,11 +173,11 @@
         "content": { "type": "string", "maxLength": 16384 },
         "imageUrl": { "type": "string", "maxLength": 1024 },
         "author": { "type": "string", "maxLength": 128 },
-        "status": { "type": "string", "enum": ["PUBLISHED", "DRAFT"] },
-        "createdAt": { "type": "string" },
-        "updatedAt": { "type": "string" }
+        "status": { "type": "string", "enum": ["PUBLISHED", "DRAFT", "ARCHIVED"] },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
       },
-      "required": ["title", "slug", "category", "status"]
+      "required": ["title", "slug", "category", "status", "createdAt"]
     },
     "FAQ": {
       "title": "FAQ",
@@ -189,12 +207,64 @@
         "featured": { "type": "boolean" }
       },
       "required": ["name", "quote", "rating"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable administrative and authentication security audit trail",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userRole": { "type": "string", "maxLength": 64 },
+        "action": { "type": "string", "maxLength": 64 },
+        "resource": { "type": "string", "maxLength": 64 },
+        "resourceId": { "type": "string", "maxLength": 128 },
+        "metadata": { "type": "object" },
+        "timestamp": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["action", "resource", "timestamp"]
+    },
+    "ContactInquiry": {
+      "title": "ContactInquiry",
+      "description": "Support, clinical, or partnership intake inquiry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "phone": { "type": "string", "maxLength": 64 },
+        "orderNumber": { "type": "string", "maxLength": 64 },
+        "department": { "type": "string", "maxLength": 128 },
+        "message": { "type": "string", "maxLength": 4096 },
+        "source": { "type": "string", "enum": ["contact_page", "about_page", "portal"] },
+        "status": { "type": "string", "enum": ["NEW", "IN_PROGRESS", "RESOLVED"] },
+        "userId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["name", "email", "department", "message", "status", "createdAt"]
+    },
+    "AnalyticsEvent": {
+      "title": "AnalyticsEvent",
+      "description": "Privacy-conscious user journey and conversion event",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "eventType": { "type": "string", "enum": ["page_view", "product_view", "partner_visit", "add_to_cart", "checkout_completed", "search"] },
+        "path": { "type": "string", "maxLength": 256 },
+        "label": { "type": "string", "maxLength": 256 },
+        "partnerSlug": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "value": { "type": "number" },
+        "timestamp": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["eventType", "path", "timestamp"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/User" },
-      "description": "User profiles and RBAC claims"
+      "description": "User profiles and RBAC claims for Clients, Partners, and Admins"
     },
     "/partners/{partnerId}": {
       "schema": { "$ref": "#/entities/Partner" },
@@ -227,6 +297,18 @@
     "/testimonials/{testimonialId}": {
       "schema": { "$ref": "#/entities/Testimonial" },
       "description": "Physician and patient clinical testimonials"
+    },
+    "/audit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "System and security audit log entries"
+    },
+    "/inquiries/{inquiryId}": {
+      "schema": { "$ref": "#/entities/ContactInquiry" },
+      "description": "Customer and clinic inquiries submitted via contact forms"
+    },
+    "/analytics_events/{eventId}": {
+      "schema": { "$ref": "#/entities/AnalyticsEvent" },
+      "description": "Privacy-conscious conversion and partner referral analytics"
     }
   }
 }

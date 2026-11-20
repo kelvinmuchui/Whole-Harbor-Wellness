@@ -1,90 +1,391 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    
-    function isUser(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-    
-    function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == 'muchuikelvin423@gmail.com' ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN')
-      );
-    }
-    
-    // Default deny
+    // Global default deny
     match /{document=**} {
       allow read, write: if false;
     }
-    
-    // Users collection
-    match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isUser(userId) || isAdmin();
-      allow delete: if isAdmin();
-    }
-    
-    // Partners collection
-    match /partners/{partnerId} {
-      allow read: if true; // Public can see approved partner landing pages
-      allow create: if true; // Prospective partners can submit onboarding application
-      allow update: if isAdmin() || (isSignedIn() && resource.data.ownerUid == request.auth.uid);
-      allow delete: if isAdmin();
-    }
-    
-    // Products catalog
-    match /products/{productId} {
-      allow read: if true; // Public catalog
-      allow write: if isAdmin() || true; // In dev/demo admin CMS can manage products
-    }
-    
-    // Wellness Programs
-    match /wellness_programs/{programId} {
-      allow read: if true;
-      allow write: if isAdmin() || true;
-    }
-    
-    // Orders
-    match /orders/{orderId} {
-      allow read: if true; // Customers & partners track orders
-      allow create: if true; // Guest or authenticated checkout
-      allow update: if true; // Status updates by admin or processing
-      allow delete: if isAdmin();
-    }
-    
-    // Partner Earnings
-    match /partner_earnings/{earningId} {
-      allow read: if true;
-      allow write: if true; // Calculated upon checkout & manageable in admin
-    }
-    
-    // Educational Articles
-    match /educational_articles/{articleId} {
-      allow read: if true;
-      allow write: if true;
-    }
-    
-    // FAQs & Testimonials
-    match /faqs/{faqId} {
-      allow read: if true;
-      allow write: if true;
-    }
-    
-    match /testimonials/{testimonialId} {
-      allow read: if true;
-      allow write: if true;
+
+    // --- Primitive Security Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // Audit Logs
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'muchuikelvin423@gmail.com' ||
+        request.auth.token.email == 'admin@wholeharborwellness.com'
+      );
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerifiedUser() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'SALES_ADMIN']
+      );
+    }
+
+    // --- Entity Validation Blueprints ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'role', 'createdAt']) &&
+        data.keys().hasOnly([
+          'id', 'uid', 'email', 'displayName', 'role', 'status', 'partnerId',
+          'partnerSlug', 'businessName', 'wholesaleApprovalStatus', 'mfaEnabled',
+          'phone', 'avatarUrl', 'createdAt', 'updatedAt'
+        ]) &&
+        data.uid is string && data.uid.size() > 0 && data.uid.size() <= 128 &&
+        data.email is string && data.email.size() > 0 && data.email.size() <= 256 &&
+        data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 128 &&
+        data.role in ['CUSTOMER', 'PARTNER_OWNER', 'PARTNER_STAFF', 'ADMIN', 'SALES_ADMIN'] &&
+        data.createdAt is string && data.createdAt.size() <= 64 &&
+        (!('status' in data) || data.status in ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION']) &&
+        (!('wholesaleApprovalStatus' in data) || data.wholesaleApprovalStatus in ['NONE', 'PENDING', 'APPROVED', 'DECLINED']) &&
+        (!('partnerId' in data) || (data.partnerId is string && data.partnerId.size() <= 64)) &&
+        (!('partnerSlug' in data) || (data.partnerSlug is string && data.partnerSlug.size() <= 128)) &&
+        (!('businessName' in data) || (data.businessName is string && data.businessName.size() <= 256)) &&
+        (!('phone' in data) || (data.phone is string && data.phone.size() <= 64)) &&
+        (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 1024)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64)) &&
+        (!('mfaEnabled' in data) || data.mfaEnabled is bool);
+    }
+
+    function isValidPartner(data) {
+      return data.keys().hasAll(['partnerId', 'name', 'slug', 'email', 'status', 'createdAt']) &&
+        data.keys().hasOnly([
+          'id', 'partnerId', 'name', 'businessName', 'slug', 'contactPerson', 'email',
+          'phone', 'description', 'logoUrl', 'website', 'category', 'address', 'location',
+          'populationServed', 'memberBaseSize', 'currentWellnessServices', 'whyPartner',
+          'marketingStrategy', 'promotionPlan', 'agreedToTerms', 'agreedAt', 'adminNotes',
+          'status', 'commissionRate', 'memberDiscountRate', 'ownerUid', 'featuredProducts',
+          'preferredCategories', 'createdAt', 'updatedAt', 'deletedAt'
+        ]) &&
+        data.partnerId is string && data.partnerId.size() > 0 && data.partnerId.size() <= 64 &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 256 &&
+        data.slug is string && data.slug.size() > 0 && data.slug.size() <= 128 &&
+        data.email is string && data.email.size() > 0 && data.email.size() <= 256 &&
+        data.status in ['NEW', 'UNDER REVIEW', 'APPROVED', 'DECLINED', 'NEEDS INFORMATION', 'PENDING', 'SUSPENDED', 'REJECTED'] &&
+        data.createdAt is string && data.createdAt.size() <= 64 &&
+        (!('commissionRate' in data) || (data.commissionRate is number && data.commissionRate >= 0 && data.commissionRate <= 1)) &&
+        (!('memberDiscountRate' in data) || (data.memberDiscountRate is number && data.memberDiscountRate >= 0 && data.memberDiscountRate <= 1)) &&
+        (!('ownerUid' in data) || (data.ownerUid is string && data.ownerUid.size() <= 128)) &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 2048)) &&
+        (!('logoUrl' in data) || (data.logoUrl is string && data.logoUrl.size() <= 1048576)) &&
+        (!('featuredProducts' in data) || (data.featuredProducts is list && data.featuredProducts.size() <= 50)) &&
+        (!('preferredCategories' in data) || (data.preferredCategories is list && data.preferredCategories.size() <= 10));
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['name', 'slug', 'category', 'price', 'status', 'createdAt']) &&
+        data.keys().hasOnly([
+          'id', 'sku', 'name', 'slug', 'category', 'categoryLabel', 'shortDescription',
+          'description', 'price', 'wholesalePrice', 'salePrice', 'imageUrl', 'galleryImages',
+          'stockQuantity', 'status', 'featured', 'isStack', 'stackItems', 'strengths',
+          'wholesaleStrengths', 'lotNumber', 'purity', 'coaUrl', 'disclosures',
+          'educationalMaterial', 'createdAt', 'updatedAt', 'deletedAt'
+        ]) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 256 &&
+        data.slug is string && data.slug.size() > 0 && data.slug.size() <= 128 &&
+        data.category in ['metabolic', 'cellular', 'recovery', 'longevity', 'stacks'] &&
+        data.price is number && data.price >= 0 &&
+        data.status in ['ACTIVE', 'UNAVAILABLE', 'DISABLED', 'DRAFT', 'ARCHIVED', 'OUT_OF_STOCK'] &&
+        data.createdAt is string && data.createdAt.size() <= 64 &&
+        (!('strengths' in data) || (data.strengths is list && data.strengths.size() <= 30)) &&
+        (!('wholesaleStrengths' in data) || (data.wholesaleStrengths is list && data.wholesaleStrengths.size() <= 30)) &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 4096));
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['orderNumber', 'customerName', 'customerEmail', 'items', 'total', 'status', 'createdAt']) &&
+        data.keys().hasOnly([
+          'id', 'orderNumber', 'customerId', 'customerUid', 'customerName', 'customerEmail',
+          'shippingAddress', 'items', 'subtotal', 'volumeDiscount', 'partnerDiscount',
+          'shipping', 'tax', 'total', 'status', 'paymentStatus', 'partnerId', 'partnerSlug',
+          'partnerName', 'partnerOwnerUid', 'referralSource', 'partnerCommission',
+          'commissionStatus', 'trackingNumber', 'coldChainLogged', 'createdAt', 'updatedAt'
+        ]) &&
+        data.orderNumber is string && data.orderNumber.size() > 0 && data.orderNumber.size() <= 64 &&
+        data.customerName is string && data.customerName.size() > 0 && data.customerName.size() <= 128 &&
+        data.customerEmail is string && data.customerEmail.size() > 0 && data.customerEmail.size() <= 256 &&
+        data.items is list && data.items.size() > 0 && data.items.size() <= 100 &&
+        data.total is number && data.total >= 0 &&
+        data.status in ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'COMPLETED', 'CANCELLED', 'REFUNDED'] &&
+        data.createdAt is string && data.createdAt.size() <= 64 &&
+        (!('customerUid' in data) || (data.customerUid is string && data.customerUid.size() <= 128)) &&
+        (!('partnerId' in data) || (data.partnerId is string && data.partnerId.size() <= 64)) &&
+        (!('partnerOwnerUid' in data) || (data.partnerOwnerUid is string && data.partnerOwnerUid.size() <= 128));
+    }
+
+    function isValidPartnerEarning(data) {
+      return data.keys().hasAll(['partnerId', 'orderId', 'grossSales', 'earningAmount', 'status', 'createdAt']) &&
+        data.keys().hasOnly([
+          'id', 'partnerId', 'partnerSlug', 'partnerOwnerUid', 'orderId', 'orderNumber',
+          'customerName', 'grossSales', 'eligibleSales', 'commissionRate', 'earningAmount',
+          'status', 'payoutBatchId', 'paidAt', 'createdAt', 'updatedAt'
+        ]) &&
+        data.partnerId is string && data.partnerId.size() > 0 && data.partnerId.size() <= 64 &&
+        data.orderId is string && data.orderId.size() > 0 && data.orderId.size() <= 64 &&
+        data.grossSales is number && data.grossSales >= 0 &&
+        data.earningAmount is number && data.earningAmount >= 0 &&
+        data.status in ['PENDING', 'APPROVED', 'PAID', 'CANCELLED'] &&
+        data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidProgram(data) {
+      return data.keys().hasAll(['name', 'slug', 'priceMonthly', 'status', 'createdAt']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 256 &&
+        data.slug is string && data.slug.size() > 0 && data.slug.size() <= 128 &&
+        data.priceMonthly is number && data.priceMonthly >= 0 &&
+        data.status in ['ACTIVE', 'DRAFT', 'ARCHIVED'] &&
+        data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidArticle(data) {
+      return data.keys().hasAll(['title', 'slug', 'category', 'status', 'createdAt']) &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 256 &&
+        data.slug is string && data.slug.size() > 0 && data.slug.size() <= 128 &&
+        data.category is string && data.category.size() <= 64 &&
+        data.status in ['PUBLISHED', 'DRAFT', 'ARCHIVED'] &&
+        data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidFaq(data) {
+      return data.keys().hasAll(['question', 'answer']) &&
+        data.question is string && data.question.size() > 0 && data.question.size() <= 512 &&
+        data.answer is string && data.answer.size() > 0 && data.answer.size() <= 4096;
+    }
+
+    function isValidTestimonial(data) {
+      return data.keys().hasAll(['name', 'quote', 'rating']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 128 &&
+        data.quote is string && data.quote.size() > 0 && data.quote.size() <= 2048 &&
+        data.rating is number && data.rating >= 1 && data.rating <= 5;
+    }
+
+    function isValidAuditLog(data) {
+      return data.keys().hasAll(['action', 'resource', 'timestamp']) &&
+        data.keys().hasOnly(['id', 'userId', 'userRole', 'action', 'resource', 'resourceId', 'metadata', 'ipAddress', 'userAgent', 'timestamp']) &&
+        data.action is string && data.action.size() > 0 && data.action.size() <= 64 &&
+        data.resource is string && data.resource.size() > 0 && data.resource.size() <= 64 &&
+        data.timestamp is string && data.timestamp.size() <= 64;
+    }
+
+    function isValidInquiry(data) {
+      return data.keys().hasAll(['name', 'email', 'department', 'message', 'status', 'createdAt']) &&
+        data.keys().hasOnly(['id', 'name', 'email', 'phone', 'orderNumber', 'department', 'message', 'source', 'status', 'userId', 'createdAt', 'updatedAt']) &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 128 &&
+        data.email is string && data.email.size() > 0 && data.email.size() <= 256 &&
+        data.department is string && data.department.size() > 0 && data.department.size() <= 128 &&
+        data.message is string && data.message.size() > 0 && data.message.size() <= 4096 &&
+        data.status in ['NEW', 'IN_PROGRESS', 'RESOLVED'] &&
+        data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidAnalyticsEvent(data) {
+      return data.keys().hasAll(['eventType', 'path', 'timestamp']) &&
+        data.keys().hasOnly(['id', 'eventType', 'path', 'label', 'partnerSlug', 'userId', 'value', 'timestamp']) &&
+        data.eventType in ['page_view', 'product_view', 'partner_visit', 'add_to_cart', 'checkout_completed', 'search'] &&
+        data.path is string && data.path.size() > 0 && data.path.size() <= 256 &&
+        data.timestamp is string && data.timestamp.size() <= 64;
+    }
+
+    // --- Collection Rules ---
+
+    // Health check document for connection verification
+    match /test/connection {
+      allow get: if true;
+    }
+
+    // Users collection (PII isolated to owner or Admin)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isBootstrappedAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
+      allow create: if isVerifiedUser() && isValidId(userId) && isValidUser(incoming()) && (
+        isAdmin() || (
+          isOwner(userId) &&
+          incoming().uid == request.auth.uid &&
+          (
+            (incoming().role == 'CUSTOMER' && (!('wholesaleApprovalStatus' in incoming()) || incoming().wholesaleApprovalStatus == 'NONE')) ||
+            (incoming().role in ['PARTNER_OWNER', 'PARTNER_STAFF'] && incoming().wholesaleApprovalStatus == 'PENDING')
+          )
+        )
+      );
+      allow update: if isVerifiedUser() && isValidId(userId) && isValidUser(incoming()) &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt && (
+        isAdmin() || (
+          isOwner(userId) &&
+          incoming().role == existing().role &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'businessName', 'phone', 'avatarUrl', 'updatedAt'])
+        )
+      );
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // Partners collection
+    match /partners/{partnerId} {
+      allow get: if isValidId(partnerId) && (
+        existing().status == 'APPROVED' ||
+        isAdmin() ||
+        (isSignedIn() && existing().ownerUid == request.auth.uid)
+      );
+      allow list: if existing().status == 'APPROVED' ||
+        isBootstrappedAdmin() ||
+        (isSignedIn() && existing().ownerUid == request.auth.uid);
+      allow create: if isVerifiedUser() && isValidId(partnerId) && isValidPartner(incoming()) && (
+        isAdmin() || (incoming().ownerUid == request.auth.uid && incoming().status == 'NEW')
+      );
+      allow update: if isVerifiedUser() && isValidId(partnerId) && isValidPartner(incoming()) &&
+        incoming().partnerId == existing().partnerId &&
+        incoming().createdAt == existing().createdAt && (
+        isAdmin() || (
+          existing().ownerUid == request.auth.uid &&
+          incoming().status == existing().status &&
+          incoming().commissionRate == existing().commissionRate &&
+          incoming().memberDiscountRate == existing().memberDiscountRate &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'businessName', 'contactPerson', 'phone', 'description', 'logoUrl', 'website', 'address', 'location', 'preferredCategories', 'updatedAt'])
+        )
+      );
+      allow delete: if isValidId(partnerId) && isAdmin();
+    }
+
+    // Products catalog (Public storefront read, Admin write)
+    match /products/{productId} {
+      allow get: if isValidId(productId);
+      allow list: if true;
+      allow create: if isValidId(productId) && isAdmin() && isValidProduct(incoming());
+      allow update: if isValidId(productId) && isAdmin() && isValidProduct(incoming());
+      allow delete: if isValidId(productId) && isAdmin();
+    }
+
+    // Wellness Programs (Public storefront read, Admin write)
+    match /wellness_programs/{programId} {
+      allow get: if isValidId(programId);
+      allow list: if true;
+      allow create: if isValidId(programId) && isAdmin() && isValidProgram(incoming());
+      allow update: if isValidId(programId) && isAdmin() && isValidProgram(incoming());
+      allow delete: if isValidId(programId) && isAdmin();
+    }
+
+    // Orders (Customer own orders, Partner attributed orders, Admin all)
+    match /orders/{orderId} {
+      allow get: if isValidId(orderId) && (
+        isAdmin() ||
+        (isSignedIn() && (existing().customerUid == request.auth.uid || existing().customerEmail == request.auth.token.email)) ||
+        (isSignedIn() && existing().partnerOwnerUid == request.auth.uid)
+      );
+      allow list: if isBootstrappedAdmin() || (
+        isSignedIn() && (
+          existing().customerUid == request.auth.uid ||
+          existing().customerEmail == request.auth.token.email ||
+          existing().partnerOwnerUid == request.auth.uid
+        )
+      );
+      allow create: if isVerifiedUser() && isValidId(orderId) && isValidOrder(incoming()) && (
+        isAdmin() || (incoming().customerUid == request.auth.uid && incoming().status == 'PENDING')
+      );
+      allow update: if isVerifiedUser() && isValidId(orderId) && isValidOrder(incoming()) &&
+        incoming().orderNumber == existing().orderNumber &&
+        incoming().createdAt == existing().createdAt && (
+        isAdmin() || (
+          existing().status != 'COMPLETED' &&
+          existing().status != 'CANCELLED' &&
+          existing().customerUid == request.auth.uid &&
+          incoming().status == 'CANCELLED' &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+        )
+      );
+      allow delete: if isValidId(orderId) && isAdmin();
+    }
+
+    // Partner Earnings Ledger
+    match /partner_earnings/{earningId} {
+      allow get: if isValidId(earningId) && (
+        isAdmin() || (isSignedIn() && existing().partnerOwnerUid == request.auth.uid)
+      );
+      allow list: if isBootstrappedAdmin() || (
+        isSignedIn() && existing().partnerOwnerUid == request.auth.uid
+      );
+      allow create: if isVerifiedUser() && isValidId(earningId) && isValidPartnerEarning(incoming()) && (
+        isAdmin() || (
+          incoming().status == 'PENDING' &&
+          exists(/databases/$(database)/documents/orders/$(incoming().orderId))
+        )
+      );
+      allow update: if isVerifiedUser() && isValidId(earningId) && isAdmin() && isValidPartnerEarning(incoming()) &&
+        incoming().partnerId == existing().partnerId &&
+        incoming().orderId == existing().orderId;
+      allow delete: if isValidId(earningId) && isAdmin();
+    }
+
+    // Educational Articles, FAQs & Testimonials
+    match /educational_articles/{articleId} {
+      allow get: if isValidId(articleId);
+      allow list: if true;
+      allow create: if isValidId(articleId) && isAdmin() && isValidArticle(incoming());
+      allow update: if isValidId(articleId) && isAdmin() && isValidArticle(incoming());
+      allow delete: if isValidId(articleId) && isAdmin();
+    }
+
+    match /faqs/{faqId} {
+      allow get: if isValidId(faqId);
+      allow list: if true;
+      allow create: if isValidId(faqId) && isAdmin() && isValidFaq(incoming());
+      allow update: if isValidId(faqId) && isAdmin() && isValidFaq(incoming());
+      allow delete: if isValidId(faqId) && isAdmin();
+    }
+
+    match /testimonials/{testimonialId} {
+      allow get: if isValidId(testimonialId);
+      allow list: if true;
+      allow create: if isValidId(testimonialId) && isAdmin() && isValidTestimonial(incoming());
+      allow update: if isValidId(testimonialId) && isAdmin() && isValidTestimonial(incoming());
+      allow delete: if isValidId(testimonialId) && isAdmin();
+    }
+
+    // Audit Logs (Admin readable, append-only)
     match /audit_logs/{logId} {
-      allow read: if true;
-      allow write: if true;
+      allow get: if isValidId(logId) && isAdmin();
+      allow list: if isAdmin();
+      allow create: if isVerifiedUser() && isValidId(logId) && isValidAuditLog(incoming());
+      allow update, delete: if false;
+    }
+
+    // Support & Partnership Inquiries
+    match /inquiries/{inquiryId} {
+      allow get: if isValidId(inquiryId) && (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
+      allow list: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      allow create: if isVerifiedUser() && isValidId(inquiryId) && isValidInquiry(incoming()) && incoming().status == 'NEW';
+      allow update: if isValidId(inquiryId) && isAdmin() && isValidInquiry(incoming());
+      allow delete: if isValidId(inquiryId) && isAdmin();
+    }
+
+    // Analytics Events (Append-only for authenticated telemetry, Admin readable)
+    match /analytics_events/{eventId} {
+      allow get: if isValidId(eventId) && isAdmin();
+      allow list: if isAdmin();
+      allow create: if isVerifiedUser() && isValidId(eventId) && isValidAnalyticsEvent(incoming());
+      allow update, delete: if false;
     }
   }
 }

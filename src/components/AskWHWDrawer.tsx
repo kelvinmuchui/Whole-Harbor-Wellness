@@ -22,6 +22,15 @@ export const AskWHWDrawer: React.FC<AskWHWDrawerProps> = ({ currentPath, navigat
   ]);
   const [inputQuestion, setInputQuestion] = useState('');
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
   // Pre-configured questions
   const quickQuestions = [
     {
@@ -123,8 +132,9 @@ export const AskWHWDrawer: React.FC<AskWHWDrawerProps> = ({ currentPath, navigat
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setIsOpen(false)}
-                className="w-8 h-8 rounded-full bg-white hover:bg-[#dfd7c7] text-[#0c2340] flex items-center justify-center text-sm font-bold transition-colors cursor-pointer"
+                className="w-10 h-10 rounded-full bg-white border border-[#dfd7c7] hover:border-[#0c2340] text-[#0c2340] flex items-center justify-center text-sm font-bold transition-colors cursor-pointer shrink-0"
                 aria-label="Close"
               >
                 ✕
@@ -195,15 +205,23 @@ export const AskWHWDrawer: React.FC<AskWHWDrawerProps> = ({ currentPath, navigat
             </form>
 
             {/* Link to Full Studio */}
-            <div className="p-3.5 bg-[#f6f4ee] border-t border-[#dfd7c7] text-center">
+            <div className="p-3.5 pb-[calc(14px+env(safe-area-inset-bottom))] bg-[#f6f4ee] border-t border-[#dfd7c7] flex items-center gap-2">
               <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="px-4 py-2.5 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] hover:border-[#0c2340] text-xs font-semibold cursor-pointer shrink-0"
+              >
+                Close
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   setIsOpen(false);
                   navigate('learn');
                 }}
-                className="w-full py-2.5 rounded-xl bg-white border border-[#c5a059] text-[#c5a059] hover:bg-[#c5a059] hover:text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+                className="flex-1 py-2.5 rounded-xl bg-white border border-[#c5a059] text-[#c5a059] hover:bg-[#c5a059] hover:text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
               >
-                <span>Open the full Education Studio &amp; calculator</span>
+                <span>Education Studio &amp; Calculator</span>
                 <span>→</span>
               </button>
             </div>

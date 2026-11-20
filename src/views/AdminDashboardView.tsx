@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { dbService } from '../services/dbService.ts';
+import { analyticsService } from '../services/analyticsService.ts';
 import {
   Partner,
   Order,
   Product,
   ProductStatus,
+  ProductCategoryType,
   WellnessProgram,
   EducationalArticle,
   FAQ,
@@ -12,7 +14,10 @@ import {
   PartnerEarning,
   PartnerStatus,
   OrderStatus,
-  AuditLogEntry
+  AuditLogEntry,
+  UserProfile,
+  UserRole,
+  ContactInquiry
 } from '../types/index.ts';
 
 interface AdminDashboardViewProps {
@@ -36,11 +41,31 @@ const PARTNER_STATUS_OPTIONS: PartnerStatus[] = [
   'SUSPENDED'
 ];
 
+const matchesOrderDate = (isoDate: string, filter: 'all' | 'current_month' | 'prev_month' | 'ytd'): boolean => {
+  if (filter === 'all') return true;
+  const d = new Date(isoDate);
+  if (Number.isNaN(d.getTime())) return true;
+  const now = new Date();
+  if (filter === 'current_month') {
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }
+  if (filter === 'prev_month') {
+    const pm = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+    const py = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    return d.getFullYear() === py && d.getMonth() === pm;
+  }
+  if (filter === 'ytd') {
+    return d.getFullYear() === now.getFullYear() && d <= now;
+  }
+  return true;
+};
+
 export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'partners' | 'orders' | 'payouts' | 'products' | 'content' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'partners' | 'orders' | 'payouts' | 'products' | 'content' | 'audit'>('overview');
   const [loading, setLoading] = useState(true);
 
   // Data states
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [earnings, setEarnings] = useState<PartnerEarning[]>([]);
@@ -50,16 +75,41 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [inquiries, setInquiries] = useState<ContactInquiry[]>([]);
+  const [analyticsSummary, setAnalyticsSummary] = useState<{
+    totalEvents: number;
+    pageViews: number;
+    productViews: number;
+    partnerVisits: number;
+    addToCarts: number;
+    checkouts: number;
+  }>({ totalEvents: 0, pageViews: 0, productViews: 0, partnerVisits: 0, addToCarts: 0, checkouts: 0 });
 
   // Search & Filters
+  const [searchUser, setSearchUser] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState<'ALL' | 'CLIENTS' | 'PARTNERS' | 'ADMINS'>('ALL');
   const [searchPartner, setSearchPartner] = useState('');
   const [partnerStatusFilter, setPartnerStatusFilter] = useState<string>('ALL');
   const [searchOrder, setSearchOrder] = useState('');
+  const [orderStatusFilter, setOrderStatusFilter] = useState<'ALL' | OrderStatus>('ALL');
+  const [orderChannelFilter, setOrderChannelFilter] = useState<'ALL' | 'PARTNER' | 'DIRECT'>('ALL');
+  const [orderDateFilter, setOrderDateFilter] = useState<'all' | 'current_month' | 'prev_month' | 'ytd'>('all');
+
+  // Inspect Order Detail Modal State
+  const [inspectingOrder, setInspectingOrder] = useState<Order | null>(null);
 
   // Partner Review Modal State
   const [reviewingPartner, setReviewingPartner] = useState<Partner | null>(null);
   const [partnerAdminNotes, setPartnerAdminNotes] = useState('');
+  const [partnerReviewCategories, setPartnerReviewCategories] = useState<ProductCategoryType[]>([]);
   const [savingPartnerReview, setSavingPartnerReview] = useState(false);
+
+  // CMS Editor States
+  const [cmsSection, setCmsSection] = useState<'programs' | 'articles' | 'faqs' | 'testimonials' | 'inquiries'>('programs');
+  const [editingProgram, setEditingProgram] = useState<Partial<WellnessProgram> | null>(null);
+  const [editingArticle, setEditingArticle] = useState<Partial<EducationalArticle> | null>(null);
+  const [editingFaq, setEditingFaq] = useState<Partial<FAQ> | null>(null);
+  const [editingTestimonial, setEditingTestimonial] = useState<Partial<Testimonial> | null>(null);
 
   // Add / Edit Product Modal State
   const [productModalOpen, setProductModalOpen] = useState(false);
@@ -79,19 +129,40 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   const [prodDisclosures, setProdDisclosures] = useState('');
   const [prodEducationalMaterial, setProdEducationalMaterial] = useState('');
 
+  useEffect(() => {
+    if (!reviewingPartner && !productModalOpen && !inspectingOrder) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (inspectingOrder) setInspectingOrder(null);
+        else if (productModalOpen) {
+          setProductModalOpen(false);
+          setEditingProduct(null);
+        } else if (reviewingPartner) {
+          setReviewingPartner(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [reviewingPartner, productModalOpen, inspectingOrder]);
+
   const reloadData = async () => {
     try {
-      const [pts, ords, erngs, prods, progs, arts, fqs, tests, logs] = await Promise.all([
-        dbService.getPartners(),
-        dbService.getOrders(),
+      const [usrs, pts, ords, erngs, prods, progs, arts, fqs, tests, logs, inqs, analytics] = await Promise.all([
+        dbService.getUsers(),
+        dbService.getPartners(true),
+        dbService.getOrders('admin'),
         dbService.getPartnerEarnings(),
         dbService.getProducts(),
         dbService.getPrograms(),
         dbService.getArticles(),
         dbService.getFaqs(),
         dbService.getTestimonials(),
-        dbService.getAuditLogs()
+        dbService.getAuditLogs(),
+        dbService.getInquiries(),
+        analyticsService.getSummary()
       ]);
+      setUsers(usrs);
       setPartners(pts);
       setOrders(ords);
       setEarnings(erngs);
@@ -101,6 +172,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
       setFaqs(fqs);
       setTestimonials(tests);
       setAuditLogs(logs);
+      setInquiries(inqs);
+      setAnalyticsSummary(analytics);
     } catch (err) {
       console.error('Failed to load admin data', err);
     } finally {
@@ -111,6 +184,25 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   useEffect(() => {
     reloadData();
   }, []);
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => {
+      const q = searchOrder.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        o.orderNumber.toLowerCase().includes(q) ||
+        o.customerName.toLowerCase().includes(q) ||
+        (o.trackingNumber || '').toLowerCase().includes(q);
+      const matchesStatus = orderStatusFilter === 'ALL' || o.status === orderStatusFilter;
+      const isPartnerOrder = Boolean(o.partnerId || o.partnerSlug || o.partnerName);
+      const matchesChannel =
+        orderChannelFilter === 'ALL' ||
+        (orderChannelFilter === 'PARTNER' && isPartnerOrder) ||
+        (orderChannelFilter === 'DIRECT' && !isPartnerOrder);
+      const matchesDate = matchesOrderDate(o.createdAt, orderDateFilter);
+      return matchesSearch && matchesStatus && matchesChannel && matchesDate;
+    });
+  }, [orders, searchOrder, orderStatusFilter, orderChannelFilter, orderDateFilter]);
 
   // KPIs
   const totalRevenue = orders.reduce((acc, o) => acc + o.total, 0);
@@ -123,10 +215,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   const handleUpdatePartnerStatus = async (partnerId: string, status: PartnerStatus, notes?: string) => {
     setSavingPartnerReview(true);
     try {
+      await dbService.updatePartner(partnerId, { preferredCategories: partnerReviewCategories });
       await dbService.updatePartnerStatus(partnerId, status, notes, 'SUPER_ADMIN');
       await reloadData();
       if (reviewingPartner && reviewingPartner.id === partnerId) {
-        setReviewingPartner((prev) => (prev ? { ...prev, status, adminNotes: notes ?? prev.adminNotes } : null));
+        setReviewingPartner((prev) =>
+          prev
+            ? {
+                ...prev,
+                status,
+                adminNotes: notes ?? prev.adminNotes,
+                preferredCategories: partnerReviewCategories
+              }
+            : null
+        );
       }
     } finally {
       setSavingPartnerReview(false);
@@ -136,17 +238,46 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   const openPartnerReviewModal = (partner: Partner) => {
     setReviewingPartner(partner);
     setPartnerAdminNotes(partner.adminNotes || '');
+    setPartnerReviewCategories(partner.preferredCategories || []);
   };
 
   // Order status updater
   const handleUpdateOrderStatus = async (orderId: string, status: OrderStatus) => {
     await dbService.updateOrderStatus(orderId, status);
+    if (inspectingOrder?.id === orderId) {
+      setInspectingOrder((prev) => (prev ? { ...prev, status } : null));
+    }
     await reloadData();
   };
 
   // Earnings payout updater
   const handleUpdateEarningStatus = async (earningId: string, status: 'PENDING' | 'APPROVED' | 'PAID') => {
     await dbService.updatePartnerEarningStatus(earningId, status);
+    await reloadData();
+  };
+
+  // User role, status & partner assignment updaters
+  const handleUpdateUserRole = async (
+    uid: string,
+    role: UserRole,
+    wholesaleApprovalStatus?: UserProfile['wholesaleApprovalStatus']
+  ) => {
+    await dbService.updateUserRole(uid, role, wholesaleApprovalStatus);
+    await reloadData();
+  };
+
+  const handleUpdateUserStatus = async (
+    uid: string,
+    status: UserProfile['status'],
+    partnerId?: string,
+    partnerSlug?: string
+  ) => {
+    await dbService.updateUserStatus(uid, status, partnerId, partnerSlug);
+    await reloadData();
+  };
+
+  const handleUpdateInquiryStatus = async (id: string, status: ContactInquiry['status']) => {
+    await dbService.updateInquiryStatus(id, status);
     await reloadData();
   };
 
@@ -365,6 +496,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
             Analytics Overview
           </button>
           <button
+            onClick={() => setActiveTab('users')}
+            className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap ${
+              activeTab === 'users' ? 'bg-[#c5a059] text-white' : 'text-[#5a6b7c] hover:bg-[#dfd7c7]/50'
+            }`}
+          >
+            Users &amp; Roles ({users.length})
+          </button>
+          <button
             onClick={() => setActiveTab('partners')}
             className={`px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap ${
               activeTab === 'partners' ? 'bg-[#c5a059] text-white' : 'text-[#5a6b7c] hover:bg-[#dfd7c7]/50'
@@ -416,9 +555,34 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
 
         {/* Tab 1: Overview Analytics */}
         {activeTab === 'overview' && (
-          <div className="p-8 space-y-8">
+          <div className="p-6 sm:p-8 space-y-8">
+            {/* Traffic & Conversion Funnel Summary */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
+              <div className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7]">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-[#5a6b7c] block">Page Views</span>
+                <span className="font-serif text-xl font-bold text-[#0c2340]">{analyticsSummary.pageViews}</span>
+              </div>
+              <div className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7]">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-[#5a6b7c] block">Product Dossiers</span>
+                <span className="font-serif text-xl font-bold text-[#0c2340]">{analyticsSummary.productViews}</span>
+              </div>
+              <div className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7]">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-[#5a6b7c] block">Partner Landings</span>
+                <span className="font-serif text-xl font-bold text-[#c5a059]">{analyticsSummary.partnerVisits}</span>
+              </div>
+              <div className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7]">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-[#5a6b7c] block">Add to Carts</span>
+                <span className="font-serif text-xl font-bold text-[#0c2340]">{analyticsSummary.addToCarts}</span>
+              </div>
+              <div className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7] col-span-2 sm:col-span-1">
+                <span className="text-[10px] uppercase font-bold tracking-wider text-[#5a6b7c] block">Open Inquiries</span>
+                <span className="font-serif text-xl font-bold text-[#c5a059]">
+                  {inquiries.filter((i) => i.status !== 'RESOLVED').length}
+                </span>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              
               {/* Partner Leaderboard */}
               <div className="border border-[#dfd7c7] rounded-2xl p-6 bg-[#fffdfb]/50 space-y-4">
                 <h3 className="font-serif text-lg font-bold text-[#0c2340] flex items-center justify-between">
@@ -427,7 +591,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                 </h3>
                 <div className="space-y-3 text-xs">
                   {partners.map((pt) => {
-                    const ptOrders = orders.filter((o) => o.partnerId === pt.id || o.partnerSlug === pt.slug);
+                    const ptOrders = orders.filter(
+                      (o) => o.partnerId === pt.id || o.partnerId === pt.partnerId || o.partnerSlug === pt.slug
+                    );
                     const ptRev = ptOrders.reduce((acc, o) => acc + o.subtotal, 0);
                     return (
                       <div key={pt.id} className="p-3 rounded-xl bg-white border border-[#dfd7c7] flex items-center justify-between">
@@ -469,7 +635,242 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                   ))}
                 </div>
               </div>
+            </div>
 
+            {/* Partner Performance Overview Comparison Table */}
+            <div className="border border-[#dfd7c7] rounded-2xl overflow-hidden bg-white">
+              <div className="p-4 sm:p-5 bg-[#f6f4ee] border-b border-[#dfd7c7] flex items-center justify-between">
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-[#0c2340]">
+                    Partner Performance Overview
+                  </h3>
+                  <p className="text-[11px] text-[#5a6b7c]">
+                    Cross-clinic comparison of order completion rates, referred revenue, and pending vs. disbursed commissions.
+                  </p>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-[#fffdfb] text-[#0c2340] font-serif border-b border-[#dfd7c7]">
+                    <tr>
+                      <th className="p-3.5 font-bold">Partner</th>
+                      <th className="p-3.5 font-bold">Orders (Total / Completed / Cancelled)</th>
+                      <th className="p-3.5 font-bold">Completion Rate</th>
+                      <th className="p-3.5 font-bold">Gross Referred Sales</th>
+                      <th className="p-3.5 font-bold">Pending Commissions</th>
+                      <th className="p-3.5 font-bold">Paid Commissions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#dfd7c7]/40 text-[#5a6b7c]">
+                    {partners.map((pt) => {
+                      const ptOrders = orders.filter(
+                        (o) => o.partnerId === pt.id || o.partnerId === pt.partnerId || o.partnerSlug === pt.slug
+                      );
+                      const completed = ptOrders.filter((o) => o.status === 'COMPLETED').length;
+                      const cancelled = ptOrders.filter((o) => o.status === 'CANCELLED').length;
+                      const rate = ptOrders.length > 0 ? Math.round((completed / ptOrders.length) * 100) : 0;
+                      const gross = ptOrders.reduce((acc, o) => acc + o.subtotal, 0);
+                      const ptEarnings = earnings.filter(
+                        (e) => e.partnerId === pt.id || e.partnerId === pt.partnerId || e.partnerSlug === pt.slug
+                      );
+                      const pendingComm = ptEarnings
+                        .filter((e) => e.status === 'PENDING' || e.status === 'APPROVED')
+                        .reduce((acc, e) => acc + e.earningAmount, 0);
+                      const paidComm = ptEarnings
+                        .filter((e) => e.status === 'PAID')
+                        .reduce((acc, e) => acc + e.earningAmount, 0);
+
+                      return (
+                        <tr key={pt.id} className="hover:bg-[#fffdfb]/50">
+                          <td className="p-3.5">
+                            <span className="font-semibold text-[#0c2340] block">{pt.name}</span>
+                            <span className="font-mono text-[10px] text-[#c5a059]">{pt.partnerId} • {pt.status}</span>
+                          </td>
+                          <td className="p-3.5">
+                            {ptOrders.length} total ({completed} completed / {cancelled} cancelled)
+                          </td>
+                          <td className="p-3.5 font-semibold text-[#0c2340]">{rate}%</td>
+                          <td className="p-3.5 font-bold text-[#0c2340]">${gross.toFixed(2)}</td>
+                          <td className="p-3.5 font-semibold text-amber-700">${pendingComm.toFixed(2)}</td>
+                          <td className="p-3.5 font-bold text-[#c5a059]">${paidComm.toFixed(2)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 1B: Users & Roles (Clients, Partners, Admins) */}
+        {activeTab === 'users' && (
+          <div>
+            <div className="p-4 border-b border-[#dfd7c7]/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 flex-1">
+                <span className="material-symbols-outlined text-[#5a6b7c] text-[18px]">search</span>
+                <input
+                  type="text"
+                  placeholder="Search clients, partners, or admins by name, email, or business..."
+                  value={searchUser}
+                  onChange={(e) => setSearchUser(e.target.value)}
+                  className="w-full text-xs text-[#0c2340] placeholder-[#5a6b7c] focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                {(
+                  [
+                    { key: 'ALL', label: `All (${users.length})` },
+                    { key: 'CLIENTS', label: `Clients (${users.filter((u) => u.role === 'CUSTOMER').length})` },
+                    {
+                      key: 'PARTNERS',
+                      label: `Partners (${users.filter((u) => u.role === 'PARTNER_OWNER' || u.role === 'PARTNER_STAFF').length})`
+                    },
+                    {
+                      key: 'ADMINS',
+                      label: `Admins (${users.filter((u) => u.role === 'ADMIN' || u.role === 'SALES_ADMIN').length})`
+                    }
+                  ] as const
+                ).map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setUserRoleFilter(item.key)}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider cursor-pointer whitespace-nowrap transition-colors ${
+                      userRoleFilter === item.key
+                        ? 'bg-[#0c2340] text-white'
+                        : 'bg-[#f6f4ee] text-[#5a6b7c] hover:bg-[#dfd7c7]/60'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-[#fffdfb] text-[#0c2340] font-serif border-b border-[#dfd7c7]">
+                  <tr>
+                    <th className="p-4 font-bold">Account</th>
+                    <th className="p-4 font-bold">Linked Partner</th>
+                    <th className="p-4 font-bold">Role</th>
+                    <th className="p-4 font-bold">Wholesale Access</th>
+                    <th className="p-4 font-bold">Account Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#dfd7c7]/40 text-[#5a6b7c]">
+                  {users
+                    .filter((u) => {
+                      const matchesTier =
+                        userRoleFilter === 'ALL' ||
+                        (userRoleFilter === 'CLIENTS' && u.role === 'CUSTOMER') ||
+                        (userRoleFilter === 'PARTNERS' && (u.role === 'PARTNER_OWNER' || u.role === 'PARTNER_STAFF')) ||
+                        (userRoleFilter === 'ADMINS' && (u.role === 'ADMIN' || u.role === 'SALES_ADMIN'));
+
+                      const q = searchUser.trim().toLowerCase();
+                      const matchesSearch =
+                        !q ||
+                        u.displayName.toLowerCase().includes(q) ||
+                        u.email.toLowerCase().includes(q) ||
+                        (u.businessName || '').toLowerCase().includes(q);
+                      return matchesTier && matchesSearch;
+                    })
+                    .map((u) => (
+                      <tr key={u.uid} className="hover:bg-[#fffdfb]/50 transition-colors">
+                        <td className="p-4">
+                          <div className="font-semibold text-[#0c2340]">{u.displayName}</div>
+                          <div className="text-[11px] text-[#5a6b7c]">{u.email}</div>
+                        </td>
+                        <td className="p-4">
+                          <select
+                            value={u.partnerId || ''}
+                            onChange={(e) => {
+                              const chosen = partners.find((p) => p.partnerId === e.target.value || p.id === e.target.value);
+                              handleUpdateUserStatus(
+                                u.uid,
+                                u.status || 'ACTIVE',
+                                chosen ? chosen.partnerId : '',
+                                chosen ? chosen.slug : ''
+                              );
+                            }}
+                            aria-label={`Partner assignment for ${u.displayName}`}
+                            className="px-2.5 py-1 rounded-lg bg-white border border-[#dfd7c7] text-[11px] font-medium text-[#0c2340] cursor-pointer max-w-[170px]"
+                          >
+                            <option value="">None ({u.role === 'CUSTOMER' ? 'Direct Client' : 'HQ'})</option>
+                            {partners.map((pt) => (
+                              <option key={pt.id} value={pt.partnerId}>
+                                {pt.name} ({pt.partnerId})
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="p-4">
+                          <select
+                            value={u.role}
+                            onChange={(e) =>
+                              handleUpdateUserRole(u.uid, e.target.value as UserRole, u.wholesaleApprovalStatus)
+                            }
+                            aria-label={`Role for ${u.displayName}`}
+                            className="px-2.5 py-1 rounded-lg bg-white border border-[#dfd7c7] text-[11px] font-semibold text-[#0c2340] cursor-pointer"
+                          >
+                            <option value="CUSTOMER">CUSTOMER (Client)</option>
+                            <option value="PARTNER_OWNER">PARTNER_OWNER</option>
+                            <option value="PARTNER_STAFF">PARTNER_STAFF</option>
+                            <option value="SALES_ADMIN">SALES_ADMIN</option>
+                            <option value="ADMIN">ADMIN</option>
+                          </select>
+                        </td>
+                        <td className="p-4">
+                          <select
+                            value={u.wholesaleApprovalStatus || 'NONE'}
+                            onChange={(e) =>
+                              handleUpdateUserRole(
+                                u.uid,
+                                u.role,
+                                e.target.value as UserProfile['wholesaleApprovalStatus']
+                              )
+                            }
+                            aria-label={`Wholesale status for ${u.displayName}`}
+                            className="px-2.5 py-1 rounded-lg bg-white border border-[#dfd7c7] text-[11px] font-semibold text-[#0c2340] cursor-pointer"
+                          >
+                            <option value="NONE">NONE (Retail Only)</option>
+                            <option value="PENDING">PENDING</option>
+                            <option value="APPROVED">APPROVED</option>
+                            <option value="DECLINED">DECLINED</option>
+                          </select>
+                        </td>
+                        <td className="p-4">
+                          <select
+                            value={u.status || 'ACTIVE'}
+                            onChange={(e) =>
+                              handleUpdateUserStatus(
+                                u.uid,
+                                e.target.value as UserProfile['status'],
+                                u.partnerId,
+                                u.partnerSlug
+                              )
+                            }
+                            aria-label={`Status for ${u.displayName}`}
+                            className={`px-2.5 py-1 rounded-lg border text-[11px] font-bold uppercase cursor-pointer ${
+                              u.status === 'SUSPENDED'
+                                ? 'bg-red-50 border-red-200 text-red-700'
+                                : u.status === 'INACTIVE'
+                                ? 'bg-amber-50 border-amber-200 text-amber-800'
+                                : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                            }`}
+                          >
+                            <option value="ACTIVE">ACTIVE</option>
+                            <option value="PENDING_VERIFICATION">PENDING_VERIFICATION</option>
+                            <option value="INACTIVE">INACTIVE</option>
+                            <option value="SUSPENDED">SUSPENDED</option>
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -604,15 +1005,56 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
         {/* Tab 3: Order Fulfillment */}
         {activeTab === 'orders' && (
           <div>
-            <div className="p-4 border-b border-[#dfd7c7]/50 flex items-center gap-3">
-              <span className="material-symbols-outlined text-[#5a6b7c] text-[18px]">search</span>
-              <input
-                type="text"
-                placeholder="Search orders by number, customer, or tracking number..."
-                value={searchOrder}
-                onChange={(e) => setSearchOrder(e.target.value)}
-                className="w-full text-xs text-[#0c2340] placeholder-[#5a6b7c] focus:outline-none"
-              />
+            <div className="p-4 border-b border-[#dfd7c7]/50 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 flex-1">
+                <span className="material-symbols-outlined text-[#5a6b7c] text-[18px]">search</span>
+                <input
+                  type="text"
+                  placeholder="Search orders by number, customer, or tracking number..."
+                  value={searchOrder}
+                  onChange={(e) => setSearchOrder(e.target.value)}
+                  className="w-full text-xs text-[#0c2340] placeholder-[#5a6b7c] focus:outline-none"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={orderStatusFilter}
+                  onChange={(e) => setOrderStatusFilter(e.target.value as 'ALL' | OrderStatus)}
+                  aria-label="Filter orders by status"
+                  className="px-2.5 py-1.5 rounded-lg bg-white border border-[#dfd7c7] text-[11px] font-semibold text-[#0c2340] cursor-pointer"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="PENDING">PENDING</option>
+                  <option value="CONFIRMED">CONFIRMED</option>
+                  <option value="PROCESSING">PROCESSING</option>
+                  <option value="COMPLETED">COMPLETED</option>
+                  <option value="CANCELLED">CANCELLED</option>
+                </select>
+
+                <select
+                  value={orderChannelFilter}
+                  onChange={(e) => setOrderChannelFilter(e.target.value as 'ALL' | 'PARTNER' | 'DIRECT')}
+                  aria-label="Filter orders by channel"
+                  className="px-2.5 py-1.5 rounded-lg bg-white border border-[#dfd7c7] text-[11px] font-semibold text-[#0c2340] cursor-pointer"
+                >
+                  <option value="ALL">All Channels</option>
+                  <option value="PARTNER">Partner Attributed</option>
+                  <option value="DIRECT">Direct Retail</option>
+                </select>
+
+                <select
+                  value={orderDateFilter}
+                  onChange={(e) => setOrderDateFilter(e.target.value as 'all' | 'current_month' | 'prev_month' | 'ytd')}
+                  aria-label="Filter orders by date"
+                  className="px-2.5 py-1.5 rounded-lg bg-white border border-[#dfd7c7] text-[11px] font-semibold text-[#0c2340] cursor-pointer"
+                >
+                  <option value="all">Lifetime History</option>
+                  <option value="current_month">Current Month</option>
+                  <option value="prev_month">Previous Month</option>
+                  <option value="ytd">Year to Date (YTD)</option>
+                </select>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -624,21 +1066,29 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                     <th className="p-4 font-bold">Customer</th>
                     <th className="p-4 font-bold">Attributed Partner</th>
                     <th className="p-4 font-bold">Value</th>
-                    <th className="p-4 font-bold">Cold-Chain Status</th>
+                    <th className="p-4 font-bold">Cold-Chain Tracking</th>
                     <th className="p-4 font-bold">Fulfillment Status</th>
+                    <th className="p-4 font-bold text-right">Inspect</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#dfd7c7]/40 text-[#5a6b7c]">
-                  {orders
-                    .filter((o) => o.orderNumber.toLowerCase().includes(searchOrder.toLowerCase()) || o.customerName.toLowerCase().includes(searchOrder.toLowerCase()))
-                    .map((ord) => (
+                  {filteredOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center text-[#5a6b7c]">
+                        No orders match the selected filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredOrders.map((ord) => (
                       <tr key={ord.id} className="hover:bg-[#fffdfb]/50">
                         <td className="p-4 font-mono font-bold text-[#0c2340]">{ord.orderNumber}</td>
                         <td className="p-4">{new Date(ord.createdAt).toLocaleDateString()}</td>
                         <td className="p-4 font-medium text-[#0c2340]">{ord.customerName}</td>
                         <td className="p-4">
                           {ord.partnerName ? (
-                            <span className="text-[#c5a059] font-semibold">{ord.partnerName} (${(ord.partnerCommission || 0).toFixed(2)})</span>
+                            <span className="text-[#c5a059] font-semibold">
+                              {ord.partnerName} (${(ord.partnerCommission || 0).toFixed(2)})
+                            </span>
                           ) : (
                             <span className="text-[#5a6b7c]">Direct Patient</span>
                           )}
@@ -658,8 +1108,17 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                             <option value="CANCELLED">CANCELLED</option>
                           </select>
                         </td>
+                        <td className="p-4 text-right">
+                          <button
+                            onClick={() => setInspectingOrder(ord)}
+                            className="px-2.5 py-1 rounded bg-[#0c2340] text-white text-[10px] font-semibold hover:bg-[#c5a059] cursor-pointer"
+                          >
+                            Inspect
+                          </button>
+                        </td>
                       </tr>
-                    ))}
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -848,44 +1307,598 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
           </div>
         )}
 
-        {/* Tab 6: CMS & Content */}
+        {/* Tab 6: CMS, Education & Inquiries Inbox */}
         {activeTab === 'content' && (
           <div className="p-6 space-y-6 text-xs">
-            <div>
-              <h3 className="font-serif text-lg font-bold text-[#0c2340] mb-3">
-                Wellness Programs CMS ({programs.length})
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {programs.map((pr) => (
-                  <div key={pr.id} className="p-4 rounded-2xl border border-[#dfd7c7] bg-[#fffdfb]">
-                    <div className="flex justify-between font-semibold text-sm text-[#0c2340]">
-                      <span>{pr.name}</span>
-                      <span>${pr.priceMonthly}/mo</span>
-                    </div>
-                    <p className="text-[11px] text-[#5a6b7c] mt-1">{pr.shortDescription}</p>
-                  </div>
-                ))}
-              </div>
+            {/* CMS Section Selector */}
+            <div className="flex flex-wrap items-center gap-2 border-b border-[#dfd7c7] pb-4">
+              {(
+                [
+                  { id: 'programs', label: `Wellness Programs (${programs.length})` },
+                  { id: 'articles', label: `Educational Articles (${articles.length})` },
+                  { id: 'faqs', label: `FAQs (${faqs.length})` },
+                  { id: 'testimonials', label: `Testimonials (${testimonials.length})` },
+                  { id: 'inquiries', label: `Inquiries Inbox (${inquiries.length})` }
+                ] as const
+              ).map((sec) => (
+                <button
+                  key={sec.id}
+                  type="button"
+                  onClick={() => setCmsSection(sec.id)}
+                  className={`px-3.5 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider cursor-pointer transition-colors ${
+                    cmsSection === sec.id
+                      ? 'bg-[#0c2340] text-white'
+                      : 'bg-[#f6f4ee] text-[#5a6b7c] hover:bg-[#dfd7c7]/60'
+                  }`}
+                >
+                  {sec.label}
+                </button>
+              ))}
             </div>
 
-            <div className="pt-4 border-t border-[#dfd7c7]/60">
-              <h3 className="font-serif text-lg font-bold text-[#0c2340] mb-3">
-                Educational Articles ({articles.length})
-              </h3>
-              <div className="space-y-2">
-                {articles.map((art) => (
-                  <div key={art.id} className="p-3 rounded-xl border border-[#dfd7c7] flex items-center justify-between">
-                    <div>
-                      <span className="font-semibold text-xs text-[#0c2340] block">{art.title}</span>
-                      <span className="text-[11px] text-[#5a6b7c]">{art.category} • {art.readTime}</span>
+            {/* 1. Wellness Programs CRUD */}
+            {cmsSection === 'programs' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-serif text-lg font-bold text-[#0c2340]">Wellness Programs</h3>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingProgram({
+                        name: '',
+                        duration: '12 Weeks',
+                        category: 'Metabolic',
+                        tag: 'Physician Guided',
+                        shortDescription: '',
+                        fullDescription: '',
+                        priceMonthly: 299,
+                        features: [],
+                        status: 'ACTIVE',
+                        featured: true
+                      })
+                    }
+                    className="px-3.5 py-2 rounded-xl bg-[#c5a059] text-white text-xs font-semibold hover:bg-[#0c2340] cursor-pointer"
+                  >
+                    + Add Program
+                  </button>
+                </div>
+
+                {editingProgram && (
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const slug = (editingProgram.name || 'program')
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, '-')
+                        .replace(/(^-|-$)/g, '');
+                      if (editingProgram.id) {
+                        await dbService.updateProgram(editingProgram.id, editingProgram);
+                      } else {
+                        await dbService.createProgram({
+                          name: editingProgram.name || 'New Program',
+                          slug,
+                          duration: editingProgram.duration || '12 Weeks',
+                          category: editingProgram.category || 'Metabolic',
+                          tag: editingProgram.tag || 'Physician Guided',
+                          shortDescription: editingProgram.shortDescription || '',
+                          fullDescription: editingProgram.fullDescription || editingProgram.shortDescription || '',
+                          priceMonthly: Number(editingProgram.priceMonthly || 299),
+                          features: editingProgram.features || [],
+                          status: editingProgram.status || 'ACTIVE',
+                          featured: Boolean(editingProgram.featured),
+                          createdAt: new Date().toISOString()
+                        });
+                      }
+                      setEditingProgram(null);
+                      await reloadData();
+                    }}
+                    className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7] space-y-3"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Program Name"
+                        value={editingProgram.name || ''}
+                        onChange={(e) => setEditingProgram({ ...editingProgram, name: e.target.value })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Duration (e.g. 12 Weeks)"
+                        value={editingProgram.duration || ''}
+                        onChange={(e) => setEditingProgram({ ...editingProgram, duration: e.target.value })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Monthly Price ($)"
+                        value={editingProgram.priceMonthly ?? 299}
+                        onChange={(e) => setEditingProgram({ ...editingProgram, priceMonthly: Number(e.target.value) })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
                     </div>
-                    <span className="px-2 py-0.5 rounded bg-[#c5a059]/10 text-[#c5a059] text-[10px] font-semibold">
-                      {art.status}
-                    </span>
-                  </div>
-                ))}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <input
+                        type="text"
+                        placeholder="Category (Metabolic, Longevity...)"
+                        value={editingProgram.category || ''}
+                        onChange={(e) => setEditingProgram({ ...editingProgram, category: e.target.value })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Badge Tag"
+                        value={editingProgram.tag || ''}
+                        onChange={(e) => setEditingProgram({ ...editingProgram, tag: e.target.value })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
+                      <select
+                        value={editingProgram.status || 'ACTIVE'}
+                        onChange={(e) => setEditingProgram({ ...editingProgram, status: e.target.value as WellnessProgram['status'] })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      >
+                        <option value="ACTIVE">ACTIVE</option>
+                        <option value="DRAFT">DRAFT</option>
+                        <option value="ARCHIVED">ARCHIVED</option>
+                      </select>
+                    </div>
+                    <textarea
+                      rows={2}
+                      required
+                      placeholder="Short description..."
+                      value={editingProgram.shortDescription || ''}
+                      onChange={(e) => setEditingProgram({ ...editingProgram, shortDescription: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                    <div className="flex gap-2">
+                      <button type="submit" className="px-4 py-2 rounded-lg bg-[#0c2340] text-white font-semibold cursor-pointer">
+                        Save Program
+                      </button>
+                      <button type="button" onClick={() => setEditingProgram(null)} className="px-4 py-2 rounded-lg border border-[#dfd7c7] bg-white text-[#5a6b7c] cursor-pointer">
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {programs.map((pr) => (
+                    <div key={pr.id} className="p-4 rounded-2xl border border-[#dfd7c7] bg-[#fffdfb] space-y-2">
+                      <div className="flex justify-between font-semibold text-sm text-[#0c2340]">
+                        <span>{pr.name}</span>
+                        <span>${pr.priceMonthly}/mo</span>
+                      </div>
+                      <p className="text-[11px] text-[#5a6b7c]">{pr.shortDescription}</p>
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="px-2 py-0.5 rounded bg-[#f6f4ee] text-[10px] font-bold text-[#0c2340]">{pr.status}</span>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => setEditingProgram(pr)} className="text-[#0c2340] font-semibold hover:text-[#c5a059] cursor-pointer">
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await dbService.deleteProgram(pr.id);
+                              await reloadData();
+                            }}
+                            className="text-red-700 font-semibold hover:underline cursor-pointer"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* 2. Educational Articles CRUD */}
+            {cmsSection === 'articles' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-serif text-lg font-bold text-[#0c2340]">Educational Articles</h3>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingArticle({
+                        title: '',
+                        category: 'Peptide Protocols',
+                        readTime: '5 min read',
+                        author: 'Whole Harbor Clinical Team',
+                        summary: '',
+                        content: '',
+                        imageUrl: 'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=800&q=80',
+                        status: 'PUBLISHED'
+                      })
+                    }
+                    className="px-3.5 py-2 rounded-xl bg-[#c5a059] text-white text-xs font-semibold hover:bg-[#0c2340] cursor-pointer"
+                  >
+                    + Add Article
+                  </button>
+                </div>
+
+                {editingArticle && (
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const slug = (editingArticle.title || 'article')
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, '-')
+                        .replace(/(^-|-$)/g, '');
+                      if (editingArticle.id) {
+                        await dbService.updateArticle(editingArticle.id, editingArticle);
+                      } else {
+                        await dbService.createArticle({
+                          title: editingArticle.title || 'Untitled Article',
+                          slug,
+                          category: editingArticle.category || 'Peptide Protocols',
+                          readTime: editingArticle.readTime || '5 min read',
+                          summary: editingArticle.summary || '',
+                          content: editingArticle.content || editingArticle.summary || '',
+                          imageUrl: editingArticle.imageUrl || 'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?auto=format&fit=crop&w=800&q=80',
+                          author: editingArticle.author || 'Whole Harbor Clinical Team',
+                          status: editingArticle.status || 'PUBLISHED',
+                          createdAt: new Date().toISOString()
+                        });
+                      }
+                      setEditingArticle(null);
+                      await reloadData();
+                    }}
+                    className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7] space-y-3"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Article Title"
+                        value={editingArticle.title || ''}
+                        onChange={(e) => setEditingArticle({ ...editingArticle, title: e.target.value })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Category"
+                        value={editingArticle.category || ''}
+                        onChange={(e) => setEditingArticle({ ...editingArticle, category: e.target.value })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
+                      <select
+                        value={editingArticle.status || 'PUBLISHED'}
+                        onChange={(e) => setEditingArticle({ ...editingArticle, status: e.target.value as EducationalArticle['status'] })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      >
+                        <option value="PUBLISHED">PUBLISHED</option>
+                        <option value="DRAFT">DRAFT</option>
+                        <option value="ARCHIVED">ARCHIVED</option>
+                      </select>
+                    </div>
+                    <textarea
+                      rows={2}
+                      required
+                      placeholder="Summary..."
+                      value={editingArticle.summary || ''}
+                      onChange={(e) => setEditingArticle({ ...editingArticle, summary: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                    <textarea
+                      rows={3}
+                      placeholder="Full educational content..."
+                      value={editingArticle.content || ''}
+                      onChange={(e) => setEditingArticle({ ...editingArticle, content: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                    <div className="flex gap-2">
+                      <button type="submit" className="px-4 py-2 rounded-lg bg-[#0c2340] text-white font-semibold cursor-pointer">
+                        Save Article
+                      </button>
+                      <button type="button" onClick={() => setEditingArticle(null)} className="px-4 py-2 rounded-lg border border-[#dfd7c7] bg-white text-[#5a6b7c] cursor-pointer">
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                <div className="space-y-2">
+                  {articles.map((art) => (
+                    <div key={art.id} className="p-3 rounded-xl border border-[#dfd7c7] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <span className="font-semibold text-xs text-[#0c2340] block">{art.title}</span>
+                        <span className="text-[11px] text-[#5a6b7c]">{art.category} • {art.readTime} • {art.author}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="px-2 py-0.5 rounded bg-[#c5a059]/10 text-[#c5a059] text-[10px] font-semibold">
+                          {art.status}
+                        </span>
+                        <button type="button" onClick={() => setEditingArticle(art)} className="text-[#0c2340] font-semibold hover:text-[#c5a059] cursor-pointer">
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await dbService.deleteArticle(art.id);
+                            await reloadData();
+                          }}
+                          className="text-red-700 font-semibold hover:underline cursor-pointer"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 3. FAQs CRUD */}
+            {cmsSection === 'faqs' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-serif text-lg font-bold text-[#0c2340]">Frequently Asked Questions</h3>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingFaq({
+                        question: '',
+                        answer: '',
+                        category: 'Protocols',
+                        orderIndex: faqs.length + 1
+                      })
+                    }
+                    className="px-3.5 py-2 rounded-xl bg-[#c5a059] text-white text-xs font-semibold hover:bg-[#0c2340] cursor-pointer"
+                  >
+                    + Add FAQ
+                  </button>
+                </div>
+
+                {editingFaq && (
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (editingFaq.id) {
+                        await dbService.updateFaq(editingFaq.id, editingFaq);
+                      } else {
+                        await dbService.createFaq({
+                          question: editingFaq.question || '',
+                          answer: editingFaq.answer || '',
+                          category: editingFaq.category || 'Protocols',
+                          orderIndex: Number(editingFaq.orderIndex || faqs.length + 1),
+                          createdAt: new Date().toISOString()
+                        });
+                      }
+                      setEditingFaq(null);
+                      await reloadData();
+                    }}
+                    className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7] space-y-3"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Question"
+                        value={editingFaq.question || ''}
+                        onChange={(e) => setEditingFaq({ ...editingFaq, question: e.target.value })}
+                        className="sm:col-span-2 px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Category"
+                        value={editingFaq.category || ''}
+                        onChange={(e) => setEditingFaq({ ...editingFaq, category: e.target.value })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
+                    </div>
+                    <textarea
+                      rows={2}
+                      required
+                      placeholder="Answer..."
+                      value={editingFaq.answer || ''}
+                      onChange={(e) => setEditingFaq({ ...editingFaq, answer: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                    <div className="flex gap-2">
+                      <button type="submit" className="px-4 py-2 rounded-lg bg-[#0c2340] text-white font-semibold cursor-pointer">
+                        Save FAQ
+                      </button>
+                      <button type="button" onClick={() => setEditingFaq(null)} className="px-4 py-2 rounded-lg border border-[#dfd7c7] bg-white text-[#5a6b7c] cursor-pointer">
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                <div className="space-y-2">
+                  {faqs.map((fq) => (
+                    <div key={fq.id} className="p-3 rounded-xl border border-[#dfd7c7] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <span className="font-semibold text-[#0c2340] block">{fq.question}</span>
+                        <span className="text-[11px] text-[#5a6b7c]">{fq.category} • {fq.answer.slice(0, 90)}...</span>
+                      </div>
+                      <div className="flex gap-3 shrink-0">
+                        <button type="button" onClick={() => setEditingFaq(fq)} className="text-[#0c2340] font-semibold hover:text-[#c5a059] cursor-pointer">
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await dbService.deleteFaq(fq.id);
+                            await reloadData();
+                          }}
+                          className="text-red-700 font-semibold hover:underline cursor-pointer"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 4. Testimonials CRUD */}
+            {cmsSection === 'testimonials' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-serif text-lg font-bold text-[#0c2340]">Verified Testimonials</h3>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingTestimonial({
+                        name: '',
+                        role: 'Clinic Director',
+                        organization: '',
+                        quote: '',
+                        rating: 5,
+                        verified: true,
+                        featured: true
+                      })
+                    }
+                    className="px-3.5 py-2 rounded-xl bg-[#c5a059] text-white text-xs font-semibold hover:bg-[#0c2340] cursor-pointer"
+                  >
+                    + Add Testimonial
+                  </button>
+                </div>
+
+                {editingTestimonial && (
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      if (editingTestimonial.id) {
+                        await dbService.updateTestimonial(editingTestimonial.id, editingTestimonial);
+                      } else {
+                        await dbService.createTestimonial({
+                          name: editingTestimonial.name || 'Client',
+                          role: editingTestimonial.role || 'Member',
+                          organization: editingTestimonial.organization || '',
+                          quote: editingTestimonial.quote || '',
+                          rating: Number(editingTestimonial.rating || 5),
+                          verified: Boolean(editingTestimonial.verified ?? true),
+                          featured: Boolean(editingTestimonial.featured ?? true),
+                          createdAt: new Date().toISOString()
+                        });
+                      }
+                      setEditingTestimonial(null);
+                      await reloadData();
+                    }}
+                    className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7] space-y-3"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Author Name"
+                        value={editingTestimonial.name || ''}
+                        onChange={(e) => setEditingTestimonial({ ...editingTestimonial, name: e.target.value })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Role (e.g. Clinic Director)"
+                        value={editingTestimonial.role || ''}
+                        onChange={(e) => setEditingTestimonial({ ...editingTestimonial, role: e.target.value })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Organization"
+                        value={editingTestimonial.organization || ''}
+                        onChange={(e) => setEditingTestimonial({ ...editingTestimonial, organization: e.target.value })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
+                    </div>
+                    <textarea
+                      rows={2}
+                      required
+                      placeholder="Testimonial quote..."
+                      value={editingTestimonial.quote || ''}
+                      onChange={(e) => setEditingTestimonial({ ...editingTestimonial, quote: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                    <div className="flex gap-2">
+                      <button type="submit" className="px-4 py-2 rounded-lg bg-[#0c2340] text-white font-semibold cursor-pointer">
+                        Save Testimonial
+                      </button>
+                      <button type="button" onClick={() => setEditingTestimonial(null)} className="px-4 py-2 rounded-lg border border-[#dfd7c7] bg-white text-[#5a6b7c] cursor-pointer">
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {testimonials.map((t) => (
+                    <div key={t.id} className="p-4 rounded-xl border border-[#dfd7c7] bg-[#fffdfb] space-y-2">
+                      <p className="italic text-[#0c2340]">&ldquo;{t.quote}&rdquo;</p>
+                      <div className="flex items-center justify-between text-[11px] text-[#5a6b7c]">
+                        <span>
+                          <strong className="text-[#0c2340]">{t.name}</strong> • {t.organization || t.role}
+                        </span>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => setEditingTestimonial(t)} className="text-[#0c2340] font-semibold hover:text-[#c5a059] cursor-pointer">
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await dbService.deleteTestimonial(t.id);
+                              await reloadData();
+                            }}
+                            className="text-red-700 font-semibold hover:underline cursor-pointer"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 5. Customer & Partner Inquiries Inbox */}
+            {cmsSection === 'inquiries' && (
+              <div className="space-y-4">
+                <h3 className="font-serif text-lg font-bold text-[#0c2340]">
+                  Customer &amp; Concierge Inquiries ({inquiries.length})
+                </h3>
+                {inquiries.length === 0 ? (
+                  <p className="p-6 rounded-xl bg-[#f6f4ee] border border-[#dfd7c7] text-center text-[#5a6b7c]">
+                    No inquiries received yet. Messages submitted from Contact and About pages appear here.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {inquiries.map((inq) => (
+                      <div key={inq.id} className="p-4 rounded-2xl border border-[#dfd7c7] bg-[#fffdfb] space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div>
+                            <span className="font-semibold text-sm text-[#0c2340]">{inq.name}</span>
+                            <span className="text-[11px] text-[#5a6b7c] ml-2">
+                              ({inq.email}) • {inq.department} • {new Date(inq.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                          <select
+                            value={inq.status}
+                            onChange={(e) => handleUpdateInquiryStatus(inq.id, e.target.value as ContactInquiry['status'])}
+                            className="px-2.5 py-1 rounded-lg bg-white border border-[#dfd7c7] text-[11px] font-bold text-[#0c2340] cursor-pointer"
+                          >
+                            <option value="NEW">NEW</option>
+                            <option value="IN_PROGRESS">IN_PROGRESS</option>
+                            <option value="RESOLVED">RESOLVED</option>
+                          </select>
+                        </div>
+                        <p className="text-[#5a6b7c] leading-relaxed">{inq.message}</p>
+                        {inq.orderNumber && (
+                          <span className="inline-block font-mono text-[10px] px-2 py-0.5 rounded bg-[#f6f4ee] text-[#0c2340]">
+                            Order Ref: {inq.orderNumber}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -949,115 +1962,180 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
 
       {/* Partner Application Review Modal */}
       {reviewingPartner && (
-        <div className="fixed inset-0 z-50 bg-[#0c2340]/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-[#fffdfb] w-full max-w-2xl rounded-3xl border border-[#dfd7c7] shadow-2xl p-6 sm:p-8 space-y-5 text-xs my-8">
-            <div className="flex justify-between items-start border-b border-[#dfd7c7] pb-4">
-              <div>
-                <span className="text-[10px] uppercase font-bold tracking-widest text-[#c5a059]">
-                  Partner Application Review • {reviewingPartner.partnerId}
-                </span>
-                <h3 className="font-serif text-2xl font-bold text-[#0c2340] mt-0.5">
-                  {reviewingPartner.name}
-                </h3>
-                <p className="text-[11px] text-[#5a6b7c]">
-                  Submitted {new Date(reviewingPartner.createdAt).toLocaleString()}
-                </p>
+        <div
+          className="fixed inset-0 z-50 bg-[#0c2340]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={() => setReviewingPartner(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Partner application review"
+        >
+          <div
+            className="bg-[#fffdfb] w-full sm:max-w-2xl max-h-[92dvh] sm:max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-3xl border border-[#dfd7c7] shadow-2xl overflow-hidden text-xs"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Pinned Header */}
+            <div className="shrink-0 flex justify-between items-start border-b border-[#dfd7c7] bg-[#f6f4ee] px-5 sm:px-7 py-4 gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                {reviewingPartner.logoUrl && (
+                  <img
+                    src={reviewingPartner.logoUrl}
+                    alt={reviewingPartner.name}
+                    className="w-12 h-12 rounded-xl object-contain bg-white border border-[#dfd7c7] p-1 shrink-0"
+                  />
+                )}
+                <div className="min-w-0">
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-[#c5a059] block truncate">
+                    Partner Application Review • {reviewingPartner.partnerId}
+                  </span>
+                  <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#0c2340] mt-0.5 truncate">
+                    {reviewingPartner.name}
+                  </h3>
+                  <p className="text-[11px] text-[#5a6b7c]">
+                    Submitted {new Date(reviewingPartner.createdAt).toLocaleString()}
+                  </p>
+                </div>
               </div>
               <button
+                type="button"
                 onClick={() => setReviewingPartner(null)}
-                className="text-[#5a6b7c] hover:text-[#0c2340] cursor-pointer"
+                aria-label="Close review modal"
+                className="w-10 h-10 rounded-full bg-white border border-[#dfd7c7] hover:border-[#0c2340] text-[#5a6b7c] hover:text-[#0c2340] flex items-center justify-center cursor-pointer shrink-0"
               >
-                <span className="material-symbols-outlined text-[22px]">close</span>
+                <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#f6f4ee] p-4 rounded-2xl border border-[#dfd7c7]">
-              <div>
-                <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Owner / Contact</span>
-                <span className="font-semibold text-[#0c2340]">{reviewingPartner.contactPerson}</span>
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Email &amp; Phone</span>
-                <span className="font-semibold text-[#0c2340]">{reviewingPartner.email} • {reviewingPartner.phone}</span>
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Business Type</span>
-                <span className="font-semibold text-[#0c2340]">{reviewingPartner.category}</span>
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Location</span>
-                <span className="font-semibold text-[#0c2340]">{reviewingPartner.location || reviewingPartner.address || '—'}</span>
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Website</span>
-                <span className="font-semibold text-[#c5a059] break-all">{reviewingPartner.website || '—'}</span>
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Member Base</span>
-                <span className="font-semibold text-[#0c2340]">{reviewingPartner.memberBaseSize || '—'}</span>
-              </div>
-              <div className="sm:col-span-2">
-                <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Population Served</span>
-                <span className="text-[#0c2340]">{reviewingPartner.populationServed || '—'}</span>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Current Wellness Services</span>
-                <p className="p-2.5 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] mt-1">
-                  {reviewingPartner.currentWellnessServices || reviewingPartner.description || '—'}
-                </p>
-              </div>
-              <div>
-                <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Why They Want to Partner</span>
-                <p className="p-2.5 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] mt-1">
-                  {reviewingPartner.whyPartner || '—'}
-                </p>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Scrollable Body */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#f6f4ee] p-4 rounded-2xl border border-[#dfd7c7]">
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Marketing Strategy</span>
+                  <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Owner / Contact</span>
+                  <span className="font-semibold text-[#0c2340]">{reviewingPartner.contactPerson}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Email &amp; Phone</span>
+                  <span className="font-semibold text-[#0c2340]">{reviewingPartner.email} • {reviewingPartner.phone}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Business Type</span>
+                  <span className="font-semibold text-[#0c2340]">{reviewingPartner.category}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Location</span>
+                  <span className="font-semibold text-[#0c2340]">{reviewingPartner.location || reviewingPartner.address || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Website</span>
+                  <span className="font-semibold text-[#c5a059] break-all">{reviewingPartner.website || '—'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Member Base</span>
+                  <span className="font-semibold text-[#0c2340]">{reviewingPartner.memberBaseSize || '—'}</span>
+                </div>
+                <div className="sm:col-span-2">
+                  <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Population Served</span>
+                  <span className="text-[#0c2340]">{reviewingPartner.populationServed || '—'}</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Current Wellness Services</span>
                   <p className="p-2.5 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] mt-1">
-                    {reviewingPartner.marketingStrategy || '—'}
+                    {reviewingPartner.currentWellnessServices || reviewingPartner.description || '—'}
                   </p>
                 </div>
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Promotion Plan</span>
+                  <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Why They Want to Partner</span>
                   <p className="p-2.5 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] mt-1">
-                    {reviewingPartner.promotionPlan || '—'}
+                    {reviewingPartner.whyPartner || '—'}
                   </p>
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Marketing Strategy</span>
+                    <p className="p-2.5 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] mt-1">
+                      {reviewingPartner.marketingStrategy || '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Promotion Plan</span>
+                    <p className="p-2.5 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] mt-1">
+                      {reviewingPartner.promotionPlan || '—'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <span className="block text-[10px] uppercase font-bold text-[#5a6b7c] mb-1.5">
+                  Partner-Specific Wellness Categories (Featured on Storefront)
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {(['metabolic', 'cellular', 'recovery', 'longevity', 'stacks'] as ProductCategoryType[]).map((cat) => {
+                    const selected = partnerReviewCategories.includes(cat);
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() =>
+                          setPartnerReviewCategories((prev) =>
+                            prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+                          )
+                        }
+                        className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold cursor-pointer ${
+                          selected
+                            ? 'bg-[#0c2340] text-white border-[#0c2340]'
+                            : 'bg-white text-[#5a6b7c] border-[#dfd7c7]'
+                        }`}
+                      >
+                        {selected ? '✓ ' : '+ '}
+                        {CATEGORY_LABELS[cat]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-[#5a6b7c] mb-1">
+                  Admin Reviewer Notes (Internal)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Add verification notes, follow-up questions, or approval conditions..."
+                  value={partnerAdminNotes}
+                  onChange={(e) => setPartnerAdminNotes(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
+                />
               </div>
             </div>
 
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-[#5a6b7c] mb-1">
-                Admin Reviewer Notes (Internal)
-              </label>
-              <textarea
-                rows={2}
-                placeholder="Add verification notes, follow-up questions, or approval conditions..."
-                value={partnerAdminNotes}
-                onChange={(e) => setPartnerAdminNotes(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
-              />
-            </div>
-
-            <div className="pt-2 border-t border-[#dfd7c7] space-y-2">
-              <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">
-                Set Application Status (Current: <strong className="text-[#0c2340]">{reviewingPartner.status}</strong>)
-              </span>
+            {/* Pinned Footer with Status Actions & Cancel */}
+            <div className="shrink-0 px-5 sm:px-7 py-3.5 pb-[calc(14px+env(safe-area-inset-bottom))] border-t border-[#dfd7c7] bg-[#f6f4ee] space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] uppercase font-bold text-[#5a6b7c]">
+                  Set Status (Current: <strong className="text-[#0c2340]">{reviewingPartner.status}</strong>)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setReviewingPartner(null)}
+                  className="px-3.5 py-1.5 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] hover:border-[#0c2340] text-[11px] font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {PARTNER_STATUS_OPTIONS.map((st) => (
                   <button
                     key={st}
+                    type="button"
                     disabled={savingPartnerReview}
                     onClick={() => handleUpdatePartnerStatus(reviewingPartner.id, st, partnerAdminNotes)}
                     className={`px-3 py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider cursor-pointer transition-colors ${
                       reviewingPartner.status === st
                         ? 'bg-[#c5a059] text-white'
-                        : 'bg-[#f6f4ee] text-[#0c2340] hover:bg-[#0c2340] hover:text-white'
+                        : 'bg-white border border-[#dfd7c7] text-[#0c2340] hover:bg-[#0c2340] hover:text-white'
                     }`}
                   >
                     {st}
@@ -1071,24 +2149,40 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
 
       {/* Add / Edit Product Modal */}
       {productModalOpen && (
-        <div className="fixed inset-0 z-50 bg-[#0c2340]/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-[#fffdfb] w-full max-w-2xl rounded-3xl border border-[#dfd7c7] shadow-2xl p-6 sm:p-8 space-y-4 text-xs my-8">
-            <div className="flex justify-between items-center border-b border-[#dfd7c7] pb-3">
-              <h3 className="font-serif text-xl font-bold text-[#0c2340]">
+        <div
+          className="fixed inset-0 z-50 bg-[#0c2340]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={() => {
+            setProductModalOpen(false);
+            setEditingProduct(null);
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Product formulation editor"
+        >
+          <div
+            className="bg-[#fffdfb] w-full sm:max-w-2xl max-h-[92dvh] sm:max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-3xl border border-[#dfd7c7] shadow-2xl overflow-hidden text-xs"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Pinned Header */}
+            <div className="shrink-0 flex justify-between items-center border-b border-[#dfd7c7] bg-[#f6f4ee] px-5 sm:px-7 py-4 gap-3">
+              <h3 className="font-serif text-xl font-bold text-[#0c2340] truncate">
                 {editingProduct ? `Edit Product: ${editingProduct.name}` : 'Add Clinical Formulation'}
               </h3>
               <button
+                type="button"
                 onClick={() => {
                   setProductModalOpen(false);
                   setEditingProduct(null);
                 }}
-                className="text-[#5a6b7c] cursor-pointer"
+                aria-label="Cancel product edit"
+                className="w-10 h-10 rounded-full bg-white border border-[#dfd7c7] hover:border-[#0c2340] text-[#5a6b7c] hover:text-[#0c2340] flex items-center justify-center cursor-pointer shrink-0"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
 
-            <form onSubmit={handleSaveProduct} className="space-y-4">
+            {/* Scrollable Form */}
+            <form id="whw-admin-product-form" onSubmit={handleSaveProduct} className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-2">
                   <label className="block text-[#5a6b7c] font-medium mb-1">Formulation Name *</label>
@@ -1262,14 +2356,149 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                   />
                 </div>
               </div>
+            </form>
 
+            {/* Pinned Footer with Cancel */}
+            <div className="shrink-0 px-5 sm:px-7 py-3.5 pb-[calc(14px+env(safe-area-inset-bottom))] border-t border-[#dfd7c7] bg-[#f6f4ee] flex flex-col-reverse sm:flex-row gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setProductModalOpen(false);
+                  setEditingProduct(null);
+                }}
+                className="sm:w-32 py-3 px-4 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] hover:border-[#0c2340] text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] cursor-pointer"
+                form="whw-admin-product-form"
+                className="flex-1 py-3 px-4 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] cursor-pointer"
               >
                 {editingProduct ? 'Save Product Changes' : 'Save Formulation to Database'}
               </button>
-            </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order Detail Inspection Modal */}
+      {inspectingOrder && (
+        <div
+          className="fixed inset-0 z-50 bg-[#0c2340]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={() => setInspectingOrder(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Order audit dossier"
+        >
+          <div
+            className="bg-[#fffdfb] w-full sm:max-w-xl max-h-[92dvh] sm:max-h-[88vh] flex flex-col rounded-t-3xl sm:rounded-3xl border border-[#dfd7c7] shadow-2xl overflow-hidden text-xs"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Pinned Header */}
+            <div className="shrink-0 flex justify-between items-start border-b border-[#dfd7c7] bg-[#f6f4ee] px-5 sm:px-7 py-4 gap-3">
+              <div className="min-w-0">
+                <span className="text-[10px] uppercase font-bold tracking-widest text-[#c5a059] block">
+                  Order Audit &amp; Cold-Chain Dossier
+                </span>
+                <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#0c2340] mt-0.5 truncate">
+                  {inspectingOrder.orderNumber}
+                </h3>
+                <p className="text-[11px] text-[#5a6b7c]">
+                  Placed {new Date(inspectingOrder.createdAt).toLocaleString()}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectingOrder(null)}
+                aria-label="Close order dossier"
+                className="w-10 h-10 rounded-full bg-white border border-[#dfd7c7] hover:border-[#0c2340] text-[#5a6b7c] hover:text-[#0c2340] flex items-center justify-center cursor-pointer shrink-0"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+
+            {/* Scrollable Body */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-[#f6f4ee] p-4 rounded-2xl border border-[#dfd7c7]">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Customer</span>
+                  <span className="font-semibold text-[#0c2340] block">{inspectingOrder.customerName}</span>
+                  <span className="text-[#5a6b7c]">{inspectingOrder.customerEmail}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Shipping Destination</span>
+                  <span className="text-[#0c2340] block">
+                    {inspectingOrder.shippingAddress?.addressLine1}, {inspectingOrder.shippingAddress?.city}, {inspectingOrder.shippingAddress?.state} {inspectingOrder.shippingAddress?.postalCode}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Attribution &amp; Source</span>
+                  <span className="font-semibold text-[#c5a059] block">
+                    {inspectingOrder.partnerName || 'Direct Retail'}
+                  </span>
+                  <span className="font-mono text-[10px] text-[#5a6b7c]">
+                    {inspectingOrder.referralSource || 'direct_store'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Cold-Chain Tracking</span>
+                  <span className="font-mono font-semibold text-[#0c2340] block">
+                    {inspectingOrder.trackingNumber || 'WH-EXP-CC-PENDING'}
+                  </span>
+                  <span className="text-[10px] text-[#5a6b7c]">
+                    Commission: ${(inspectingOrder.partnerCommission || 0).toFixed(2)} ({inspectingOrder.commissionStatus || 'NONE'})
+                  </span>
+                </div>
+              </div>
+
+              <div className="border border-[#dfd7c7] rounded-2xl overflow-hidden">
+                <div className="bg-[#f6f4ee] px-4 py-2 font-semibold text-[#0c2340]">
+                  Ordered Formulations ({inspectingOrder.items.length})
+                </div>
+                <div className="p-4 space-y-2 bg-white divide-y divide-[#dfd7c7]/40">
+                  {inspectingOrder.items.map((item, idx) => (
+                    <div key={idx} className="pt-2 first:pt-0 flex justify-between">
+                      <span className="text-[#0c2340]">
+                        {item.productName} ({item.selectedStrength.label}) × {item.quantity}
+                      </span>
+                      <span className="font-semibold text-[#0c2340]">
+                        ${(item.unitPrice * item.quantity).toFixed(2)}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="pt-3 flex justify-between font-serif font-bold text-sm text-[#0c2340]">
+                    <span>Total Charged</span>
+                    <span className="text-[#c5a059]">${inspectingOrder.total.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Pinned Footer */}
+            <div className="shrink-0 px-5 sm:px-7 py-3.5 pb-[calc(14px+env(safe-area-inset-bottom))] border-t border-[#dfd7c7] bg-[#f6f4ee] flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-[#0c2340]">Status</span>
+                <select
+                  value={inspectingOrder.status}
+                  onChange={(e) => handleUpdateOrderStatus(inspectingOrder.id, e.target.value as OrderStatus)}
+                  className="px-3 py-1.5 rounded-lg bg-white border border-[#dfd7c7] text-xs font-bold text-[#0c2340] cursor-pointer"
+                >
+                  <option value="PENDING">PENDING</option>
+                  <option value="CONFIRMED">CONFIRMED</option>
+                  <option value="PROCESSING">PROCESSING</option>
+                  <option value="COMPLETED">COMPLETED</option>
+                  <option value="CANCELLED">CANCELLED</option>
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectingOrder(null)}
+                className="px-5 py-2 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] hover:border-[#0c2340] text-xs font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

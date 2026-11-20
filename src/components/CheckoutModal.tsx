@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useCart } from '../context/CartContext.tsx';
 import { useAuth } from '../context/AuthContext.tsx';
 import { dbService } from '../services/dbService.ts';
+import { analyticsService } from '../services/analyticsService.ts';
+import { auth } from '../lib/firebase.ts';
 import { Order, ShippingAddress } from '../types/index.ts';
 import { TEST_VARS } from '../lib/testVariables.ts';
 
@@ -27,6 +29,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
 
   const [loading, setLoading] = useState(false);
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   // Form State (Test defaults)
   const [fullName, setFullName] = useState<string>(currentUser?.displayName || TEST_VARS.checkout.defaultCustomerName);
@@ -45,12 +48,24 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
   const [cardExp, setCardExp] = useState<string>(TEST_VARS.checkout.testCardExp);
   const [cardCvc, setCardCvc] = useState<string>(TEST_VARS.checkout.testCardCvc);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !loading) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, loading, onClose]);
+
   if (!isOpen) return null;
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCheckoutError(null);
     if (!medicalConsent) {
-      alert('Please confirm the clinical compliance statement before proceeding.');
+      setCheckoutError('Please confirm the clinical compliance statement before proceeding.');
       return;
     }
 
@@ -80,7 +95,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
 
       const orderData: Omit<Order, 'id'> = {
         orderNumber,
-        customerUid: currentUser?.uid || 'guest-cust-id',
+        customerUid: auth.currentUser?.uid || currentUser?.uid || 'guest-cust-id',
         customerName: fullName,
         customerEmail: email,
         shippingAddress,
@@ -96,7 +111,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
         partnerId: activeReferral?.partnerId,
         partnerSlug: activeReferral?.partnerSlug,
         partnerName: activeReferral?.partnerName,
-        referralSource: activeReferral ? `partner_url:${activeReferral.partnerSlug}` : undefined,
+        referralSource: activeReferral
+          ? activeReferral.referralSource || `partner_url:${activeReferral.partnerSlug}`
+          : undefined,
         partnerCommission,
         commissionStatus,
         trackingNumber,
@@ -105,10 +122,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
       };
 
       const created = await dbService.createOrder(orderData);
+      analyticsService.trackCheckoutCompleted(created.orderNumber, created.total, created.partnerSlug);
       setCompletedOrder(created);
       clearCart();
     } catch (err) {
       console.error('Failed to create order', err);
+      setCheckoutError('Unable to finalize order right now. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -121,12 +140,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-[#0c2340]/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="relative bg-[#fffdfb] w-full max-w-2xl rounded-2xl border border-[#dfd7c7] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
+    <div
+      className="fixed inset-0 z-50 bg-[#0c2340]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+      onClick={() => { if (!loading) onClose(); }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Clinical Checkout"
+    >
+      <div
+        className="relative bg-[#fffdfb] w-full sm:max-w-2xl max-h-[92dvh] sm:max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl border border-[#dfd7c7] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Order Completed View */}
         {completedOrder ? (
-          <div className="p-8 text-center space-y-6">
+          <div className="p-6 sm:p-8 text-center space-y-6 overflow-y-auto pb-[calc(24px+env(safe-area-inset-bottom))]">
             <div className="w-16 h-16 rounded-full bg-[#dfd7c7] text-[#c5a059] flex items-center justify-center mx-auto shadow-sm">
               <span className="material-symbols-outlined text-[36px]">verified</span>
             </div>
@@ -182,12 +210,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
 
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <button
+                type="button"
                 onClick={handleFinish}
                 className="flex-1 py-3 px-4 rounded-xl bg-[#c5a059] text-[#fffdfb] text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] transition-colors cursor-pointer"
               >
                 Track in Customer Portal
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setCompletedOrder(null);
                   onClose();
@@ -195,37 +225,40 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
                 }}
                 className="py-3 px-4 rounded-xl border border-[#dfd7c7] text-[#5a6b7c] hover:bg-[#f6f4ee] text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer"
               >
-                Return to Shop
+                Close &amp; Return to Shop
               </button>
             </div>
           </div>
         ) : (
           /* Checkout Form */
-          <div>
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-[#dfd7c7] bg-[#f6f4ee] flex items-center justify-between">
-              <div className="flex items-center gap-3">
+          <div className="flex flex-col flex-1 min-h-0">
+            {/* Pinned Modal Header */}
+            <div className="shrink-0 px-5 sm:px-6 py-4 border-b border-[#dfd7c7] bg-[#f6f4ee] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-xl bg-white border border-[#dfd7c7] p-0.5 shadow-xs flex items-center justify-center shrink-0">
                   <img src="/images/whw-logo.png" alt="Whole Harbor Wellness" className="w-full h-full object-contain" />
                 </div>
-                <div>
-                  <h2 className="font-serif text-lg font-semibold text-[#0c2340]">
+                <div className="min-w-0">
+                  <h2 className="font-serif text-lg font-semibold text-[#0c2340] truncate">
                     Clinical Checkout &amp; Dispatch
                   </h2>
-                  <p className="text-[11px] text-[#5a6b7c]">
+                  <p className="text-[11px] text-[#5a6b7c] truncate">
                     Cold-chain insured pharmaceutical-grade fulfillment
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={onClose}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-[#5a6b7c] hover:text-[#0c2340] hover:bg-[#dfd7c7]/50 transition-colors cursor-pointer"
+                disabled={loading}
+                aria-label="Cancel checkout"
+                className="w-10 h-10 rounded-full bg-white border border-[#dfd7c7] flex items-center justify-center text-[#5a6b7c] hover:text-[#0c2340] hover:border-[#0c2340] transition-colors cursor-pointer shrink-0"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
             </div>
 
-            <form onSubmit={handlePlaceOrder} className="p-6 space-y-6">
+            <form id="whw-checkout-form" onSubmit={handlePlaceOrder} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6">
               
               {/* Partner Attribution Banner */}
               {activeReferral && (
@@ -398,11 +431,30 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
                 </div>
               </div>
 
-              {/* Submit Button */}
+              {checkoutError && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px] shrink-0">error</span>
+                  <span>{checkoutError}</span>
+                </div>
+              )}
+
+            </form>
+
+            {/* Pinned Responsive Footer */}
+            <div className="shrink-0 px-5 sm:px-6 py-3.5 pb-[calc(14px+env(safe-area-inset-bottom))] border-t border-[#dfd7c7] bg-[#f6f4ee] flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2.5">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={loading}
+                className="sm:w-36 py-3 px-4 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] hover:border-[#0c2340] text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
               <button
                 type="submit"
+                form="whw-checkout-form"
                 disabled={loading || items.length === 0}
-                className="w-full py-3.5 px-4 rounded-xl bg-[#c5a059] text-[#fffdfb] text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] disabled:opacity-50 transition-colors shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                className="flex-1 py-3.5 px-4 rounded-xl bg-[#c5a059] text-[#fffdfb] text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] disabled:opacity-50 transition-colors shadow-md flex items-center justify-center gap-2 cursor-pointer"
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
@@ -416,7 +468,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
                   </>
                 )}
               </button>
-            </form>
+            </div>
           </div>
         )}
       </div>

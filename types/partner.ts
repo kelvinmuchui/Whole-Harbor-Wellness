@@ -41,6 +41,7 @@ export interface Partner {
   memberDiscountRate: number; // e.g. 0.15 (15%)
   ownerUid?: string;
   featuredProducts?: string[];
+  preferredCategories?: ('metabolic' | 'cellular' | 'recovery' | 'longevity' | 'stacks')[];
   createdAt: string;
   updatedAt?: string;
   deletedAt?: string | null;

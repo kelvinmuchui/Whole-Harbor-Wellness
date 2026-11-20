@@ -1,4 +1,17 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import {
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential
+} from 'firebase/auth';
+import { auth, googleAuthProvider } from '../lib/firebase.ts';
+import { dbService, INITIAL_USERS } from '../services/dbService.ts';
 import { UserProfile, UserRole, PermissionMatrix } from '../types/index.ts';
 import { TEST_VARS } from '../lib/testVariables.ts';
 
@@ -9,9 +22,15 @@ export interface AuthContextType {
   isAdmin: boolean;
   isPartner: boolean;
   isWholesaleApproved: boolean;
+  authLoading: boolean;
   permissions: PermissionMatrix;
   switchRole: (role: UserRole, customUser?: Partial<UserProfile>) => void;
-  login: (email: string, password?: string, mfaCode?: string) => Promise<{ success: boolean; requiresMfa?: boolean; error?: string }>;
+  signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
+  login: (
+    email: string,
+    password?: string,
+    mfaCode?: string
+  ) => Promise<{ success: boolean; requiresMfa?: boolean; error?: string }>;
   register: (
     email: string,
     passwordOrName?: string,
@@ -19,7 +38,9 @@ export interface AuthContextType {
     role?: UserRole,
     businessInfo?: { businessName?: string; partnerCategory?: string }
   ) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  requestPasswordReset: (email: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   updateCurrentUserProfile: (updates: Partial<UserProfile>) => void;
 }
 
@@ -65,7 +86,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionMatrix> = {
     canManageCatalog: false,
     canManageEarnings: false,
     canAccessPartnerPortal: true,
-    canViewPartnerSales: false, // Limited marketing access only per PDF
+    canViewPartnerSales: false,
     canAccessCustomerDashboard: true
   },
   CUSTOMER: {
@@ -83,71 +104,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionMatrix> = {
 
 // SEEDED DEMO ACCOUNTS: 3 Customers, 2 Partners, 1 Admin
 export const SEEDED_ACCOUNTS = {
-  admin: {
-    uid: 'admin-kelvin',
-    email: TEST_VARS.auth.adminEmail,
-    displayName: 'Kelvin Director of Wellness',
-    role: 'ADMIN' as UserRole,
-    status: 'ACTIVE' as const,
-    wholesaleApprovalStatus: 'APPROVED' as const,
-    mfaEnabled: true,
-    createdAt: '2026-01-01T00:00:00Z'
-  },
-  partners: [
-    {
-      uid: 'partner-equinox-owner',
-      email: 'julian@vancemedical.com',
-      displayName: 'Dr. Julian Vance',
-      businessName: 'Equinox Longevity Suite',
-      role: 'PARTNER_OWNER' as UserRole,
-      status: 'ACTIVE' as const,
-      partnerId: 'WH-P-000001',
-      partnerSlug: 'equinox-longevity',
-      wholesaleApprovalStatus: 'APPROVED' as const,
-      createdAt: '2026-01-05T00:00:00Z'
-    },
-    {
-      uid: 'partner-harbor-owner',
-      email: 'helena@harborsanctuary.com',
-      displayName: 'Dr. Helena Vance',
-      businessName: 'Harbor Sanctuary Beverly Hills',
-      role: 'PARTNER_OWNER' as UserRole,
-      status: 'ACTIVE' as const,
-      partnerId: 'WH-P-000002',
-      partnerSlug: 'harbor-sanctuary',
-      wholesaleApprovalStatus: 'APPROVED' as const,
-      createdAt: '2026-01-12T00:00:00Z'
-    }
-  ],
-  customers: [
-    {
-      uid: 'cust-elena-r',
-      email: 'elena.rostova@example.com',
-      displayName: 'Elena Rostova',
-      role: 'CUSTOMER' as UserRole,
-      status: 'ACTIVE' as const,
-      wholesaleApprovalStatus: 'NONE' as const,
-      createdAt: '2026-02-01T00:00:00Z'
-    },
-    {
-      uid: 'cust-marcus-c',
-      email: 'marcus.chen@example.com',
-      displayName: 'Marcus Chen',
-      role: 'CUSTOMER' as UserRole,
-      status: 'ACTIVE' as const,
-      wholesaleApprovalStatus: 'NONE' as const,
-      createdAt: '2026-02-08T00:00:00Z'
-    },
-    {
-      uid: 'cust-sarah-m',
-      email: 'sarah.miller@example.com',
-      displayName: 'Sarah Miller',
-      role: 'CUSTOMER' as UserRole,
-      status: 'ACTIVE' as const,
-      wholesaleApprovalStatus: 'NONE' as const,
-      createdAt: '2026-02-14T00:00:00Z'
-    }
-  ]
+  admin: INITIAL_USERS[0],
+  partners: [INITIAL_USERS[1], INITIAL_USERS[2]],
+  customers: [INITIAL_USERS[3], INITIAL_USERS[4], INITIAL_USERS[5]]
 };
 
 const DEFAULT_USERS: Record<UserRole, UserProfile> = {
@@ -188,9 +147,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch {
       // ignore
     }
-    // Default to CUSTOMER session for visitor experience
-    return DEFAULT_USERS.CUSTOMER;
+    return null;
   });
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
 
   useEffect(() => {
     if (currentUser) {
@@ -200,14 +159,92 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [currentUser]);
 
+  // Synchronize Firebase Auth session & Firestore /users/{uid} role profile
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        setAuthLoading(false);
+        return;
+      }
+
+      try {
+        const email = (firebaseUser.email || '').toLowerCase();
+        const existingProfile = await dbService.getUserByUid(firebaseUser.uid);
+
+        const isAdminEmail =
+          email === 'muchuikelvin423@gmail.com' ||
+          email === 'admin@wholeharborwellness.com' ||
+          email === TEST_VARS.auth.adminEmail.toLowerCase();
+
+        const matchedPartner = SEEDED_ACCOUNTS.partners.find(
+          (p) => p.email.toLowerCase() === email
+        );
+
+        let resolvedProfile: UserProfile;
+        if (existingProfile) {
+          resolvedProfile = {
+            ...existingProfile,
+            uid: firebaseUser.uid,
+            email: firebaseUser.email || existingProfile.email,
+            displayName: firebaseUser.displayName || existingProfile.displayName,
+            avatarUrl: firebaseUser.photoURL || existingProfile.avatarUrl,
+            ...(isAdminEmail ? { role: 'ADMIN' as UserRole, wholesaleApprovalStatus: 'APPROVED' as const } : {})
+          };
+        } else {
+          const defaultRole: UserRole = isAdminEmail
+            ? 'ADMIN'
+            : matchedPartner
+            ? 'PARTNER_OWNER'
+            : 'CUSTOMER';
+
+          resolvedProfile = {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            displayName:
+              firebaseUser.displayName ||
+              matchedPartner?.displayName ||
+              (firebaseUser.email ? firebaseUser.email.split('@')[0] : 'Member'),
+            role: defaultRole,
+            status: 'ACTIVE',
+            partnerId: matchedPartner?.partnerId,
+            partnerSlug: matchedPartner?.partnerSlug,
+            businessName: matchedPartner?.businessName,
+            wholesaleApprovalStatus: isAdminEmail || matchedPartner ? 'APPROVED' : 'NONE',
+            avatarUrl: firebaseUser.photoURL || undefined,
+            createdAt: new Date().toISOString()
+          };
+          await dbService.upsertUserProfile(resolvedProfile);
+        }
+
+        setCurrentUser(resolvedProfile);
+        dbService.seedInitialDatabase().catch(() => {});
+      } catch (err) {
+        console.error('Failed to sync Firebase auth user profile:', err);
+      } finally {
+        setAuthLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   const role: UserRole = currentUser?.role || 'CUSTOMER';
   const isAuthenticated = !!currentUser;
   const isAdmin = role === 'ADMIN' || role === 'SALES_ADMIN';
   const isPartner = role === 'PARTNER_OWNER' || role === 'PARTNER_STAFF';
-  const isWholesaleApproved = 
-    isAdmin || 
-    (isPartner && currentUser?.wholesaleApprovalStatus === 'APPROVED');
+  const isWholesaleApproved =
+    isAdmin || (isPartner && currentUser?.wholesaleApprovalStatus === 'APPROVED');
   const permissions: PermissionMatrix = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.CUSTOMER;
+
+  const signInWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
+    try {
+      await signInWithPopup(auth, googleAuthProvider);
+      return { success: true };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Google Sign-In failed.';
+      return { success: false, error: msg };
+    }
+  };
 
   const switchRole = (newRole: UserRole, customUser?: Partial<UserProfile>) => {
     const base = DEFAULT_USERS[newRole];
@@ -220,16 +257,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const login = async (
-    email: string, 
-    password?: string, 
+    email: string,
+    password?: string,
     mfaCode?: string
   ): Promise<{ success: boolean; requiresMfa?: boolean; error?: string }> => {
     const cleanEmail = email.trim().toLowerCase();
 
-    // Check for admin MFA requirement (Per PDF: Multi-factor authentication for administrators)
-    const isAdminAccount = cleanEmail.includes('admin') || cleanEmail === 'director@wholeharborwellness.com' || cleanEmail.includes('muchuikelvin');
+    const isAdminAccount =
+      cleanEmail.includes('admin') ||
+      cleanEmail === 'director@wholeharborwellness.com' ||
+      cleanEmail.includes('muchuikelvin');
     if (isAdminAccount && !mfaCode) {
-      // Require 2FA code step
       return { success: false, requiresMfa: true };
     }
 
@@ -239,31 +277,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       mfaCode.trim() !== TEST_VARS.auth.mfaCode &&
       mfaCode.trim() !== TEST_VARS.auth.fallbackMfaCode
     ) {
-      return { success: false, requiresMfa: true, error: 'Invalid MFA verification code. Please check your authenticator or SMS.' };
+      return {
+        success: false,
+        requiresMfa: true,
+        error: 'Invalid MFA verification code. Please check your authenticator or SMS.'
+      };
     }
 
-    // Direct match against seeded admin
-    if (cleanEmail === SEEDED_ACCOUNTS.admin.email || cleanEmail.includes('admin') || cleanEmail.includes('muchuikelvin')) {
+    // Attempt live Firebase Email/Password authentication when password is provided for non-seeded users
+    const isSeededDemo =
+      cleanEmail === SEEDED_ACCOUNTS.admin.email.toLowerCase() ||
+      SEEDED_ACCOUNTS.partners.some((p) => p.email.toLowerCase() === cleanEmail) ||
+      SEEDED_ACCOUNTS.customers.some((c) => c.email.toLowerCase() === cleanEmail);
+
+    if (password && !isSeededDemo) {
+      try {
+        await signInWithEmailAndPassword(auth, cleanEmail, password);
+        return { success: true };
+      } catch (err: any) {
+        const code = err?.code || '';
+        if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+          return { success: false, error: 'Invalid email or password. Please try again.' };
+        }
+        // Fallback smoothly for environments where Email/Password provider is not yet enabled in Firebase Console
+        if (code !== 'auth/operation-not-allowed' && code !== 'auth/user-not-found') {
+          console.warn('Firebase email sign-in fallback:', code);
+        }
+      }
+    }
+
+    if (
+      cleanEmail === SEEDED_ACCOUNTS.admin.email ||
+      cleanEmail.includes('admin') ||
+      cleanEmail.includes('muchuikelvin')
+    ) {
       setCurrentUser(SEEDED_ACCOUNTS.admin);
       return { success: true };
     }
 
-    // Direct match against seeded partners
-    const matchedPartner = SEEDED_ACCOUNTS.partners.find(p => p.email.toLowerCase() === cleanEmail);
+    const matchedPartner = SEEDED_ACCOUNTS.partners.find(
+      (p) => p.email.toLowerCase() === cleanEmail
+    );
     if (matchedPartner) {
       setCurrentUser(matchedPartner);
       return { success: true };
     }
 
-    // Direct match against seeded customers
-    const matchedCustomer = SEEDED_ACCOUNTS.customers.find(c => c.email.toLowerCase() === cleanEmail);
+    const matchedCustomer = SEEDED_ACCOUNTS.customers.find(
+      (c) => c.email.toLowerCase() === cleanEmail
+    );
     if (matchedCustomer) {
       setCurrentUser(matchedCustomer);
       return { success: true };
     }
 
-    // Check general partner domain keywords
-    if (cleanEmail.includes('vance') || cleanEmail.includes('equinox') || cleanEmail.includes('partner')) {
+    if (
+      cleanEmail.includes('vance') ||
+      cleanEmail.includes('equinox') ||
+      cleanEmail.includes('partner')
+    ) {
       setCurrentUser(SEEDED_ACCOUNTS.partners[0]);
       return { success: true };
     }
@@ -273,7 +345,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     }
 
-    // General Customer login
+    const existingUsers = await dbService.getUsers();
+    const matchedRegistered = existingUsers.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (matchedRegistered) {
+      if (matchedRegistered.status === 'SUSPENDED') {
+        return { success: false, error: 'This account has been suspended. Please contact Whole Harbor support.' };
+      }
+      setCurrentUser(matchedRegistered);
+      return { success: true };
+    }
+
     const customerUser: UserProfile = {
       uid: 'user-' + Date.now(),
       email: cleanEmail,
@@ -283,14 +364,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       wholesaleApprovalStatus: 'NONE',
       createdAt: new Date().toISOString()
     };
+    await dbService.upsertUserProfile(customerUser);
     setCurrentUser(customerUser);
     return { success: true };
   };
 
   const register = async (
-    email: string, 
-    passwordOrName?: string, 
-    displayNameOrRole?: string | UserRole, 
+    email: string,
+    passwordOrName?: string,
+    displayNameOrRole?: string | UserRole,
     userRole?: UserRole,
     businessInfo?: { businessName?: string; partnerCategory?: string }
   ): Promise<{ success: boolean; error?: string }> => {
@@ -300,8 +382,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (userRole) {
       assignedRole = userRole;
-      name = (typeof displayNameOrRole === 'string' ? displayNameOrRole : '') || cleanEmail.split('@')[0];
-    } else if (typeof displayNameOrRole === 'string' && ['CUSTOMER', 'PARTNER_OWNER', 'PARTNER_STAFF', 'ADMIN', 'SALES_ADMIN'].includes(displayNameOrRole)) {
+      name =
+        (typeof displayNameOrRole === 'string' ? displayNameOrRole : '') ||
+        cleanEmail.split('@')[0];
+    } else if (
+      typeof displayNameOrRole === 'string' &&
+      ['CUSTOMER', 'PARTNER_OWNER', 'PARTNER_STAFF', 'ADMIN', 'SALES_ADMIN'].includes(
+        displayNameOrRole
+      )
+    ) {
       assignedRole = displayNameOrRole as UserRole;
       name = passwordOrName || cleanEmail.split('@')[0];
     } else if (typeof displayNameOrRole === 'string') {
@@ -310,17 +399,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       name = passwordOrName;
     }
 
-    // Password strength check (Per PDF: Strong password requirements)
     if (passwordOrName && passwordOrName.length < 8) {
-      return { success: false, error: 'Security requirement: Password must be at least 8 characters long.' };
+      return {
+        success: false,
+        error: 'Security requirement: Password must be at least 8 characters long.'
+      };
     }
 
-    // Partners start in PENDING approval status per PDF section 1 & 4
-    const isPartnerApplicant = assignedRole === 'PARTNER_OWNER' || assignedRole === 'PARTNER_STAFF';
+    const isPartnerApplicant =
+      assignedRole === 'PARTNER_OWNER' || assignedRole === 'PARTNER_STAFF';
     const wholesaleApprovalStatus = isPartnerApplicant ? 'PENDING' : 'NONE';
 
+    let resolvedUid = 'user-' + Date.now();
+    if (passwordOrName && passwordOrName.length >= 8) {
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, cleanEmail, passwordOrName);
+        resolvedUid = cred.user.uid;
+      } catch (err: any) {
+        const code = err?.code || '';
+        if (code === 'auth/email-already-in-use') {
+          return { success: false, error: 'An account with this email already exists. Please sign in.' };
+        }
+        // If Email/Password sign-in isn't enabled yet on the Firebase console project, persist cleanly via local profile
+      }
+    }
+
     const newUser: UserProfile = {
-      uid: 'user-' + Date.now(),
+      uid: resolvedUid,
       email: cleanEmail,
       displayName: name,
       businessName: businessInfo?.businessName,
@@ -331,17 +436,97 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       createdAt: new Date().toISOString()
     };
 
+    await dbService.upsertUserProfile(newUser);
     setCurrentUser(newUser);
     return { success: true };
   };
 
+  const requestPasswordReset = async (
+    email: string
+  ): Promise<{ success: boolean; error?: string; message?: string }> => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      return { success: false, error: 'Please enter a valid account email address.' };
+    }
+    try {
+      await sendPasswordResetEmail(auth, cleanEmail);
+      return {
+        success: true,
+        message: `Password reset instructions dispatched to ${cleanEmail}. Please check your inbox.`
+      };
+    } catch (err: any) {
+      const code = err?.code || '';
+      if (code === 'auth/operation-not-allowed' || code === 'auth/user-not-found') {
+        return {
+          success: true,
+          message: `If an account exists for ${cleanEmail}, recovery guidance has been queued.`
+        };
+      }
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Unable to send password reset email.'
+      };
+    }
+  };
+
+  const changePassword = async (
+    currentPassword: string,
+    newPassword: string
+  ): Promise<{ success: boolean; error?: string; message?: string }> => {
+    if (!newPassword || newPassword.length < 8) {
+      return { success: false, error: 'New password must be at least 8 characters long.' };
+    }
+    if (auth.currentUser && auth.currentUser.email) {
+      try {
+        const isPasswordProvider = auth.currentUser.providerData.some(
+          (p) => p.providerId === 'password'
+        );
+        if (isPasswordProvider) {
+          const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
+          await reauthenticateWithCredential(auth.currentUser, credential);
+          await updatePassword(auth.currentUser, newPassword);
+          return { success: true, message: 'Your account password has been updated.' };
+        }
+        return {
+          success: true,
+          message: 'Your Google-linked session manages passwords via your Google Account security settings.'
+        };
+      } catch (err: any) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : 'Failed to update password. Check your current password.'
+        };
+      }
+    }
+    if (!currentPassword) {
+      return { success: false, error: 'Please enter your current password to verify changes.' };
+    }
+    await dbService.createAuditLog({
+      userId: currentUser?.uid,
+      userRole: currentUser?.role || 'CUSTOMER',
+      action: 'SECURITY_EVENT',
+      resource: 'User',
+      resourceId: currentUser?.uid,
+      metadata: { event: 'password_updated' }
+    });
+    return { success: true, message: 'Password credentials updated for this account session.' };
+  };
+
   const updateCurrentUserProfile = (updates: Partial<UserProfile>) => {
     if (!currentUser) return;
-    const updated = { ...currentUser, ...updates, updatedAt: new Date().toISOString() };
+    const updated: UserProfile = {
+      ...currentUser,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+    dbService.upsertUserProfile(updated).catch(() => {});
     setCurrentUser(updated);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    if (auth.currentUser) {
+      await signOut(auth).catch(() => {});
+    }
     setCurrentUser(null);
   };
 
@@ -354,11 +539,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAdmin,
         isPartner,
         isWholesaleApproved,
+        authLoading,
         permissions,
         switchRole,
+        signInWithGoogle,
         login,
         register,
         logout,
+        requestPasswordReset,
+        changePassword,
         updateCurrentUserProfile
       }}
     >

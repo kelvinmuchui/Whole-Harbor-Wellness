@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/dbService.ts';
+import { analyticsService } from '../services/analyticsService.ts';
 import { Product, ProductStrength } from '../types/index.ts';
 import { useCart } from '../context/CartContext.tsx';
 
@@ -26,6 +27,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ slug, navi
         if (prod) {
           setProduct(prod);
           setSelectedStrength(prod.strengths[0] || null);
+          analyticsService.trackProductView(prod.slug, prod.name);
           const all = await dbService.getProducts();
           setRelatedProducts(all.filter((p) => p.id !== prod.id && p.category === prod.category).slice(0, 3));
         }

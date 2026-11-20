@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import {
   getFirestore,
   initializeFirestore,
@@ -34,6 +34,69 @@ try {
 
 export const db = firestoreInstance;
 export const auth = getAuth(app);
+export const googleAuthProvider = new GoogleAuthProvider();
+googleAuthProvider.setCustomParameters({ prompt: 'select_account' });
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write'
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export function buildFirestoreErrorInfo(
+  error: unknown,
+  operationType: OperationType,
+  path: string | null
+): FirestoreErrorInfo {
+  return {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid ?? null,
+      email: auth.currentUser?.email ?? null,
+      emailVerified: auth.currentUser?.emailVerified ?? null,
+      isAnonymous: auth.currentUser?.isAnonymous ?? null,
+      tenantId: auth.currentUser?.tenantId ?? null,
+      providerInfo:
+        auth.currentUser?.providerData?.map(provider => ({
+          providerId: provider.providerId ?? null,
+          email: provider.email ?? null
+        })) || []
+    },
+    operationType,
+    path
+  };
+}
+
+export function handleFirestoreError(
+  error: unknown,
+  operationType: OperationType,
+  path: string | null
+): never {
+  const errInfo = buildFirestoreErrorInfo(error, operationType, path);
+  const serialized = JSON.stringify(errInfo);
+  console.error('Firestore Error: ', serialized);
+  throw new Error(serialized);
+}
 
 let reachabilityPromise: Promise<boolean> | null = null;
 let lastCheckedAt = 0;
@@ -63,7 +126,7 @@ export async function ensureFirestoreReachable(): Promise<boolean> {
     try {
       const probeUrl =
         `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}` +
-        `/databases/${firebaseConfig.firestoreDatabaseId}/documents/products/prod-5-amino-1mq` +
+        `/databases/${firebaseConfig.firestoreDatabaseId}/documents/test/connection` +
         `?key=${firebaseConfig.apiKey}`;
       const res = await fetch(probeUrl, {
         method: 'GET',
@@ -93,16 +156,16 @@ export function isFirestoreKnownOffline(): boolean {
   return reachabilityPromise !== null && !lastReachable;
 }
 
-// Connection test helper
+// Startup connection test helper
 export async function testFirestoreConnection(): Promise<boolean> {
   const reachable = await ensureFirestoreReachable();
   if (!reachable) return false;
   try {
-    await getDocFromServer(doc(db, 'products', 'prod-5-amino-1mq'));
+    await getDocFromServer(doc(db, 'test', 'connection'));
     return true;
   } catch (error) {
     if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firestore offline notice:', error.message);
+      console.error('Please check your Firebase configuration.', error.message);
       return false;
     }
     return true;

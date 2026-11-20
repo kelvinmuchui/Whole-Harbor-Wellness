@@ -22,6 +22,15 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, navig
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const trimmed = query.trim().toLowerCase();
@@ -54,38 +63,50 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, navig
     : [];
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-[#0c2340]/50 backdrop-blur-xs flex items-start justify-center pt-20 px-4">
-      <div className="relative bg-[#fffdfb] w-full max-w-2xl rounded-2xl border border-[#dfd7c7] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-4">
+    <div
+      className="fixed inset-0 z-50 bg-[#0c2340]/50 backdrop-blur-xs flex items-end sm:items-start justify-center p-0 sm:pt-16 sm:px-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Search Whole Harbor"
+    >
+      <div
+        className="relative bg-[#fffdfb] w-full sm:max-w-2xl max-h-[88dvh] sm:max-h-[80vh] flex flex-col rounded-t-3xl sm:rounded-2xl border border-[#dfd7c7] shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-4"
+        onClick={(e) => e.stopPropagation()}
+      >
         
-        {/* Search Input Bar */}
-        <div className="p-4 border-b border-[#dfd7c7] bg-[#f6f4ee] flex items-center gap-3">
-          <span className="material-symbols-outlined text-[#c5a059] text-[24px]">search</span>
+        {/* Pinned Search Input Bar */}
+        <div className="shrink-0 p-4 border-b border-[#dfd7c7] bg-[#f6f4ee] flex items-center gap-2.5">
+          <span className="material-symbols-outlined text-[#c5a059] text-[22px] shrink-0">search</span>
           <input
             type="text"
             autoFocus
-            placeholder="Search peptides, programs, articles, or clinical protocols..."
+            placeholder="Search peptides, programs, articles..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 bg-transparent text-sm text-[#0c2340] placeholder-[#5a6b7c] focus:outline-none"
+            className="flex-1 min-w-0 bg-transparent text-sm text-[#0c2340] placeholder-[#5a6b7c] focus:outline-none"
           />
           {query && (
             <button
+              type="button"
               onClick={() => setQuery('')}
-              className="text-[#5a6b7c] hover:text-[#0c2340] cursor-pointer"
+              aria-label="Clear search query"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-[#5a6b7c] hover:text-[#0c2340] hover:bg-white cursor-pointer shrink-0"
             >
-              <span className="material-symbols-outlined text-[18px]">close</span>
+              <span className="material-symbols-outlined text-[18px]">backspace</span>
             </button>
           )}
           <button
+            type="button"
             onClick={onClose}
-            className="px-2.5 py-1 text-xs font-semibold text-[#5a6b7c] hover:text-[#0c2340] rounded-lg bg-[#dfd7c7]/40 cursor-pointer"
+            className="px-3 py-1.5 text-xs font-bold text-[#0c2340] bg-white border border-[#dfd7c7] hover:border-[#0c2340] rounded-xl cursor-pointer shrink-0"
           >
-            ESC
+            Cancel
           </button>
         </div>
 
-        {/* Results Area */}
-        <div className="max-h-[60vh] overflow-y-auto p-4 space-y-6">
+        {/* Scrollable Results Area */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-[calc(16px+env(safe-area-inset-bottom))]">
           
           {/* Products */}
           {matchingProducts.length > 0 && (

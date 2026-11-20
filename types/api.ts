@@ -27,3 +27,30 @@ export interface PaginatedResult<T> {
   pageSize: number;
   totalPages: number;
 }
+
+export interface ContactInquiry {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  orderNumber?: string;
+  department: string;
+  message: string;
+  source: 'contact_page' | 'about_page' | 'portal';
+  status: 'NEW' | 'IN_PROGRESS' | 'RESOLVED';
+  userId?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface AnalyticsEvent {
+  id: string;
+  eventType: 'page_view' | 'product_view' | 'partner_visit' | 'add_to_cart' | 'checkout_completed' | 'search';
+  path: string;
+  label?: string;
+  partnerSlug?: string;
+  userId?: string;
+  value?: number;
+  timestamp: string;
+}
+

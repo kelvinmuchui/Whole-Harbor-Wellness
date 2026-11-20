@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import QRCode from 'qrcode';
 import { dbService } from '../services/dbService.ts';
-import { Partner, Order, PartnerEarning, Product } from '../types/index.ts';
+import { Partner, Order, PartnerEarning, Product, ProductCategoryType } from '../types/index.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 
 interface PartnerDashboardViewProps {
@@ -14,8 +15,38 @@ interface WholesaleCartItem {
   kitsCount: number;
 }
 
+const WELLNESS_CATEGORIES: Array<{ key: ProductCategoryType; label: string }> = [
+  { key: 'metabolic', label: 'Metabolic Support' },
+  { key: 'cellular', label: 'Cellular Optimization' },
+  { key: 'recovery', label: 'Tissue Recovery' },
+  { key: 'longevity', label: 'Longevity & Vitality' },
+  { key: 'stacks', label: 'Synergy Multi-Kits' }
+];
+
+const matchesDateFilter = (isoDate: string, filter: 'current_month' | 'prev_month' | 'ytd' | 'all'): boolean => {
+  if (filter === 'all') return true;
+  const d = new Date(isoDate);
+  if (Number.isNaN(d.getTime())) return true;
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  if (filter === 'current_month') {
+    return d.getFullYear() === year && d.getMonth() === month;
+  }
+  if (filter === 'prev_month') {
+    const prevMonth = month === 0 ? 11 : month - 1;
+    const prevYear = month === 0 ? year - 1 : year;
+    return d.getFullYear() === prevYear && d.getMonth() === prevMonth;
+  }
+  if (filter === 'ytd') {
+    return d.getFullYear() === year && d <= now;
+  }
+  return true;
+};
+
 export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navigate }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const [allPartners, setAllPartners] = useState<Partner[]>([]);
   const [partner, setPartner] = useState<Partner | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -28,6 +59,21 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
   const [activeTab, setActiveTab] = useState<'wholesale' | 'sales' | 'ledger' | 'assets'>('wholesale');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedDirectLink, setCopiedDirectLink] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+
+  // Editable Partner Profile & Assets State
+  const [profileName, setProfileName] = useState('');
+  const [profileContactPerson, setProfileContactPerson] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profileWebsite, setProfileWebsite] = useState('');
+  const [profileLocation, setProfileLocation] = useState('');
+  const [profileDescription, setProfileDescription] = useState('');
+  const [profileLogoUrl, setProfileLogoUrl] = useState('');
+  const [profileCategories, setProfileCategories] = useState<ProductCategoryType[]>([]);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileSaveMsg, setProfileSaveMsg] = useState<string | null>(null);
+  const [profileErrorMsg, setProfileErrorMsg] = useState<string | null>(null);
 
   // Wholesale 10-Vial Kit Cart State
   const [wholesaleCart, setWholesaleCart] = useState<WholesaleCartItem[]>([]);
@@ -36,15 +82,33 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
   const [submittingWholesale, setSubmittingWholesale] = useState(false);
   const [wholesaleOrderSuccess, setWholesaleOrderSuccess] = useState<string | null>(null);
 
+  const syncProfileForm = (selectedPartner: Partner | null) => {
+    if (!selectedPartner) return;
+    setProfileName(selectedPartner.name || '');
+    setProfileContactPerson(selectedPartner.contactPerson || '');
+    setProfilePhone(selectedPartner.phone || '');
+    setProfileWebsite(selectedPartner.website || '');
+    setProfileLocation(selectedPartner.location || selectedPartner.address || '');
+    setProfileDescription(selectedPartner.description || '');
+    setProfileLogoUrl(selectedPartner.logoUrl || '');
+    setProfileCategories(selectedPartner.preferredCategories || []);
+    setProfileSaveMsg(null);
+    setProfileErrorMsg(null);
+  };
+
   const loadPartnerDetails = async (selectedPartner: Partner | null) => {
     setPartner(selectedPartner);
+    syncProfileForm(selectedPartner);
     if (selectedPartner) {
       const [allOrders, allEarnings] = await Promise.all([
-        dbService.getOrders(),
+        dbService.getOrders('partner'),
         dbService.getPartnerEarnings(selectedPartner.id)
       ]);
       const partnerOrders = allOrders.filter(
-        (o) => o.partnerId === selectedPartner.id || o.partnerSlug === selectedPartner.slug
+        (o) =>
+          o.partnerId === selectedPartner.id ||
+          o.partnerId === selectedPartner.partnerId ||
+          o.partnerSlug === selectedPartner.slug
       );
       setOrders(partnerOrders);
       setEarnings(allEarnings);
@@ -57,16 +121,29 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
   useEffect(() => {
     const loadDashboard = async () => {
       try {
-        const [partnersList, productsList] = await Promise.all([
+        const [partnersList, myApps, productsList] = await Promise.all([
           dbService.getPartners(),
+          dbService.getMyPartnerApplications(),
           dbService.getProducts()
         ]);
-        setAllPartners(partnersList);
+
+        const mergedMap = new Map<string, Partner>();
+        [...myApps, ...partnersList].forEach((p) => {
+          mergedMap.set(p.id, p);
+        });
+        const mergedPartners = Array.from(mergedMap.values());
+        setAllPartners(mergedPartners);
         setProducts(productsList.filter((p) => p.status === 'ACTIVE'));
 
         const matchedPartner =
-          partnersList.find((p) => currentUser?.email && p.email.toLowerCase() === currentUser.email.toLowerCase()) ||
-          partnersList[0] ||
+          mergedPartners.find(
+            (p) =>
+              (currentUser?.partnerId &&
+                (p.id === currentUser.partnerId || p.partnerId === currentUser.partnerId)) ||
+              (currentUser?.uid && p.ownerUid === currentUser.uid) ||
+              (currentUser?.email && p.email.toLowerCase() === currentUser.email.toLowerCase())
+          ) ||
+          mergedPartners[0] ||
           null;
         await loadPartnerDetails(matchedPartner);
       } catch (err) {
@@ -77,6 +154,61 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
     };
     loadDashboard();
   }, [currentUser]);
+
+  const referralUrl = partner ? `${window.location.origin}/#/partner/${partner.slug}` : '';
+
+  useEffect(() => {
+    if (!referralUrl) {
+      setQrCodeUrl('');
+      return;
+    }
+    QRCode.toDataURL(referralUrl, {
+      width: 240,
+      margin: 2,
+      color: { dark: '#0c2340', light: '#fffdfb' }
+    })
+      .then(setQrCodeUrl)
+      .catch(() => setQrCodeUrl(''));
+  }, [referralUrl]);
+
+  const dateFilteredOrders = useMemo(
+    () => orders.filter((o) => matchesDateFilter(o.createdAt, dateFilter)),
+    [orders, dateFilter]
+  );
+
+  const dateFilteredEarnings = useMemo(
+    () => earnings.filter((e) => matchesDateFilter(e.createdAt, dateFilter)),
+    [earnings, dateFilter]
+  );
+
+  const monthlySummary = useMemo(() => {
+    const buckets: Record<
+      string,
+      { label: string; ordersCount: number; completedCount: number; cancelledCount: number; grossSales: number; commission: number }
+    > = {};
+
+    dateFilteredOrders.forEach((o) => {
+      const d = new Date(o.createdAt);
+      const key = Number.isNaN(d.getTime())
+        ? 'Unknown'
+        : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = Number.isNaN(d.getTime())
+        ? 'Unknown'
+        : d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+      if (!buckets[key]) {
+        buckets[key] = { label, ordersCount: 0, completedCount: 0, cancelledCount: 0, grossSales: 0, commission: 0 };
+      }
+      buckets[key].ordersCount += 1;
+      if (o.status === 'COMPLETED') buckets[key].completedCount += 1;
+      if (o.status === 'CANCELLED') buckets[key].cancelledCount += 1;
+      buckets[key].grossSales += o.subtotal;
+      buckets[key].commission += o.partnerCommission || 0;
+    });
+
+    return Object.entries(buckets)
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([, v]) => v);
+  }, [dateFilteredOrders]);
 
   if (loading) {
     return (
@@ -102,18 +234,24 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
     );
   }
 
-  // KPI Calculations
-  const totalOrders = orders.length;
-  const completedOrders = orders.filter((o) => o.status === 'COMPLETED').length;
-  const pendingOrders = orders.filter((o) => o.status === 'PENDING' || o.status === 'PROCESSING' || o.status === 'CONFIRMED').length;
-  const cancelledOrders = orders.filter((o) => o.status === 'CANCELLED').length;
-  const grossSales = orders.reduce((acc, o) => acc + o.subtotal, 0);
-  const totalEarnings = earnings.reduce((acc, e) => acc + e.earningAmount, 0);
-  const pendingEarnings = earnings.filter((e) => e.status === 'PENDING').reduce((acc, e) => acc + e.earningAmount, 0);
-  const paidEarnings = earnings.filter((e) => e.status === 'PAID').reduce((acc, e) => acc + e.earningAmount, 0);
+  // KPI Calculations (Period-Filtered)
+  const totalOrders = dateFilteredOrders.length;
+  const completedOrders = dateFilteredOrders.filter((o) => o.status === 'COMPLETED').length;
+  const pendingOrders = dateFilteredOrders.filter(
+    (o) => o.status === 'PENDING' || o.status === 'PROCESSING' || o.status === 'CONFIRMED'
+  ).length;
+  const cancelledOrders = dateFilteredOrders.filter((o) => o.status === 'CANCELLED').length;
+  const grossSales = dateFilteredOrders.reduce((acc, o) => acc + o.subtotal, 0);
+  const totalEarnings = dateFilteredEarnings.reduce((acc, e) => acc + e.earningAmount, 0);
+  const pendingEarnings = dateFilteredEarnings
+    .filter((e) => e.status === 'PENDING')
+    .reduce((acc, e) => acc + e.earningAmount, 0);
+  const paidEarnings = dateFilteredEarnings
+    .filter((e) => e.status === 'PAID')
+    .reduce((acc, e) => acc + e.earningAmount, 0);
 
   // Search filter
-  const filteredOrders = orders.filter((o) => {
+  const filteredOrders = dateFilteredOrders.filter((o) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -123,8 +261,6 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
     );
   });
 
-  const referralUrl = `${window.location.origin}/#/partner/${partner.slug}`;
-
   const copyReferralLink = () => {
     navigator.clipboard.writeText(referralUrl);
     setCopiedLink(true);
@@ -132,12 +268,13 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
   };
 
   const handleExportCSV = () => {
-    const headers = ['Order Number', 'Date', 'Customer', 'Status', 'Gross Sales', 'Commission'];
-    const rows = orders.map((o) => [
+    const headers = ['Order Number', 'Date', 'Customer', 'Status', 'Source', 'Gross Sales', 'Commission'];
+    const rows = dateFilteredOrders.map((o) => [
       o.orderNumber,
       new Date(o.createdAt).toLocaleDateString(),
-      o.customerName,
+      `"${o.customerName.replace(/"/g, '""')}"`,
       o.status,
+      `"${(o.referralSource || 'partner_url').replace(/"/g, '""')}"`,
       o.subtotal.toFixed(2),
       (o.partnerCommission || 0).toFixed(2)
     ]);
@@ -149,6 +286,79 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleExportEarningsCSV = () => {
+    const headers = ['Ledger ID', 'Date', 'Order Ref', 'Customer', 'Gross Order', 'Commission Rate', 'Earning Amount', 'Status'];
+    const rows = dateFilteredEarnings.map((e) => [
+      e.id,
+      new Date(e.createdAt).toLocaleDateString(),
+      e.orderNumber,
+      `"${e.customerName.replace(/"/g, '""')}"`,
+      e.grossSales.toFixed(2),
+      `${(e.commissionRate * 100).toFixed(0)}%`,
+      e.earningAmount.toFixed(2),
+      e.status
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers, ...rows].map((row) => row.join(',')).join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `${partner.slug}-earnings-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 750 * 1024) {
+      setProfileErrorMsg('Logo file must be under 750 KB.');
+      return;
+    }
+    setProfileErrorMsg(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setProfileLogoUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const toggleProfileCategory = (cat: ProductCategoryType) => {
+    setProfileCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
+    );
+  };
+
+  const handleSavePartnerProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    setProfileSaveMsg(null);
+    setProfileErrorMsg(null);
+    try {
+      const updates: Partial<Partner> = {
+        name: profileName.trim(),
+        contactPerson: profileContactPerson.trim(),
+        phone: profilePhone.trim() || undefined,
+        website: profileWebsite.trim() || undefined,
+        location: profileLocation.trim() || undefined,
+        description: profileDescription.trim(),
+        logoUrl: profileLogoUrl.trim() || undefined,
+        preferredCategories: profileCategories
+      };
+      await dbService.updatePartner(partner.id, updates);
+      const updatedPartner = { ...partner, ...updates };
+      setPartner(updatedPartner);
+      setAllPartners((prev) => prev.map((p) => (p.id === partner.id ? updatedPartner : p)));
+      setProfileSaveMsg('Partner storefront profile, logo & featured categories saved.');
+    } catch {
+      setProfileErrorMsg('Unable to save profile updates right now.');
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   return (
@@ -177,9 +387,9 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
           </p>
         </div>
 
-        {/* Header Action Buttons & Partner Account Switcher */}
+        {/* Header Action Buttons & Admin-only Partner Account Switcher */}
         <div className="flex flex-wrap items-center gap-3">
-          {allPartners.length > 1 && (
+          {isAdmin && allPartners.length > 1 && (
             <select
               value={partner.id}
               onChange={(e) => {
@@ -345,18 +555,20 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                 {window.location.origin}/#/shop
               </div>
               <button
+                type="button"
                 onClick={() => {
                   navigator.clipboard.writeText(`${window.location.origin}/#/shop`);
-                  alert('Copied Direct Individual Buyer link to clipboard!');
+                  setCopiedDirectLink(true);
+                  setTimeout(() => setCopiedDirectLink(false), 2500);
                 }}
                 className="w-full py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340] hover:bg-[#dfd7c7]/40 text-xs font-semibold transition-colors cursor-pointer"
               >
-                Copy Individual Buyer Link
+                {copiedDirectLink ? 'Copied Direct Store Link!' : 'Copy Individual Buyer Link'}
               </button>
             </div>
 
-            {/* Dedicated Partner Link */}
-            <div className="p-4 rounded-xl bg-white border-2 border-[#c5a059] space-y-2 shadow-2xs">
+            {/* Dedicated Partner Link + QR Code */}
+            <div className="p-4 rounded-xl bg-white border-2 border-[#c5a059] space-y-3 shadow-2xs">
               <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#c5a059] text-white inline-block">
                 Partner Buyer Link (Dedicated to Your Brand)
               </span>
@@ -366,15 +578,15 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
               <div className="bg-[#f6f4ee] p-2 rounded-lg border border-[#c5a059]/40 font-mono text-[11px] text-[#0c2340] select-all break-all font-semibold">
                 {referralUrl}
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   onClick={copyReferralLink}
-                  className="flex-1 py-2 rounded-lg bg-[#c5a059] text-white hover:bg-[#0c2340] text-xs font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1"
+                  className="flex-1 py-2 px-3 rounded-lg bg-[#c5a059] text-white hover:bg-[#0c2340] text-xs font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1"
                 >
                   <span className="material-symbols-outlined text-[14px]">
                     {copiedLink ? 'check' : 'content_copy'}
                   </span>
-                  <span>{copiedLink ? 'Copied Partner Link!' : 'Copy Partner Buyer Link'}</span>
+                  <span>{copiedLink ? 'Copied Partner Link!' : 'Copy Partner Link'}</span>
                 </button>
                 <button
                   onClick={() => navigate('partner-page', partner.slug)}
@@ -382,14 +594,24 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                 >
                   Preview
                 </button>
+                {qrCodeUrl && (
+                  <a
+                    href={qrCodeUrl}
+                    download={`${partner.slug}-qr.png`}
+                    className="px-3 py-2 rounded-lg bg-[#0c2340] text-white hover:bg-[#c5a059] text-xs font-semibold transition-colors flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">qr_code_2</span>
+                    <span>QR PNG</span>
+                  </a>
+                )}
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      {/* KPI Cards Grid (7 Metrics per Module 6) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
         <div className="bg-white border border-[#dfd7c7] p-4 rounded-2xl">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#5a6b7c] block">
             Total Orders
@@ -397,7 +619,7 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
           <span className="font-serif text-2xl font-bold text-[#0c2340] block mt-1">
             {totalOrders}
           </span>
-          <span className="text-[10px] text-[#c5a059]">Referred lifetime</span>
+          <span className="text-[10px] text-[#c5a059]">Selected period</span>
         </div>
 
         <div className="bg-white border border-[#dfd7c7] p-4 rounded-2xl">
@@ -422,6 +644,16 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
 
         <div className="bg-white border border-[#dfd7c7] p-4 rounded-2xl">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#5a6b7c] block">
+            Cancelled Orders
+          </span>
+          <span className="font-serif text-2xl font-bold text-red-700 block mt-1">
+            {cancelledOrders}
+          </span>
+          <span className="text-[10px] text-[#5a6b7c]">Voided / refunded</span>
+        </div>
+
+        <div className="bg-white border border-[#dfd7c7] p-4 rounded-2xl">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#5a6b7c] block">
             Gross Sales
           </span>
           <span className="font-serif text-2xl font-bold text-[#0c2340] block mt-1">
@@ -432,7 +664,7 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
 
         <div className="bg-white border border-[#dfd7c7] p-4 rounded-2xl">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#5a6b7c] block">
-            Eligible Earnings
+            Partner Earnings
           </span>
           <span className="font-serif text-2xl font-bold text-[#c5a059] block mt-1">
             ${totalEarnings.toFixed(2)}
@@ -440,7 +672,7 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
           <span className="text-[10px] text-[#c5a059]">{(partner.commissionRate * 100).toFixed(0)}% Rate</span>
         </div>
 
-        <div className="bg-[#c5a059] text-white p-4 rounded-2xl">
+        <div className="bg-[#c5a059] text-white p-4 rounded-2xl col-span-2 sm:col-span-1">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[#dfd7c7] block">
             Pending Payout
           </span>
@@ -488,7 +720,7 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                   : 'text-[#5a6b7c] hover:bg-[#dfd7c7]/50'
               }`}
             >
-              Earnings Ledger ({earnings.length})
+              Earnings Ledger ({dateFilteredEarnings.length})
             </button>
             <button
               onClick={() => setActiveTab('assets')}
@@ -502,10 +734,10 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <select
               value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value as any)}
+              onChange={(e) => setDateFilter(e.target.value as 'current_month' | 'prev_month' | 'ytd' | 'all')}
               className="px-3 py-1.5 rounded-lg bg-white border border-[#dfd7c7] text-xs text-[#0c2340] focus:outline-[#c5a059] cursor-pointer"
             >
               <option value="all">Lifetime History</option>
@@ -519,7 +751,15 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
               className="px-3 py-1.5 rounded-lg border border-[#dfd7c7] bg-white hover:bg-[#fffdfb] text-xs font-semibold text-[#5a6b7c] flex items-center gap-1 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[16px]">download</span>
-              <span>Export CSV</span>
+              <span>Orders CSV</span>
+            </button>
+
+            <button
+              onClick={handleExportEarningsCSV}
+              className="px-3 py-1.5 rounded-lg border border-[#dfd7c7] bg-white hover:bg-[#fffdfb] text-xs font-semibold text-[#5a6b7c] flex items-center gap-1 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">receipt_long</span>
+              <span>Earnings CSV</span>
             </button>
           </div>
         </div>
@@ -876,6 +1116,28 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
         {/* Tab 1: Sales & Orders */}
         {activeTab === 'sales' && (
           <div>
+            {monthlySummary.length > 0 && (
+              <div className="p-4 sm:p-6 bg-[#fffdfb] border-b border-[#dfd7c7]">
+                <h4 className="font-serif text-base font-bold text-[#0c2340] mb-3">
+                  Monthly Performance Breakdown
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                  {monthlySummary.map((m) => (
+                    <div key={m.label} className="p-3 rounded-xl bg-[#f6f4ee] border border-[#dfd7c7]">
+                      <div className="flex items-center justify-between font-semibold text-[#0c2340]">
+                        <span>{m.label}</span>
+                        <span className="text-[#c5a059]">${m.commission.toFixed(2)}</span>
+                      </div>
+                      <div className="text-[11px] text-[#5a6b7c] mt-1 flex justify-between">
+                        <span>{m.ordersCount} orders ({m.completedCount} completed)</span>
+                        <span>${m.grossSales.toFixed(0)} gross</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="p-4 border-b border-[#dfd7c7]/50 flex items-center gap-3">
               <span className="material-symbols-outlined text-[#5a6b7c] text-[18px]">search</span>
               <input
@@ -904,7 +1166,7 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                   {filteredOrders.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="p-8 text-center text-[#5a6b7c]">
-                        No referred patient orders found for this filter.
+                        No referred patient orders found for this period or filter.
                       </td>
                     </tr>
                   ) : (
@@ -966,14 +1228,14 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#dfd7c7]/40 text-[#5a6b7c]">
-                {earnings.length === 0 ? (
+                {dateFilteredEarnings.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="p-8 text-center text-[#5a6b7c]">
-                      No audit ledger records generated yet.
+                      No audit ledger records found for the selected period.
                     </td>
                   </tr>
                 ) : (
-                  earnings.map((e) => (
+                  dateFilteredEarnings.map((e) => (
                     <tr key={e.id} className="hover:bg-[#fffdfb]/50">
                       <td className="p-4">{new Date(e.createdAt).toLocaleDateString()}</td>
                       <td className="p-4 font-mono font-semibold text-[#0c2340]">{e.orderNumber}</td>
@@ -1002,45 +1264,225 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
 
         {/* Tab 3: Partner Profile & Assets */}
         {activeTab === 'assets' && (
-          <div className="p-6 space-y-6 text-xs max-w-2xl">
-            <h3 className="font-serif text-lg font-bold text-[#0c2340]">
-              Practice Information &amp; Attribution Settings
-            </h3>
-            
-            <div className="grid grid-cols-2 gap-4">
+          <div className="p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 text-xs">
+            <form onSubmit={handleSavePartnerProfile} className="lg:col-span-7 space-y-5">
               <div>
-                <span className="text-[#5a6b7c] block">Practice Name</span>
-                <span className="font-semibold text-[#0c2340]">{partner.name}</span>
+                <h3 className="font-serif text-xl font-bold text-[#0c2340]">
+                  Practice Profile, Branding &amp; Curated Categories
+                </h3>
+                <p className="text-[#5a6b7c] mt-0.5">
+                  Customize your co-branded storefront logo, contact info, and featured peptide categories.
+                </p>
               </div>
-              <div>
-                <span className="text-[#5a6b7c] block">Partner ID</span>
-                <span className="font-mono font-semibold text-[#c5a059]">{partner.partnerId}</span>
-              </div>
-              <div>
-                <span className="text-[#5a6b7c] block">Commission Structure</span>
-                <span className="font-semibold text-[#0c2340]">{(partner.commissionRate * 100).toFixed(0)}% Revenue Share</span>
-              </div>
-              <div>
-                <span className="text-[#5a6b7c] block">Member VIP Discount</span>
-                <span className="font-semibold text-[#0c2340]">{(partner.memberDiscountRate * 100).toFixed(0)}% Discount</span>
-              </div>
-              <div className="col-span-2">
-                <span className="text-[#5a6b7c] block">Primary Contact</span>
-                <span className="font-semibold text-[#0c2340]">{partner.contactPerson} ({partner.email})</span>
-              </div>
-            </div>
 
-            <div className="pt-4 border-t border-[#dfd7c7]/60">
-              <h4 className="font-semibold text-[#0c2340] mb-2">Patient Marketing Collateral</h4>
-              <p className="text-[#5a6b7c] mb-3">
-                Download printable clinic display QR codes and digital brochures mapped to your referral URL.
-              </p>
+              {profileSaveMsg && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                  <span>{profileSaveMsg}</span>
+                </div>
+              )}
+
+              {profileErrorMsg && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px]">error</span>
+                  <span>{profileErrorMsg}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[#5a6b7c] font-medium mb-1">Practice / Studio Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#5a6b7c] font-medium mb-1">Primary Contact Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={profileContactPerson}
+                    onChange={(e) => setProfileContactPerson(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#5a6b7c] font-medium mb-1">Phone</label>
+                  <input
+                    type="text"
+                    value={profilePhone}
+                    onChange={(e) => setProfilePhone(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[#5a6b7c] font-medium mb-1">Location</label>
+                  <input
+                    type="text"
+                    value={profileLocation}
+                    onChange={(e) => setProfileLocation(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-[#5a6b7c] font-medium mb-1">Website URL</label>
+                  <input
+                    type="text"
+                    value={profileWebsite}
+                    onChange={(e) => setProfileWebsite(e.target.value)}
+                    placeholder="https://yourpractice.com"
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-[#5a6b7c] font-medium mb-1">Storefront Description</label>
+                  <textarea
+                    rows={3}
+                    value={profileDescription}
+                    onChange={(e) => setProfileDescription(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                </div>
+              </div>
+
+              {/* Logo Upload */}
+              <div className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7] space-y-3">
+                <label className="block text-[#0c2340] font-semibold">Custom Practice Logo</label>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  {profileLogoUrl ? (
+                    <img
+                      src={profileLogoUrl}
+                      alt={profileName}
+                      className="w-16 h-16 rounded-2xl object-contain bg-white border border-[#dfd7c7] p-1 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-2xl bg-white border border-[#dfd7c7] flex items-center justify-center text-[#c5a059] shrink-0">
+                      <span className="material-symbols-outlined text-[28px]">storefront</span>
+                    </div>
+                  )}
+                  <div className="flex-1 w-full space-y-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      className="block w-full text-[11px] text-[#5a6b7c] file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0c2340] file:text-white hover:file:bg-[#c5a059] cursor-pointer"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Or paste custom logo image URL..."
+                      value={profileLogoUrl}
+                      onChange={(e) => setProfileLogoUrl(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340] text-[11px]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Featured Wellness Categories */}
+              <div className="space-y-2">
+                <label className="block text-[#0c2340] font-semibold">
+                  Partner-Specific Wellness Categories (Displayed on Your Storefront)
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {WELLNESS_CATEGORIES.map((cat) => {
+                    const checked = profileCategories.includes(cat.key);
+                    return (
+                      <button
+                        key={cat.key}
+                        type="button"
+                        onClick={() => toggleProfileCategory(cat.key)}
+                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${
+                          checked
+                            ? 'bg-[#0c2340] text-white border-[#0c2340]'
+                            : 'bg-white text-[#5a6b7c] border-[#dfd7c7] hover:border-[#c5a059]'
+                        }`}
+                      >
+                        {checked ? '✓ ' : '+ '}
+                        {cat.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <button
-                onClick={copyReferralLink}
-                className="px-4 py-2 rounded-xl bg-[#c5a059] text-white text-xs font-semibold cursor-pointer"
+                type="submit"
+                disabled={savingProfile}
+                className="px-6 py-2.5 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] transition-colors cursor-pointer disabled:opacity-50"
               >
-                Copy Patient QR Link
+                {savingProfile ? 'Saving Profile...' : 'Save Partner Profile & Branding'}
               </button>
+            </form>
+
+            {/* Right Column: Commercial Terms & Printable QR Collateral */}
+            <div className="lg:col-span-5 space-y-5">
+              <div className="p-5 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7] space-y-3">
+                <h4 className="font-serif text-base font-bold text-[#0c2340]">
+                  Attribution &amp; Commercial Terms
+                </h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-[#5a6b7c] block">Partner ID</span>
+                    <span className="font-mono font-semibold text-[#c5a059]">{partner.partnerId}</span>
+                  </div>
+                  <div>
+                    <span className="text-[#5a6b7c] block">Account Email</span>
+                    <span className="font-semibold text-[#0c2340] break-all">{partner.email}</span>
+                  </div>
+                  <div>
+                    <span className="text-[#5a6b7c] block">Commission Share</span>
+                    <span className="font-semibold text-[#0c2340]">
+                      {(partner.commissionRate * 100).toFixed(0)}% Revenue Share
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[#5a6b7c] block">Member VIP Discount</span>
+                    <span className="font-semibold text-[#0c2340]">
+                      {(partner.memberDiscountRate * 100).toFixed(0)}% Discount
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-white border border-[#dfd7c7] space-y-4 text-center">
+                <h4 className="font-serif text-base font-bold text-[#0c2340]">
+                  Patient Clinic Display QR Code
+                </h4>
+                <p className="text-[#5a6b7c]">
+                  Print or embed this QR code at reception so clients scan straight into your co-branded storefront with VIP perks active.
+                </p>
+                {qrCodeUrl && (
+                  <div className="inline-block p-3 rounded-2xl bg-[#fffdfb] border border-[#dfd7c7]">
+                    <img
+                      src={qrCodeUrl}
+                      alt={`${partner.name} QR Code`}
+                      className="w-44 h-44 mx-auto"
+                    />
+                  </div>
+                )}
+                <div className="flex flex-wrap justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={copyReferralLink}
+                    className="px-4 py-2 rounded-xl bg-[#c5a059] text-white text-xs font-semibold cursor-pointer hover:bg-[#0c2340]"
+                  >
+                    {copiedLink ? 'Copied Referral URL' : 'Copy Referral URL'}
+                  </button>
+                  {qrCodeUrl && (
+                    <a
+                      href={qrCodeUrl}
+                      download={`${partner.slug}-qr.png`}
+                      className="px-4 py-2 rounded-xl bg-[#0c2340] text-white text-xs font-semibold hover:bg-[#c5a059] transition-colors"
+                    >
+                      Download QR PNG
+                    </a>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}

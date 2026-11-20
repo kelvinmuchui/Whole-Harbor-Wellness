@@ -8,17 +8,31 @@ interface CustomerPortalViewProps {
 }
 
 export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate }) => {
-  const { currentUser, role } = useAuth();
+  const { currentUser, role, isAdmin, changePassword } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'protocols'>('orders');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [pwdStatus, setPwdStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [savingPwd, setSavingPwd] = useState(false);
 
   useEffect(() => {
     const loadOrders = async () => {
       try {
-        const all = await dbService.getOrders();
-        // Show orders matching user email or show all demo orders
-        setOrders(all);
+        const all = await dbService.getOrders(isAdmin ? 'admin' : 'customer');
+        if (!isAdmin && currentUser) {
+          const emailLower = currentUser.email.toLowerCase();
+          const scoped = all.filter(
+            (o) =>
+              (o.customerUid && o.customerUid === currentUser.uid) ||
+              (o.customerEmail && o.customerEmail.toLowerCase() === emailLower)
+          );
+          setOrders(scoped);
+        } else {
+          setOrders(all);
+        }
       } catch (err) {
         console.error('Failed to load customer orders', err);
       } finally {
@@ -26,7 +40,7 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate
       }
     };
     loadOrders();
-  }, [currentUser]);
+  }, [currentUser, isAdmin]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
@@ -323,7 +337,7 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate
             <div className="bg-white border border-[#dfd7c7] rounded-3xl p-6 space-y-4 text-xs">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[#c5a059] text-[20px]">security</span>
-                <h4 className="font-serif text-base font-bold text-[#0c2340]">Account Security &amp; Encryption</h4>
+                <h4 className="font-serif text-base font-bold text-[#0c2340]">Account Security &amp; Password Management</h4>
               </div>
               <div className="space-y-2 text-[#5a6b7c]">
                 <div className="flex items-center justify-between py-1 border-b border-[#dfd7c7]/40">
@@ -341,6 +355,82 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate
                   </span>
                 </div>
               </div>
+
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setPwdStatus(null);
+                  if (newPassword !== confirmPassword) {
+                    setPwdStatus({ type: 'error', text: 'New password and confirmation do not match.' });
+                    return;
+                  }
+                  setSavingPwd(true);
+                  try {
+                    const res = await changePassword(currentPassword, newPassword);
+                    if (!res.success) {
+                      setPwdStatus({ type: 'error', text: res.error || 'Unable to update password.' });
+                    } else {
+                      setPwdStatus({ type: 'success', text: res.message || 'Password updated.' });
+                      setCurrentPassword('');
+                      setNewPassword('');
+                      setConfirmPassword('');
+                    }
+                  } finally {
+                    setSavingPwd(false);
+                  }
+                }}
+                className="pt-3 border-t border-[#dfd7c7]/60 space-y-3"
+              >
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#0c2340] block">
+                  Update Account Password
+                </span>
+                {pwdStatus && (
+                  <div
+                    className={`p-2.5 rounded-xl border text-[11px] ${
+                      pwdStatus.type === 'success'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        : 'bg-red-50 border-red-200 text-red-700'
+                    }`}
+                  >
+                    {pwdStatus.text}
+                  </div>
+                )}
+                <div className="grid grid-cols-1 gap-2">
+                  <input
+                    type="password"
+                    required
+                    placeholder="Current password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    placeholder="New password (min 8 characters)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    placeholder="Confirm new password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={savingPwd}
+                  className="px-4 py-2 rounded-xl bg-[#0c2340] text-white font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {savingPwd ? 'Updating...' : 'Update Password'}
+                </button>
+              </form>
             </div>
           </div>
         </div>

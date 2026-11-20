@@ -1,5 +1,22 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CartItem, Product, ProductStrength, ReferralSession } from '../types/index.ts';
+import { analyticsService } from '../services/analyticsService.ts';
+
+function readUrlReferralSource(): string | undefined {
+  try {
+    const hashPart = window.location.hash.split('?')[1] || '';
+    const hashParams = new URLSearchParams(hashPart);
+    const searchParams = new URLSearchParams(window.location.search);
+    const src =
+      hashParams.get('src') ||
+      hashParams.get('utm_source') ||
+      searchParams.get('src') ||
+      searchParams.get('utm_source');
+    return src ? src.slice(0, 64) : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 interface CartContextType {
   items: CartItem[];
@@ -84,13 +101,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 2800);
   };
 
-  const setPartnerReferral = (partner: { id: string; slug: string; name: string; memberDiscountRate?: number; commissionRate?: number }) => {
+  const setPartnerReferral = (partner: { id: string; slug: string; name: string; memberDiscountRate?: number; commissionRate?: number; referralSource?: string }) => {
     const session: ReferralSession = {
       partnerId: partner.id,
       partnerSlug: partner.slug,
       partnerName: partner.name,
       discountRate: partner.memberDiscountRate || 0.15,
       commissionRate: partner.commissionRate || 0.25,
+      referralSource: partner.referralSource || readUrlReferralSource() || 'partner-direct-link',
       timestamp: Date.now()
     };
     setActiveReferral(session);
@@ -125,6 +143,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ];
     });
 
+    analyticsService.trackAddToCart(product.name, strength.price * quantity, activeReferral?.partnerSlug);
     showToast(`Added to Cart: ${product.name} (${strength.label})`);
   };
 
@@ -190,6 +209,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       partnerName,
       discountRate,
       commissionRate,
+      referralSource: refData.referralSource || readUrlReferralSource() || 'partner-landing',
       timestamp: Date.now()
     };
     setActiveReferral(session);

@@ -19,6 +19,15 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ navigate }) => {
     dbService.getPrograms().then(setPrograms);
   }, []);
 
+  useEffect(() => {
+    if (!selectedProgram) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedProgram(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedProgram]);
+
   const handleEnrollSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setEnrollSubmitted(true);
@@ -107,17 +116,42 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ navigate }) => {
 
       {/* Clinical Consultation Modal */}
       {selectedProgram && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-[#0c2340]/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="relative bg-[#fffdfb] w-full max-w-lg rounded-3xl border border-[#dfd7c7] shadow-2xl overflow-hidden p-6 sm:p-8 animate-in fade-in zoom-in-95">
-            <button
-              onClick={() => setSelectedProgram(null)}
-              className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-[#5a6b7c] hover:bg-[#f6f4ee] cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[20px]">close</span>
-            </button>
+        <div
+          className="fixed inset-0 z-50 bg-[#0c2340]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={() => setSelectedProgram(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Program onboarding"
+        >
+          <div
+            className="relative bg-[#fffdfb] w-full sm:max-w-lg max-h-[92dvh] sm:max-h-[88vh] flex flex-col rounded-t-3xl sm:rounded-3xl border border-[#dfd7c7] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Pinned Header */}
+            <div className="shrink-0 px-5 sm:px-7 py-4 border-b border-[#dfd7c7] bg-[#f6f4ee] flex items-start justify-between gap-4">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#c5a059]">
+                  Program Onboarding
+                </span>
+                <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#0c2340] mt-0.5">
+                  {selectedProgram.name}
+                </h3>
+                <p className="text-xs text-[#5a6b7c] mt-0.5">
+                  ${selectedProgram.priceMonthly}/month • {selectedProgram.duration} supervised track
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedProgram(null)}
+                aria-label="Cancel"
+                className="w-10 h-10 rounded-full bg-white border border-[#dfd7c7] hover:border-[#0c2340] flex items-center justify-center text-[#5a6b7c] hover:text-[#0c2340] cursor-pointer shrink-0"
+              >
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
 
             {enrollSubmitted ? (
-              <div className="text-center py-8 space-y-4">
+              <div className="flex-1 overflow-y-auto text-center p-6 sm:p-8 space-y-4 pb-[calc(24px+env(safe-area-inset-bottom))]">
                 <div className="w-14 h-14 rounded-full bg-[#dfd7c7] text-[#c5a059] flex items-center justify-center mx-auto">
                   <span className="material-symbols-outlined text-[32px]">check</span>
                 </div>
@@ -128,6 +162,7 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ navigate }) => {
                   Our clinical care coordinator has reserved your onboarding slot for the <strong>{selectedProgram.name}</strong>. A medical questionnaire has been dispatched to {email}.
                 </p>
                 <button
+                  type="button"
                   onClick={() => setSelectedProgram(null)}
                   className="px-6 py-2.5 rounded-xl bg-[#c5a059] text-white text-xs font-semibold cursor-pointer"
                 >
@@ -135,18 +170,8 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ navigate }) => {
                 </button>
               </div>
             ) : (
-              <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#5a6b7c]">
-                  Program Onboarding
-                </span>
-                <h3 className="font-serif text-2xl font-bold text-[#0c2340] mt-1">
-                  {selectedProgram.name}
-                </h3>
-                <p className="text-xs text-[#5a6b7c] mt-1">
-                  ${selectedProgram.priceMonthly}/month • {selectedProgram.duration} supervised track
-                </p>
-
-                <form onSubmit={handleEnrollSubmit} className="mt-6 space-y-4 text-xs">
+              <>
+                <form id="whw-program-enroll-form" onSubmit={handleEnrollSubmit} className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-4 text-xs">
                   <div>
                     <label className="block text-[#5a6b7c] font-medium mb-1">Your Full Name</label>
                     <input
@@ -190,15 +215,26 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ navigate }) => {
                       className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
                     />
                   </div>
+                </form>
 
+                {/* Pinned Footer with Cancel */}
+                <div className="shrink-0 px-5 sm:px-7 py-3.5 pb-[calc(14px+env(safe-area-inset-bottom))] border-t border-[#dfd7c7] bg-[#f6f4ee] flex flex-col-reverse sm:flex-row gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedProgram(null)}
+                    className="sm:w-32 py-3 px-4 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] hover:border-[#0c2340] text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
                   <button
                     type="submit"
-                    className="w-full py-3 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] transition-colors cursor-pointer"
+                    form="whw-program-enroll-form"
+                    className="flex-1 py-3 px-4 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] transition-colors cursor-pointer"
                   >
-                    Submit Clinical Consultation Request
+                    Submit Consultation Request
                   </button>
-                </form>
-              </div>
+                </div>
+              </>
             )}
           </div>
         </div>

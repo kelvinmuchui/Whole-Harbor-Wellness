@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, Search, LogIn, UserPlus } from 'lucide-react';
+import { Menu, X, Search, LogIn, UserPlus, LogOut } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext.tsx';
 import { CartProvider, useCart } from './context/CartContext.tsx';
 import { testFirestoreConnection } from './lib/firebase.ts';
-import { DESKTOP_PRIMARY_TABS, DESKTOP_PORTAL_TABS } from './lib/navigation.ts';
+import {
+  DESKTOP_PRIMARY_TABS,
+  getVisiblePortalTabs,
+  getPrimaryDashboardPath,
+  getRoleDisplayLabel
+} from './lib/navigation.ts';
+import { updatePageSeo } from './services/seoService.ts';
+import { analyticsService } from './services/analyticsService.ts';
 import { Sidebar } from './components/Sidebar.tsx';
 import { MobileNav } from './components/MobileNav.tsx';
 import { Footer } from './components/Footer.tsx';
@@ -14,6 +21,7 @@ import { AuthModal } from './components/AuthModal.tsx';
 import { GoalsModal } from './components/GoalsModal.tsx';
 import { PerksModal } from './components/PerksModal.tsx';
 import { AskWHWDrawer } from './components/AskWHWDrawer.tsx';
+import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 
 // Views
 import { HomeView } from './views/HomeView.tsx';
@@ -33,7 +41,7 @@ import { FAQView } from './views/FAQView.tsx';
 import { ContactView } from './views/ContactView.tsx';
 
 function MainApp() {
-  const { currentUser, role, logout } = useAuth();
+  const { currentUser, role, isAdmin, isPartner, logout } = useAuth();
   const { totalVialsOrKits, setIsOpen: setCartOpen } = useCart();
   const [currentPath, setCurrentPath] = useState<string>('home');
   const [currentParam, setCurrentParam] = useState<string | undefined>(undefined);
@@ -47,26 +55,46 @@ function MainApp() {
   const [perksOpen, setPerksOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const visiblePortalTabs = getVisiblePortalTabs(currentUser, role);
+  const primaryDashboard = getPrimaryDashboardPath(currentUser, role);
+  const userFirstName = currentUser?.displayName ? currentUser.displayName.split(' ')[0] : '';
+  const userInitial = userFirstName ? userFirstName.charAt(0).toUpperCase() : 'W';
+
   const openAuth = (mode: 'login' | 'register' = 'login') => {
     setAuthMode(mode);
     setAuthOpen(true);
   };
 
   useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
     testFirestoreConnection().catch(() => {});
   }, []);
 
-  // Handle URL hash changes
+  useEffect(() => {
+    updatePageSeo(currentPath, currentParam);
+    analyticsService.trackPageView(currentPath, currentParam);
+  }, [currentPath, currentParam]);
+
+  // Handle URL hash changes (preserving optional ?src=... query strings cleanly)
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash.replace(/^#\/?/, '');
-      if (!hash) {
+      const rawHash = window.location.hash.replace(/^#\/?/, '');
+      const cleanHash = rawHash.split('?')[0];
+      if (!cleanHash) {
         setCurrentPath('home');
         setCurrentParam(undefined);
         return;
       }
 
-      const parts = hash.split('/');
+      const parts = cleanHash.split('/');
       const primary = parts[0] || 'home';
       const secondary = parts[1];
 
@@ -163,67 +191,88 @@ function MainApp() {
           </button>
         </div>
 
-        {/* Sign In & Sign Up Section */}
+        {/* Account / Auth Section */}
         <div className="p-5 bg-[#f6f4ee] border-b border-[#dfd7c7] space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-[#0c2340] truncate">
-                {currentUser ? currentUser.displayName : 'Welcome to Whole Harbor'}
-              </p>
-              <p className="text-[11px] text-[#5a6b7c] truncate">
-                {currentUser ? `${currentUser.email} · ${role}` : 'Sign in for wholesale, orders & perks'}
-              </p>
-            </div>
-          </div>
+          {!currentUser ? (
+            <>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-[#0c2340]">
+                  Member &amp; Partner Access
+                </p>
+                <p className="text-[11px] text-[#5a6b7c]">
+                  Sign in for order tracking, wholesale kits &amp; perks
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    openAuth('login');
+                  }}
+                  className="h-11 px-3 rounded-xl bg-white border border-[#d5cab6] text-[#0c2340] hover:border-[#c5a059] text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all whitespace-nowrap"
+                >
+                  <LogIn className="w-3.5 h-3.5 text-[#c5a059]" />
+                  <span>Sign In</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    openAuth('register');
+                  }}
+                  className="h-11 px-3 rounded-xl bg-gradient-to-br from-[#0c2340] to-[#17365d] border border-[#c5a059]/60 text-white hover:from-[#c5a059] hover:to-[#a98338] text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer transition-all whitespace-nowrap"
+                >
+                  <UserPlus className="w-3.5 h-3.5 text-[#c5a059]" />
+                  <span>Sign Up</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#0c2340] text-[#c5a059] border border-[#c5a059]/60 font-bold text-sm flex items-center justify-center shrink-0">
+                  {userInitial}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-bold text-[#0c2340] truncate">
+                      {currentUser.displayName}
+                    </p>
+                    <span className="px-2 py-0.5 rounded-full bg-white border border-[#dfd7c7] text-[9px] font-bold uppercase tracking-wider text-[#c5a059] shrink-0">
+                      {getRoleDisplayLabel(role)}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#5a6b7c] truncate">
+                    {currentUser.email}
+                  </p>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-2.5">
-            <button
-              type="button"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                openAuth('login');
-              }}
-              className="h-11 px-3 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] hover:border-[#0c2340] text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-all whitespace-nowrap"
-            >
-              <LogIn className="w-3.5 h-3.5 text-[#c5a059]" />
-              <span>Sign In</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                openAuth('register');
-              }}
-              className="h-11 px-3 rounded-xl bg-[#0c2340] text-white hover:bg-[#c5a059] text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-all whitespace-nowrap"
-            >
-              <UserPlus className="w-3.5 h-3.5 text-[#c5a059]" />
-              <span>Sign Up</span>
-            </button>
-          </div>
-
-          {currentUser && (
-            <div className="flex items-center justify-between pt-1 text-[11px]">
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  navigate('customer-portal');
-                }}
-                className="font-semibold text-[#0c2340] hover:text-[#c5a059] cursor-pointer"
-              >
-                View Account Profile →
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  logout();
-                  setMobileMenuOpen(false);
-                }}
-                className="font-semibold text-[#5a6b7c] hover:text-[#0c2340] cursor-pointer"
-              >
-                Sign Out
-              </button>
-            </div>
+              <div className="grid grid-cols-2 gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    navigate(primaryDashboard);
+                  }}
+                  className="h-10 px-3 rounded-xl bg-[#0c2340] text-white hover:bg-[#c5a059] text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer transition-colors whitespace-nowrap"
+                >
+                  <span>My Dashboard</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    logout();
+                    setMobileMenuOpen(false);
+                  }}
+                  className="h-10 px-3 rounded-xl bg-white border border-[#dfd7c7] text-[#5a6b7c] hover:text-[#0c2340] hover:border-[#0c2340] text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
+                >
+                  <LogOut className="w-3.5 h-3.5 text-[#c5a059]" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </>
           )}
         </div>
 
@@ -301,7 +350,7 @@ function MainApp() {
             <span>Perks &amp; Rewards</span>
           </button>
 
-          {DESKTOP_PORTAL_TABS.map(tab => {
+          {visiblePortalTabs.map(tab => {
             const isActive =
               tab.id === 'partner-portal'
                 ? currentPath === 'partner-portal' || currentPath === 'partner-page'
@@ -372,25 +421,54 @@ function MainApp() {
           <span>Search</span>
         </button>
 
-        <button
-          type="button"
-          onClick={() => openAuth('login')}
-          className="whw-btn-login hidden md:inline-flex cursor-pointer"
-          title="Sign in to your account"
-        >
-          <LogIn className="w-3.5 h-3.5 text-[#c5a059]" strokeWidth={2} />
-          <span>Sign In</span>
-        </button>
+        {!currentUser ? (
+          <>
+            <button
+              type="button"
+              onClick={() => openAuth('login')}
+              className="whw-btn-login hidden md:inline-flex cursor-pointer"
+              title="Sign in to your account"
+            >
+              <LogIn className="w-3.5 h-3.5 text-[#c5a059]" strokeWidth={2.2} />
+              <span>Sign In</span>
+            </button>
 
-        <button
-          type="button"
-          onClick={() => openAuth('register')}
-          className="whw-btn-signup hidden md:inline-flex cursor-pointer"
-          title="Create a new account"
-        >
-          <UserPlus className="w-3.5 h-3.5 text-[#c5a059]" strokeWidth={2} />
-          <span>Sign Up</span>
-        </button>
+            <button
+              type="button"
+              onClick={() => openAuth('register')}
+              className="whw-btn-signup hidden md:inline-flex cursor-pointer"
+              title="Create a new account"
+            >
+              <UserPlus className="w-3.5 h-3.5 text-[#c5a059]" strokeWidth={2.2} />
+              <span>Sign Up</span>
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="whw-btn-profile hidden md:inline-flex cursor-pointer"
+              onClick={() => navigate(primaryDashboard)}
+              title={`Open ${getRoleDisplayLabel(role)} dashboard`}
+            >
+              <span className="avatar">{userInitial}</span>
+              <span>{userFirstName}</span>
+              <span className="px-2 py-0.5 rounded-full bg-white border border-[#dfd7c7] text-[9px] font-bold uppercase tracking-wider text-[#c5a059]">
+                {getRoleDisplayLabel(role)}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="whw-btn-signout hidden md:inline-flex cursor-pointer"
+              title="Sign out of your account"
+            >
+              <LogOut className="w-3.5 h-3.5 text-[#c5a059]" strokeWidth={2.2} />
+              <span>Sign Out</span>
+            </button>
+          </>
+        )}
 
         <button
           type="button"
@@ -399,16 +477,6 @@ function MainApp() {
           title="Support & Inquiries"
         >
           Contact
-        </button>
-
-        <button
-          type="button"
-          className="whw-btn-profile hidden md:inline-flex cursor-pointer"
-          onClick={() => navigate('customer-portal')}
-          title="View user portal"
-        >
-          <span className="avatar">♙</span>
-          <span>{currentUser ? currentUser.displayName.split(' ')[0] : 'Profile'}</span>
         </button>
 
         {/* Mobile-only Hamburger Menu Button */}
@@ -525,15 +593,110 @@ function MainApp() {
             )}
 
             {currentPath === 'partner-portal' && (
-              <PartnerDashboardView navigate={navigate} />
+              !currentUser ? (
+                <div className="max-w-xl mx-auto my-16 bg-white border border-[#dfd7c7] rounded-3xl p-8 text-center space-y-4 shadow-xs">
+                  <span className="material-symbols-outlined text-[36px] text-[#c5a059]">lock</span>
+                  <h2 className="font-serif text-2xl font-bold text-[#0c2340]">Partner Portal Sign-In Required</h2>
+                  <p className="text-xs text-[#5a6b7c]">
+                    Sign in with your partner credentials to manage your clinic storefront, wholesale 10-vial kits, and commission ledger.
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-3 pt-2">
+                    <button
+                      onClick={() => openAuth('login')}
+                      className="px-5 py-2.5 rounded-xl bg-[#0c2340] text-white text-xs font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer"
+                    >
+                      Sign In to Portal
+                    </button>
+                    <button
+                      onClick={() => navigate('partners')}
+                      className="px-5 py-2.5 rounded-xl border border-[#dfd7c7] text-[#0c2340] text-xs font-semibold hover:bg-[#f6f4ee] cursor-pointer"
+                    >
+                      Apply to Become a Partner
+                    </button>
+                  </div>
+                </div>
+              ) : (!isPartner && !isAdmin) ? (
+                <div className="max-w-xl mx-auto my-16 bg-white border border-[#dfd7c7] rounded-3xl p-8 text-center space-y-4 shadow-xs">
+                  <span className="material-symbols-outlined text-[36px] text-[#c5a059]">verified_user</span>
+                  <h2 className="font-serif text-2xl font-bold text-[#0c2340]">Partner Account Required</h2>
+                  <p className="text-xs text-[#5a6b7c]">
+                    You are currently signed in as a Member ({getRoleDisplayLabel(role)}). Only approved clinic or studio partners can access the Partner Portal.
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-3 pt-2">
+                    <button
+                      onClick={() => navigate(primaryDashboard)}
+                      className="px-5 py-2.5 rounded-xl bg-[#0c2340] text-white text-xs font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer"
+                    >
+                      Return to My Dashboard
+                    </button>
+                    <button
+                      onClick={() => navigate('partners')}
+                      className="px-5 py-2.5 rounded-xl border border-[#dfd7c7] text-[#0c2340] text-xs font-semibold hover:bg-[#f6f4ee] cursor-pointer"
+                    >
+                      Apply as a Partner
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <PartnerDashboardView navigate={navigate} />
+              )
             )}
 
             {currentPath === 'customer-portal' && (
-              <CustomerPortalView navigate={navigate} />
+              !currentUser ? (
+                <div className="max-w-xl mx-auto my-16 bg-white border border-[#dfd7c7] rounded-3xl p-8 text-center space-y-4 shadow-xs">
+                  <span className="material-symbols-outlined text-[36px] text-[#c5a059]">person</span>
+                  <h2 className="font-serif text-2xl font-bold text-[#0c2340]">Member Sign-In Required</h2>
+                  <p className="text-xs text-[#5a6b7c]">
+                    Sign in or create an account to view cold-chain tracking, order history, and account security settings.
+                  </p>
+                  <button
+                    onClick={() => openAuth('login')}
+                    className="px-6 py-2.5 rounded-xl bg-[#c5a059] text-white text-xs font-semibold hover:bg-[#0c2340] transition-colors cursor-pointer"
+                  >
+                    Sign In / Create Account
+                  </button>
+                </div>
+              ) : (
+                <CustomerPortalView navigate={navigate} />
+              )
             )}
 
             {currentPath === 'admin' && (
-              <AdminDashboardView navigate={navigate} />
+              (!currentUser || !isAdmin) ? (
+                <div className="max-w-xl mx-auto my-16 bg-white border border-[#dfd7c7] rounded-3xl p-8 text-center space-y-4 shadow-xs">
+                  <span className="material-symbols-outlined text-[40px] text-[#c5a059]">verified_user</span>
+                  <h2 className="font-serif text-2xl font-bold text-[#0c2340]">Administrator Access Restricted</h2>
+                  <p className="text-xs text-[#5a6b7c]">
+                    This executive operations console is restricted to authorized Whole Harbor Wellness administrators.
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-3 pt-2">
+                    {!currentUser ? (
+                      <button
+                        onClick={() => openAuth('login')}
+                        className="px-6 py-2.5 rounded-xl bg-[#0c2340] text-white text-xs font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer"
+                      >
+                        Administrator Sign In
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => navigate(primaryDashboard)}
+                        className="px-6 py-2.5 rounded-xl bg-[#0c2340] text-white text-xs font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer"
+                      >
+                        Return to My Dashboard
+                      </button>
+                    )}
+                    <button
+                      onClick={() => navigate('home')}
+                      className="px-5 py-2.5 rounded-xl border border-[#dfd7c7] text-[#5a6b7c] text-xs font-semibold hover:bg-[#f6f4ee] cursor-pointer"
+                    >
+                      Return to Storefront
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <AdminDashboardView navigate={navigate} />
+              )
             )}
 
             {currentPath === 'about' && (
@@ -617,10 +780,12 @@ function MainApp() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <CartProvider>
-        <MainApp />
-      </CartProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <CartProvider>
+          <MainApp />
+        </CartProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

@@ -38,6 +38,15 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
   // Selected guide for in-depth reader modal
   const [activeGuide, setActiveGuide] = useState<GuideTopic | null>(null);
 
+  React.useEffect(() => {
+    if (!activeGuide) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActiveGuide(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeGuide]);
+
   // Calculator inputs
   const [vialAmount, setVialAmount] = useState<number>(5); // mg
   const [mixingVolume, setMixingVolume] = useState<number>(2); // mL
@@ -1011,32 +1020,43 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
       {/* 3. GUIDE DETAIL MODAL (IN-DEPTH READER)                  */}
       {/* ======================================================== */}
       {activeGuide && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#fffdfb] max-w-2xl w-full rounded-3xl border border-[#dfd7c7] shadow-2xl p-6 sm:p-8 space-y-6 relative animate-in fade-in zoom-in-95">
+        <div
+          className="fixed inset-0 z-50 bg-black/45 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={() => setActiveGuide(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={activeGuide.title}
+        >
+          <div
+            className="bg-[#fffdfb] max-w-2xl w-full max-h-[92dvh] sm:max-h-[88vh] flex flex-col rounded-t-3xl sm:rounded-3xl border border-[#dfd7c7] shadow-2xl overflow-hidden relative animate-in fade-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
             
-            {/* Header */}
-            <div className="flex items-start justify-between border-b border-[#dfd7c7] pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#f6f4ee] text-[#c5a059] border border-[#dfd7c7] flex items-center justify-center font-serif text-xl">
+            {/* Pinned Header */}
+            <div className="shrink-0 flex items-start justify-between border-b border-[#dfd7c7] bg-[#f6f4ee] px-5 sm:px-7 py-4 gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-white text-[#c5a059] border border-[#dfd7c7] flex items-center justify-center font-serif text-xl shrink-0">
                   {activeGuide.icon}
                 </div>
-                <div>
-                  <h3 className="font-serif text-2xl font-bold text-[#0c2340]">
+                <div className="min-w-0">
+                  <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#0c2340] truncate">
                     {activeGuide.title}
                   </h3>
-                  <p className="text-xs text-[#5a6b7c]">{activeGuide.summary}</p>
+                  <p className="text-xs text-[#5a6b7c] line-clamp-2">{activeGuide.summary}</p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setActiveGuide(null)}
-                className="w-8 h-8 rounded-full bg-[#f6f4ee] hover:bg-[#dfd7c7] text-[#0c2340] flex items-center justify-center text-sm font-bold transition-colors cursor-pointer"
+                aria-label="Close guide"
+                className="w-10 h-10 rounded-full bg-white border border-[#dfd7c7] hover:border-[#0c2340] text-[#0c2340] flex items-center justify-center text-sm font-bold transition-colors cursor-pointer shrink-0"
               >
                 ✕
               </button>
             </div>
 
-            {/* Content Sections */}
-            <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
+            {/* Scrollable Content Sections */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-6">
               {activeGuide.sections.map((sec, idx) => (
                 <div key={idx} className="space-y-2.5">
                   <h4 className="font-serif text-lg font-bold text-[#0c2340]">
@@ -1058,11 +1078,12 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
               ))}
             </div>
 
-            {/* Footer */}
-            <div className="pt-4 border-t border-[#dfd7c7] flex justify-end">
+            {/* Pinned Footer */}
+            <div className="shrink-0 px-5 sm:px-7 py-3.5 pb-[calc(14px+env(safe-area-inset-bottom))] border-t border-[#dfd7c7] bg-[#f6f4ee] flex justify-end">
               <button
+                type="button"
                 onClick={() => setActiveGuide(null)}
-                className="px-6 py-2.5 rounded-xl bg-[#c5a059] text-white text-xs font-semibold hover:bg-[#0c2340] transition-colors cursor-pointer"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-[#0c2340] text-white text-xs font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer"
               >
                 Close Guide
               </button>

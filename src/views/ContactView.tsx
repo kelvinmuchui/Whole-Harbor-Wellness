@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { dbService } from '../services/dbService.ts';
 
 interface ContactViewProps {
   navigate: (path: string, param?: string) => void;
@@ -6,6 +7,8 @@ interface ContactViewProps {
 
 export const ContactView: React.FC<ContactViewProps> = ({ navigate }) => {
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -15,9 +18,26 @@ export const ContactView: React.FC<ContactViewProps> = ({ navigate }) => {
     message: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await dbService.createInquiry({
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        phone: formData.phone.trim() || undefined,
+        orderNumber: formData.orderNumber.trim() || undefined,
+        department: formData.department,
+        message: formData.message.trim(),
+        source: 'contact_page'
+      });
+      setSubmitted(true);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Unable to dispatch inquiry. Please retry.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -228,11 +248,18 @@ export const ContactView: React.FC<ContactViewProps> = ({ navigate }) => {
                 />
               </div>
 
+              {submitError && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs">
+                  {submitError}
+                </div>
+              )}
+
               <button
                 type="submit"
-                className="w-full py-3.5 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] cursor-pointer transition-colors shadow-sm"
+                disabled={submitting}
+                className="w-full py-3.5 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] cursor-pointer transition-colors shadow-sm disabled:opacity-50"
               >
-                Send Message to Whole Harbor Team
+                {submitting ? 'Dispatching Inquiry...' : 'Send Message to Whole Harbor Team'}
               </button>
 
               <p className="text-[11px] text-[#5a6b7c] text-center pt-2">

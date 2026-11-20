@@ -10,6 +10,8 @@ interface AboutViewProps {
 export const AboutView: React.FC<AboutViewProps> = ({ initialSection, navigate }) => {
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [contactSubmitted, setContactSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [inquiryType, setInquiryType] = useState('Clinical Inquiries');
@@ -19,9 +21,24 @@ export const AboutView: React.FC<AboutViewProps> = ({ initialSection, navigate }
     dbService.getTestimonials().then(setTestimonials);
   }, []);
 
-  const handleContactSubmit = (e: React.FormEvent) => {
+  const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setContactSubmitted(true);
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await dbService.createInquiry({
+        name: name.trim(),
+        email: email.trim(),
+        department: inquiryType,
+        message: message.trim(),
+        source: 'about_page'
+      });
+      setContactSubmitted(true);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Unable to submit message. Please retry.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -172,6 +189,45 @@ export const AboutView: React.FC<AboutViewProps> = ({ initialSection, navigate }
         </div>
       </section>
 
+      {/* Verified Clinical & Community Testimonials */}
+      {testimonials.length > 0 && (
+        <section className="space-y-6">
+          <div className="text-center max-w-2xl mx-auto space-y-2">
+            <span className="text-xs uppercase font-bold tracking-widest text-[#c5a059]">
+              Practitioner &amp; Member Voices
+            </span>
+            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#0c2340]">
+              Trusted Across Practices &amp; Communities
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {testimonials.slice(0, 6).map((t) => (
+              <article
+                key={t.id}
+                className="bg-white border border-[#dfd7c7] rounded-3xl p-6 flex flex-col justify-between space-y-4 shadow-2xs"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center gap-0.5 text-[#c5a059] text-xs">
+                    {Array.from({ length: Math.min(5, Math.max(1, Math.round(t.rating || 5))) }).map((_, idx) => (
+                      <span key={idx}>★</span>
+                    ))}
+                  </div>
+                  <p className="text-xs sm:text-sm text-[#0c2340] leading-relaxed italic">
+                    “{t.quote}”
+                  </p>
+                </div>
+                <div className="pt-3 border-t border-[#dfd7c7]/50">
+                  <span className="font-serif font-bold text-sm text-[#0c2340] block">{t.name}</span>
+                  <span className="text-[11px] text-[#5a6b7c]">
+                    {t.role}{t.organization ? ` · ${t.organization}` : ''}
+                  </span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* 3. Contact Form */}
       <section className="bg-white border border-[#dfd7c7] rounded-3xl p-8 sm:p-12 shadow-sm max-w-3xl mx-auto">
         {contactSubmitted ? (
@@ -258,11 +314,18 @@ export const AboutView: React.FC<AboutViewProps> = ({ initialSection, navigate }
                 />
               </div>
 
+              {submitError && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs">
+                  {submitError}
+                </div>
+              )}
+
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] cursor-pointer transition-colors shadow-sm"
+                disabled={submitting}
+                className="w-full py-3 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] cursor-pointer transition-colors shadow-sm disabled:opacity-50"
               >
-                Send Message
+                {submitting ? 'Sending Message...' : 'Send Message'}
               </button>
             </form>
           </div>

@@ -25,6 +25,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ navigate }) => {
 
   const [loading, setLoading] = useState(false);
   const [createdPartner, setCreatedPartner] = useState<Partner | null>(null);
+  const [copiedChannel, setCopiedChannel] = useState<'direct' | 'partner' | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,13 +251,15 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ navigate }) => {
                 {window.location.origin}/#/shop
               </div>
               <button
+                type="button"
                 onClick={() => {
                   navigator.clipboard.writeText(`${window.location.origin}/#/shop`);
-                  alert('Copied Direct Individual Buyer link to clipboard!');
+                  setCopiedChannel('direct');
+                  setTimeout(() => setCopiedChannel(null), 2500);
                 }}
                 className="w-full py-2 rounded-lg bg-[#0c2340] text-white text-xs font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer"
               >
-                Copy Direct Store Link
+                {copiedChannel === 'direct' ? 'Copied Direct Link!' : 'Copy Direct Store Link'}
               </button>
             </div>
           </div>
@@ -277,13 +280,15 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ navigate }) => {
                 {window.location.origin}/#/partner/your-organization
               </div>
               <button
+                type="button"
                 onClick={() => {
                   navigator.clipboard.writeText(`${window.location.origin}/#/partner/apex-wellness`);
-                  alert('Copied sample Partner Dedicated Client link to clipboard!');
+                  setCopiedChannel('partner');
+                  setTimeout(() => setCopiedChannel(null), 2500);
                 }}
                 className="w-full py-2 rounded-lg bg-[#c5a059] text-white text-xs font-semibold hover:bg-[#0c2340] transition-colors cursor-pointer"
               >
-                Copy Sample Partner Link
+                {copiedChannel === 'partner' ? 'Copied Sample Partner Link!' : 'Copy Sample Partner Link'}
               </button>
             </div>
           </div>

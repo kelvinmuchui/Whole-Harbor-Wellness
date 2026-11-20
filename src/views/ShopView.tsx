@@ -26,6 +26,15 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
   }, [initialCategory]);
 
   useEffect(() => {
+    if (!selectedEducationProduct) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedEducationProduct(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedEducationProduct]);
+
+  useEffect(() => {
     const loadProducts = async () => {
       try {
         const data = await dbService.getProducts();
@@ -675,77 +684,118 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
       {/* 9. Interactive Education Modal */}
       {selectedEducationProduct && (
         <div
-          className="modal-backdrop centered education-backdrop"
+          className="fixed inset-0 z-50 bg-[#0c2340]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={() => setSelectedEducationProduct(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={selectedEducationProduct.name}
         >
           <div
-            className="education-modal"
+            className="bg-[#fffdfb] w-full sm:max-w-xl max-h-[92dvh] sm:max-h-[88vh] flex flex-col rounded-t-3xl sm:rounded-3xl border border-[#dfd7c7] shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              className="close"
-              onClick={() => setSelectedEducationProduct(null)}
-              aria-label="Close"
-            >
-              ✕
-            </button>
-
-            <div className="education-tags">
-              <span>{selectedEducationProduct.categoryLabel}</span>
-              <span>HPLC {selectedEducationProduct.purity || '≥ 99.4%'}</span>
-              <span>2°C–8°C Cold Chain</span>
-              <span>Lot #{selectedEducationProduct.lotNumber || '2026-A'}</span>
+            {/* Pinned Header */}
+            <div className="shrink-0 px-5 sm:px-7 py-4 border-b border-[#dfd7c7] bg-[#f6f4ee] flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  <span className="px-2 py-0.5 rounded-full bg-white border border-[#dfd7c7] text-[10px] font-bold uppercase tracking-wider text-[#c5a059]">
+                    {selectedEducationProduct.categoryLabel}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-white border border-[#dfd7c7] text-[10px] font-bold text-[#0c2340]">
+                    HPLC {selectedEducationProduct.purity || '≥ 99.4%'}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-white border border-[#dfd7c7] text-[10px] font-bold text-[#5a6b7c]">
+                    Lot #{selectedEducationProduct.lotNumber || '2026-A'}
+                  </span>
+                </div>
+                <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#0c2340] leading-tight">
+                  {selectedEducationProduct.name}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedEducationProduct(null)}
+                aria-label="Close"
+                className="w-10 h-10 rounded-full bg-white border border-[#dfd7c7] hover:border-[#0c2340] text-[#0c2340] flex items-center justify-center text-sm font-bold transition-colors cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
             </div>
 
-            <h2>{selectedEducationProduct.name}</h2>
-            <p className="education-detail">{selectedEducationProduct.description}</p>
+            {/* Scrollable Body */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-7 space-y-5">
+              <p className="text-xs sm:text-sm text-[#5a6b7c] leading-relaxed">
+                {selectedEducationProduct.description}
+              </p>
 
-            <div className="education-note">
-              <span>i</span>
-              <div>
-                <b>Clinical Reconstitution &amp; Storage</b>
-                <p>
-                  {selectedEducationProduct.disclosures ||
-                    'Lyophilized cake must be reconstituted with Bacteriostatic Reconstitution Saline (0.9% Benzyl Alcohol). Once reconstituted, store protected from light at 2°C–8°C and use within 28 days.'}
-                </p>
-                {selectedEducationProduct.educationalMaterial && (
-                  <p className="mt-2 pt-2 border-t border-[#dfd7c7]">
-                    <strong>Educational Notes:</strong> {selectedEducationProduct.educationalMaterial}
+              <div className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7] flex items-start gap-3">
+                <span className="w-7 h-7 rounded-full bg-white border border-[#dfd7c7] text-[#c5a059] font-serif font-bold flex items-center justify-center shrink-0">
+                  i
+                </span>
+                <div className="text-xs text-[#5a6b7c] leading-relaxed">
+                  <b className="text-[#0c2340] block mb-1">Clinical Reconstitution &amp; Storage</b>
+                  <p>
+                    {selectedEducationProduct.disclosures ||
+                      'Lyophilized cake must be reconstituted with Bacteriostatic Reconstitution Saline (0.9% Benzyl Alcohol). Once reconstituted, store protected from light at 2°C–8°C and use within 28 days.'}
                   </p>
-                )}
+                  {selectedEducationProduct.educationalMaterial && (
+                    <p className="mt-2 pt-2 border-t border-[#dfd7c7]">
+                      <strong>Educational Notes:</strong> {selectedEducationProduct.educationalMaterial}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Strength selector inside modal */}
+              <div>
+                <label className="block text-xs font-bold text-[var(--deep)] mb-2 uppercase tracking-wider">
+                  Select Packaging Tier
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {selectedEducationProduct.strengths.map((str, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setModalSelectedStrength(str)}
+                      className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                        modalSelectedStrength?.label === str.label
+                          ? 'border-[var(--rose)] bg-[var(--blush)] shadow-xs'
+                          : 'border-[var(--line)] bg-white hover:bg-[var(--blush)]/50'
+                      }`}
+                    >
+                      <b className="text-xs text-[var(--deep)] block">{str.label}</b>
+                      <span className="text-xs text-[var(--rose)] font-bold">
+                        ${str.price.toFixed(2)}
+                      </span>
+                      <small className="text-[10px] text-[var(--muted)] ml-2">
+                        ({str.vialsCount} vials)
+                      </small>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Strength selector inside modal */}
-            <div className="my-6">
-              <label className="block text-xs font-bold text-[var(--deep)] mb-2 uppercase tracking-wider">
-                Select Packaging Tier
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {selectedEducationProduct.strengths.map((str, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setModalSelectedStrength(str)}
-                    className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-                      modalSelectedStrength?.label === str.label
-                        ? 'border-[var(--rose)] bg-[var(--blush)] shadow-xs'
-                        : 'border-[var(--line)] bg-white hover:bg-[var(--blush)]/50'
-                    }`}
-                  >
-                    <b className="text-xs text-[var(--deep)] block">{str.label}</b>
-                    <span className="text-xs text-[var(--rose)] font-bold">
-                      ${str.price.toFixed(2)}
-                    </span>
-                    <small className="text-[10px] text-[var(--muted)] ml-2">
-                      ({str.vialsCount} vials)
-                    </small>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="education-modal-actions">
+            {/* Pinned Responsive Footer */}
+            <div className="shrink-0 px-5 sm:px-7 py-3.5 pb-[calc(14px+env(safe-area-inset-bottom))] border-t border-[#dfd7c7] bg-[#f6f4ee] flex flex-col-reverse sm:flex-row gap-2.5">
+              <button
+                type="button"
+                onClick={() => setSelectedEducationProduct(null)}
+                className="sm:w-28 py-3 px-4 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] hover:border-[#0c2340] text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const slug = selectedEducationProduct.slug;
+                  setSelectedEducationProduct(null);
+                  navigate('product-detail', slug);
+                }}
+                className="sm:w-40 py-3 px-4 rounded-xl bg-white border border-[#c5a059] text-[#0c2340] hover:bg-[#fffdfb] text-xs font-bold transition-colors cursor-pointer"
+              >
+                Full Monograph →
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -755,18 +805,9 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
                     setSelectedEducationProduct(null);
                   }
                 }}
+                className="flex-1 py-3 px-4 rounded-xl bg-[#0c2340] text-white hover:bg-[#c5a059] text-xs font-bold transition-colors cursor-pointer"
               >
                 Add Tier to Cart (${modalSelectedStrength?.price.toFixed(2) || selectedEducationProduct.price.toFixed(2)})
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const slug = selectedEducationProduct.slug;
-                  setSelectedEducationProduct(null);
-                  navigate('product-detail', slug);
-                }}
-              >
-                Full Monograph →
               </button>
             </div>
           </div>

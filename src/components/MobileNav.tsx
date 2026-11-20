@@ -14,20 +14,45 @@ export const MobileNav: React.FC<MobileNavProps> = ({
   navigate,
   onOpenPerks
 }) => {
-  const { isAdmin } = useAuth();
+  const { currentUser, isAdmin, isPartner } = useAuth();
   const { totalVialsOrKits, setIsOpen: setCartOpen } = useCart();
 
   const isShopActive =
     currentPath === 'shop' || currentPath === 'home' || currentPath === 'product-detail';
-  const isOrdersActive = currentPath === 'customer-portal';
   const isLearnActive = currentPath === 'learn';
-  const isAdminActive = currentPath === 'admin';
+
+  // Strict role-based 4th tab so dashboard switching matches logged-in user type
+  const fourthTab = !currentUser
+    ? {
+        label: 'Ecosystem',
+        icon: '⚓',
+        path: 'partners',
+        active: currentPath === 'partners' || currentPath === 'partner-page'
+      }
+    : isAdmin
+    ? {
+        label: 'Admin',
+        icon: '🔒',
+        path: 'admin',
+        active: currentPath === 'admin'
+      }
+    : isPartner
+    ? {
+        label: 'Partner',
+        icon: '🤝',
+        path: 'partner-portal',
+        active: currentPath === 'partner-portal'
+      }
+    : {
+        label: 'Orders',
+        icon: '□',
+        path: 'customer-portal',
+        active: currentPath === 'customer-portal'
+      };
 
   return (
     <nav
-      className={`mobile-nav ${
-        isAdmin ? 'has-admin grid-cols-6' : 'grid-cols-5'
-      } md:hidden fixed bottom-0 left-0 right-0 z-40 h-[74px] pb-[calc(6px+env(safe-area-inset-bottom))] bg-[#fffdfb]/95 backdrop-blur-md border-t border-[#dfd7c7] grid items-center px-1.5 shadow-[0_-8px_28px_rgba(12,35,64,0.08)] select-none`}
+      className="mobile-nav grid-cols-5 md:hidden fixed bottom-0 left-0 right-0 z-40 h-[74px] pb-[calc(6px+env(safe-area-inset-bottom))] bg-[#fffdfb]/95 backdrop-blur-md border-t border-[#dfd7c7] grid items-center px-1.5 shadow-[0_-8px_28px_rgba(12,35,64,0.08)] select-none"
       aria-label="Mobile bottom navigation"
     >
       {/* 1. Shop */}
@@ -69,16 +94,16 @@ export const MobileNav: React.FC<MobileNavProps> = ({
         <span>Perks</span>
       </button>
 
-      {/* 4. Orders */}
+      {/* 4. Role-Specific Portal or Public Ecosystem */}
       <button
         type="button"
-        onClick={() => navigate('customer-portal')}
+        onClick={() => navigate(fourthTab.path)}
         className={`min-h-[48px] flex flex-col items-center justify-center gap-1 text-[11px] font-semibold cursor-pointer transition-colors ${
-          isOrdersActive ? 'active text-[#c5a059]' : 'text-[#5a6b7c] hover:text-[#0c2340]'
+          fourthTab.active ? 'active text-[#c5a059]' : 'text-[#5a6b7c] hover:text-[#0c2340]'
         }`}
       >
-        <span className="font-serif text-[21px] leading-none">□</span>
-        <span>Orders</span>
+        <span className="font-serif text-[20px] leading-none">{fourthTab.icon}</span>
+        <span>{fourthTab.label}</span>
       </button>
 
       {/* 5. Learn */}
@@ -92,20 +117,6 @@ export const MobileNav: React.FC<MobileNavProps> = ({
         <span className="font-serif text-[21px] leading-none">▤</span>
         <span>Learn</span>
       </button>
-
-      {/* 6. Admin (only when signed in as Admin) */}
-      {isAdmin && (
-        <button
-          type="button"
-          onClick={() => navigate('admin')}
-          className={`min-h-[48px] flex flex-col items-center justify-center gap-1 text-[11px] font-semibold cursor-pointer transition-colors ${
-            isAdminActive ? 'active text-[#c5a059]' : 'text-[#5a6b7c] hover:text-[#0c2340]'
-          }`}
-        >
-          <span className="text-[18px] leading-none">🔒</span>
-          <span>Admin</span>
-        </button>
-      )}
     </nav>
   );
 };

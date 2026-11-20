@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from '../services/dbService.ts';
+import { analyticsService } from '../services/analyticsService.ts';
 import { Partner, Product, WellnessProgram } from '../types/index.ts';
 import { useCart } from '../context/CartContext.tsx';
 
@@ -33,12 +34,21 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
             timestamp: Date.now()
           });
 
-          // Load featured items
+          // Track partner referral page visit
+          analyticsService.trackPartnerVisit(found.slug, found.name);
+
+          // Load featured items scoped by partner preferredCategories when specified
           const [allProds, allProgs] = await Promise.all([
             dbService.getProducts(),
             dbService.getPrograms()
           ]);
-          setProducts(allProds.slice(0, 4));
+          const activeProds = allProds.filter((p) => p.status !== 'DISABLED');
+          const preferredCats = found.preferredCategories || [];
+          const categoryMatched =
+            preferredCats.length > 0
+              ? activeProds.filter((p) => preferredCats.includes(p.category))
+              : [];
+          setProducts((categoryMatched.length > 0 ? categoryMatched : activeProds).slice(0, 4));
           setPrograms(allProgs.slice(0, 2));
         }
       } catch (err) {
@@ -93,8 +103,16 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
             
             <div className="lg:col-span-8 space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-2xl bg-white border border-[#dfd7c7] flex items-center justify-center text-[#c5a059] shadow-xs">
-                  <span className="material-symbols-outlined text-[32px]">fitness_center</span>
+                <div className="w-16 h-16 rounded-2xl bg-white border border-[#dfd7c7] flex items-center justify-center text-[#c5a059] shadow-xs overflow-hidden p-1.5 shrink-0">
+                  {partner.logoUrl ? (
+                    <img
+                      src={partner.logoUrl}
+                      alt={`${partner.name} Logo`}
+                      className="w-full h-full object-contain rounded-xl"
+                    />
+                  ) : (
+                    <span className="material-symbols-outlined text-[32px]">fitness_center</span>
+                  )}
                 </div>
                 <div>
                   <span className="text-xs font-mono font-bold text-[#5a6b7c] uppercase tracking-wider block">
@@ -110,7 +128,23 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
                 {partner.description}
               </p>
 
-              <div className="flex flex-wrap items-center gap-4 pt-4 text-xs text-[#5a6b7c]">
+              {partner.preferredCategories && partner.preferredCategories.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-[#5a6b7c] mr-1">
+                    Featured Specialties:
+                  </span>
+                  {partner.preferredCategories.map((cat) => (
+                    <span
+                      key={cat}
+                      className="px-2.5 py-0.5 rounded-lg bg-white border border-[#dfd7c7] text-[11px] font-semibold text-[#0c2340] capitalize"
+                    >
+                      {cat}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center gap-4 pt-3 text-xs text-[#5a6b7c]">
                 <span className="flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[16px] text-[#c5a059]">category</span>
                   <span>{partner.category}</span>

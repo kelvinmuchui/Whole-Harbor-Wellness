@@ -1,7 +1,13 @@
 import React from 'react';
+import { LogIn, UserPlus, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { useCart } from '../context/CartContext.tsx';
-import { DESKTOP_PRIMARY_TABS, DESKTOP_PORTAL_TABS } from '../lib/navigation.ts';
+import {
+  DESKTOP_PRIMARY_TABS,
+  getVisiblePortalTabs,
+  getPrimaryDashboardPath,
+  getRoleDisplayLabel
+} from '../lib/navigation.ts';
 
 interface SidebarProps {
   currentPath: string;
@@ -17,8 +23,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenPerks,
   onOpenAuth
 }) => {
-  const { currentUser, role } = useAuth();
+  const { currentUser, role, logout } = useAuth();
   const { totalVialsOrKits, setIsOpen: setCartOpen } = useCart();
+
+  const visiblePortalTabs = getVisiblePortalTabs(currentUser, role);
+  const primaryDashboard = getPrimaryDashboardPath(currentUser, role);
+  const firstName = currentUser?.displayName ? currentUser.displayName.split(' ')[0] : '';
+  const initial = firstName ? firstName.charAt(0).toUpperCase() : 'W';
 
   return (
     <aside className="sidebar" aria-label="Main navigation">
@@ -62,36 +73,60 @@ export const Sidebar: React.FC<SidebarProps> = ({
           );
         })}
 
-        {/* Account Authentication Buttons */}
-        <div className="sidebar-auth-group">
-          <button
-            type="button"
-            onClick={() => onOpenAuth('login')}
-            className="sidebar-login-btn cursor-pointer"
-          >
-            Log In
-          </button>
-          <button
-            type="button"
-            onClick={() => onOpenAuth('register')}
-            className="sidebar-signup-btn cursor-pointer"
-          >
-            Sign Up
-          </button>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => navigate('customer-portal')}
-        >
-          <span>♙</span>
-          <span>{currentUser ? currentUser.displayName.split(' ')[0] : 'Profile'}</span>
-          {currentUser && (
-            <span style={{ marginLeft: 'auto', fontSize: '9px', fontWeight: 'bold', color: 'var(--rose)', textTransform: 'uppercase' }}>
-              {role === 'ADMIN' ? 'Admin' : role === 'PARTNER_OWNER' ? 'Partner' : 'Member'}
-            </span>
-          )}
-        </button>
+        {/* Authentication Controls: Sign In/Up when logged out; User Identity & Sign Out when signed in */}
+        {!currentUser ? (
+          <div className="sidebar-auth-group">
+            <button
+              type="button"
+              onClick={() => onOpenAuth('login')}
+              className="sidebar-login-btn cursor-pointer"
+            >
+              <LogIn className="w-3.5 h-3.5 text-[#c5a059] shrink-0" strokeWidth={2.2} />
+              <span>Sign In</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenAuth('register')}
+              className="sidebar-signup-btn cursor-pointer"
+            >
+              <UserPlus className="w-3.5 h-3.5 text-[#c5a059] shrink-0" strokeWidth={2.2} />
+              <span>Sign Up</span>
+            </button>
+          </div>
+        ) : (
+          <div className="sidebar-user-card">
+            <button
+              type="button"
+              onClick={() => navigate(primaryDashboard)}
+              className="sidebar-profile-btn cursor-pointer"
+              title={`Open ${getRoleDisplayLabel(role)} Dashboard`}
+            >
+              <span
+                className="w-7 h-7 rounded-full bg-[#0c2340] text-[#c5a059] border border-[#c5a059]/60 text-[11px] font-bold flex items-center justify-center shrink-0"
+                style={{ width: '28px', height: '28px', fontSize: '11px' }}
+              >
+                {initial}
+              </span>
+              <span className="truncate text-[#0c2340] text-xs font-bold" style={{ width: 'auto', color: '#0c2340', fontSize: '12px' }}>
+                {firstName}
+              </span>
+              <span
+                className="ml-auto px-2 py-0.5 rounded-full bg-[#f6f4ee] border border-[#dfd7c7] text-[9px] font-bold uppercase tracking-wider text-[#c5a059]"
+                style={{ width: 'auto', fontSize: '9px' }}
+              >
+                {getRoleDisplayLabel(role)}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="sidebar-signout-btn cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5 text-[#c5a059] shrink-0" strokeWidth={2.2} />
+              <span>Sign Out</span>
+            </button>
+          </div>
+        )}
 
         <button type="button" onClick={() => setCartOpen(true)}>
           <span>♧</span>
@@ -103,10 +138,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           Perks &amp; Rewards
         </button>
 
-        {DESKTOP_PORTAL_TABS.map(tab => {
+        {visiblePortalTabs.map(tab => {
           const isActive =
             tab.id === 'partner-portal'
-              ? currentPath === 'partner-portal' || currentPath === 'partners' || currentPath === 'partner-page'
+              ? currentPath === 'partner-portal' || currentPath === 'partner-page'
               : tab.matchPaths.includes(currentPath);
           return (
             <button
@@ -128,11 +163,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <section className="perks-card">
         <div className="perks-crown">⚓</div>
         <h3>Whole Harbor Perks</h3>
-        <p>Create your complimentary profile to unlock checkout, member offers, order tracking and faster reordering.</p>
-        <button type="button" onClick={onOpenPerks}>
-          Create your profile →
+        <p>
+          {currentUser
+            ? 'Member perks, cold-chain tracking, and volume savings are active on your account.'
+            : 'Create your complimentary profile to unlock checkout, member offers, order tracking and faster reordering.'}
+        </p>
+        <button
+          type="button"
+          onClick={() => (currentUser ? onOpenPerks() : onOpenAuth('register'))}
+        >
+          {currentUser ? 'View Member Perks →' : 'Create your profile →'}
         </button>
       </section>
     </aside>
   );
 };
+

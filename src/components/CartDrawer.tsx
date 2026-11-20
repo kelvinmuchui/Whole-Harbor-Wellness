@@ -25,6 +25,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onOpenCheckout, navigate
     activeReferral
   } = useCart();
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, setIsOpen]);
+
   if (!isOpen) return null;
 
   // Calculate next tier savings milestone
@@ -47,23 +56,30 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onOpenCheckout, navigate
         onClick={() => setIsOpen(false)}
       />
 
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-[#fffdfb] shadow-2xl flex flex-col border-l border-[#dfd7c7]">
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
+        <div
+          className="w-screen max-w-md bg-[#fffdfb] shadow-2xl flex flex-col border-l border-[#dfd7c7]"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Your Wellness Protocol Cart"
+        >
           
           {/* Header */}
-          <div className="px-6 py-5 border-b border-[#dfd7c7]/60 flex items-center justify-between bg-[#f6f4ee]">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[#c5a059] text-[22px]">shopping_bag</span>
-              <h2 className="font-serif text-lg font-semibold text-[#0c2340]">
+          <div className="shrink-0 px-5 sm:px-6 py-4 border-b border-[#dfd7c7]/60 flex items-center justify-between bg-[#f6f4ee]">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="material-symbols-outlined text-[#c5a059] text-[22px] shrink-0">shopping_bag</span>
+              <h2 className="font-serif text-lg font-semibold text-[#0c2340] truncate">
                 Your Wellness Protocol
               </h2>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-[#c5a059] text-[#fffdfb] font-bold">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-[#c5a059] text-[#fffdfb] font-bold shrink-0">
                 {items.reduce((acc, item) => acc + item.quantity, 0)}
               </span>
             </div>
             <button
+              type="button"
               onClick={() => setIsOpen(false)}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-[#5a6b7c] hover:text-[#0c2340] hover:bg-[#dfd7c7]/50 transition-colors cursor-pointer"
+              aria-label="Close cart"
+              className="w-10 h-10 rounded-full bg-white border border-[#dfd7c7] flex items-center justify-center text-[#5a6b7c] hover:text-[#0c2340] hover:border-[#0c2340] transition-colors cursor-pointer shrink-0"
             >
               <span className="material-symbols-outlined text-[20px]">close</span>
             </button>
@@ -232,20 +248,28 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({ onOpenCheckout, navigate
                 </div>
               </div>
 
-              <div className="pt-2">
+              <div className="pt-2 flex flex-col sm:flex-row gap-2">
                 <button
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                  className="sm:w-32 py-3 px-4 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] hover:border-[#0c2340] text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
                   onClick={() => {
                     setIsOpen(false);
                     onOpenCheckout();
                   }}
-                  className="w-full py-3.5 px-4 rounded-xl bg-[#c5a059] text-[#fffdfb] text-xs font-semibold uppercase tracking-widest hover:bg-[#0c2340] transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                  className="flex-1 py-3.5 px-4 rounded-xl bg-[#c5a059] text-[#fffdfb] text-xs font-semibold uppercase tracking-widest hover:bg-[#0c2340] transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[18px]">lock</span>
                   <span>Proceed to Clinical Checkout</span>
                 </button>
               </div>
 
-              <p className="text-[10px] text-center text-[#5a6b7c] leading-tight">
+              <p className="text-[10px] text-center text-[#5a6b7c] leading-tight pb-[env(safe-area-inset-bottom)]">
                 Dispatched with cold-chain refrigerated pack &amp; verified Certificate of Analysis (CoA).
               </p>
             </div>

@@ -615,6 +615,59 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
 
 
 
+      {/* 12. Verified Client & Practitioner Testimonials */}
+      {testimonials.length > 0 && (
+        <section className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            <div>
+              <span className="text-xs uppercase font-bold tracking-widest text-[#c5a059]">
+                Verified Outcomes
+              </span>
+              <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#0c2340] mt-1">
+                Trusted by Clinicians &amp; Members
+              </h2>
+            </div>
+            <button
+              onClick={() => navigate('about')}
+              className="text-xs font-semibold text-[#c5a059] hover:text-[#0c2340] cursor-pointer self-start sm:self-auto"
+            >
+              Read Our Story &amp; Standards →
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {testimonials.slice(0, 3).map((t) => (
+              <article
+                key={t.id}
+                className="bg-white border border-[#dfd7c7] rounded-3xl p-6 flex flex-col justify-between space-y-4 shadow-2xs"
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-[#c5a059] tracking-widest">
+                      {'★'.repeat(Math.min(5, Math.max(1, Math.round(t.rating || 5))))}
+                    </span>
+                    {t.verified && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                        Verified
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#0c2340] leading-relaxed italic">
+                    “{t.quote}”
+                  </p>
+                </div>
+                <div className="pt-3 border-t border-[#dfd7c7]/50">
+                  <span className="font-serif font-bold text-sm text-[#0c2340] block">{t.name}</span>
+                  <span className="text-[11px] text-[#5a6b7c]">
+                    {t.role}{t.organization ? ` · ${t.organization}` : ''}
+                  </span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* 13. Learn Section (with exact 8 guide cards and images) */}
       <section className="learn-section" id="learn">
         <div className="learn-heading">

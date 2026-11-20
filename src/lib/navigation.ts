@@ -1,3 +1,5 @@
+import { UserProfile, UserRole } from '../types/index.ts';
+
 export interface NavTabItem {
   id: string;
   label: string;
@@ -114,3 +116,34 @@ export const ALL_DESKTOP_TABS: NavTabItem[] = [
   ...DESKTOP_PRIMARY_TABS,
   ...DESKTOP_PORTAL_TABS
 ];
+
+export function getVisiblePortalTabs(
+  currentUser: UserProfile | null,
+  role: UserRole
+): NavTabItem[] {
+  if (!currentUser) return [];
+  if (role === 'ADMIN' || role === 'SALES_ADMIN') {
+    return DESKTOP_PORTAL_TABS.filter((tab) => tab.id === 'admin');
+  }
+  if (role === 'PARTNER_OWNER' || role === 'PARTNER_STAFF') {
+    return DESKTOP_PORTAL_TABS.filter((tab) => tab.id === 'partner-portal');
+  }
+  return DESKTOP_PORTAL_TABS.filter((tab) => tab.id === 'orders');
+}
+
+export function getPrimaryDashboardPath(
+  currentUser: UserProfile | null,
+  role: UserRole
+): string {
+  if (!currentUser) return 'customer-portal';
+  if (role === 'ADMIN' || role === 'SALES_ADMIN') return 'admin';
+  if (role === 'PARTNER_OWNER' || role === 'PARTNER_STAFF') return 'partner-portal';
+  return 'customer-portal';
+}
+
+export function getRoleDisplayLabel(role: UserRole): string {
+  if (role === 'ADMIN') return 'Admin';
+  if (role === 'SALES_ADMIN') return 'Sales Admin';
+  if (role === 'PARTNER_OWNER' || role === 'PARTNER_STAFF') return 'Partner';
+  return 'Member';
+}
