@@ -83,13 +83,13 @@ export const AskWHWDrawer: React.FC<AskWHWDrawerProps> = ({ currentPath, navigat
       {/* Floating Action Button (FAB) */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-40 bg-[#0c2340] hover:bg-[#c5a059] text-white rounded-full p-2.5 pr-4.5 flex items-center gap-2.5 shadow-xl border border-[#dfd7c7]/40 cursor-pointer transition-all hover:scale-105 active:scale-95 group"
+        className="fixed bottom-[86px] right-4 md:bottom-6 md:right-6 z-30 bg-[#0c2340] hover:bg-[#c5a059] text-white rounded-full p-2 sm:p-2.5 sm:pr-4.5 flex items-center gap-2.5 shadow-xl border border-[#dfd7c7]/40 cursor-pointer transition-all hover:scale-105 active:scale-95 group"
         aria-label="Ask Whole Harbor"
       >
         <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-serif text-lg text-white group-hover:bg-white group-hover:text-[#c5a059] transition-colors">
           ✦
         </div>
-        <span className="text-xs font-bold tracking-wide">Ask Whole Harbor</span>
+        <span className="hidden sm:inline text-xs font-bold tracking-wide">Ask Whole Harbor</span>
       </button>
 
       {/* Slide-over Assistant Drawer */}

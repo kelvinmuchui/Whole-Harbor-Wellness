@@ -1,13 +1,14 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { useCart } from '../context/CartContext.tsx';
+import { DESKTOP_PRIMARY_TABS, DESKTOP_PORTAL_TABS } from '../lib/navigation.ts';
 
 interface SidebarProps {
   currentPath: string;
   navigate: (path: string, param?: string) => void;
   onOpenPerks: () => void;
   onOpenGoals?: () => void;
-  onOpenAuth: () => void;
+  onOpenAuth: (mode?: 'login' | 'register') => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -18,17 +19,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { currentUser, role } = useAuth();
   const { totalVialsOrKits, setIsOpen: setCartOpen } = useCart();
-
-  const isShopActive = currentPath === 'shop' || currentPath === 'home' || currentPath === 'product-detail';
-  const isProgramsActive = currentPath === 'wellness-programs';
-  const isApproachActive = currentPath === 'approach';
-  const isAboutActive = currentPath === 'about';
-  const isFaqActive = currentPath === 'faq';
-  const isContactActive = currentPath === 'contact';
-  const isLearnActive = currentPath === 'learn';
-  const isOrdersActive = currentPath === 'customer-portal';
-  const isPartnerActive = currentPath === 'partner-portal' || currentPath === 'partners' || currentPath === 'partner-page';
-  const isAdminActive = currentPath === 'admin';
 
   return (
     <aside className="sidebar" aria-label="Main navigation">
@@ -45,104 +35,53 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Side Navigation */}
       <nav className="side-nav" aria-label="Main navigation">
-        <a
-          href="#best-sellers"
-          className={isShopActive ? 'active' : ''}
-          onClick={(e) => {
-            e.preventDefault();
-            navigate('shop');
-          }}
-        >
-          <span>✦</span>
-          Shop
-        </a>
+        {DESKTOP_PRIMARY_TABS.map(tab => {
+          const isActive = tab.matchPaths.includes(currentPath);
+          const isEcosystem = tab.id === 'ecosystem';
+          const ecosystemActive = isEcosystem && (currentPath === 'partners' || currentPath === 'partner-portal');
+          return (
+            <a
+              key={tab.id}
+              href={`#${tab.path}`}
+              className={
+                ecosystemActive
+                  ? 'active font-bold text-[#c5a059]'
+                  : isActive
+                  ? 'active'
+                  : ''
+              }
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(tab.path);
+              }}
+              title={isEcosystem ? 'Whole Harbor Wellness Ecosystem & Community Infrastructure' : tab.label}
+            >
+              <span>{tab.icon}</span>
+              {tab.label}
+            </a>
+          );
+        })}
 
-        <a
-          href="#learn"
-          className={isLearnActive ? 'active' : ''}
-          onClick={(e) => {
-            e.preventDefault();
-            navigate('learn');
-          }}
-        >
-          <span>▤</span>
-          Learn Studio
-        </a>
-
-        <a
-          href="#partners"
-          className={currentPath === 'partners' || currentPath === 'partner-portal' ? 'active font-bold text-[#c5a059]' : ''}
-          onClick={(e) => {
-            e.preventDefault();
-            navigate('partners');
-          }}
-          title="Whole Harbor Wellness Ecosystem & Community Infrastructure"
-        >
-          <span>⚓</span>
-          Ecosystem
-        </a>
-
-        <a
-          href="#wellness-programs"
-          className={isProgramsActive ? 'active' : ''}
-          onClick={(e) => {
-            e.preventDefault();
-            navigate('wellness-programs');
-          }}
-        >
-          <span>🌿</span>
-          Wellness Programs
-        </a>
-
-        <a
-          href="#approach"
-          className={isApproachActive ? 'active' : ''}
-          onClick={(e) => {
-            e.preventDefault();
-            navigate('approach');
-          }}
-        >
-          <span>🔬</span>
-          Our Approach
-        </a>
-
-        <a
-          href="#about"
-          className={isAboutActive ? 'active' : ''}
-          onClick={(e) => {
-            e.preventDefault();
-            navigate('about');
-          }}
-        >
-          <span>🏛</span>
-          About Us
-        </a>
-
-        <a
-          href="#faq"
-          className={isFaqActive ? 'active' : ''}
-          onClick={(e) => {
-            e.preventDefault();
-            navigate('faq');
-          }}
-        >
-          <span>❓</span>
-          FAQ
-        </a>
-
-        <a
-          href="#contact"
-          className={isContactActive ? 'active' : ''}
-          onClick={(e) => {
-            e.preventDefault();
-            navigate('contact');
-          }}
-        >
-          <span>✉</span>
-          Contact Us
-        </a>
+        {/* Account Authentication Buttons */}
+        <div className="sidebar-auth-group">
+          <button
+            type="button"
+            onClick={() => onOpenAuth('login')}
+            className="sidebar-login-btn cursor-pointer"
+          >
+            Log In
+          </button>
+          <button
+            type="button"
+            onClick={() => onOpenAuth('register')}
+            className="sidebar-signup-btn cursor-pointer"
+          >
+            Sign Up
+          </button>
+        </div>
 
         <button
+          type="button"
           onClick={() => navigate('customer-portal')}
         >
           <span>♙</span>
@@ -154,39 +93,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </button>
 
-        <button onClick={() => setCartOpen(true)}>
+        <button type="button" onClick={() => setCartOpen(true)}>
           <span>♧</span>
           Cart <b>{totalVialsOrKits}</b>
         </button>
 
-        <button onClick={onOpenPerks}>
+        <button type="button" onClick={onOpenPerks}>
           <span>◇</span>
           Perks &amp; Rewards
         </button>
 
-        <button
-          onClick={() => navigate('customer-portal')}
-          className={isOrdersActive ? 'active' : ''}
-        >
-          <span>□</span>
-          My Orders
-        </button>
-
-        <button
-          onClick={() => navigate('partner-portal')}
-          className={isPartnerActive ? 'active' : ''}
-        >
-          <span style={{ fontSize: '16px' }}>🤝</span>
-          Partner Portal
-        </button>
-
-        <button
-          onClick={() => navigate('admin')}
-          className={`administrator-menu-link ${isAdminActive ? 'active' : ''}`}
-        >
-          <span style={{ fontSize: '15px' }}>🔒</span>
-          Admin Center
-        </button>
+        {DESKTOP_PORTAL_TABS.map(tab => {
+          const isActive =
+            tab.id === 'partner-portal'
+              ? currentPath === 'partner-portal' || currentPath === 'partners' || currentPath === 'partner-page'
+              : tab.matchPaths.includes(currentPath);
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => navigate(tab.path)}
+              className={`${tab.id === 'admin' ? 'administrator-menu-link ' : ''}${isActive ? 'active' : ''}`}
+            >
+              <span style={{ fontSize: tab.id === 'partner-portal' ? '16px' : tab.id === 'admin' ? '15px' : undefined }}>
+                {tab.icon}
+              </span>
+              {tab.label}
+            </button>
+          );
+        })}
       </nav>
 
       {/* Perks Card */}
@@ -194,7 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="perks-crown">⚓</div>
         <h3>Whole Harbor Perks</h3>
         <p>Create your complimentary profile to unlock checkout, member offers, order tracking and faster reordering.</p>
-        <button onClick={onOpenPerks}>
+        <button type="button" onClick={onOpenPerks}>
           Create your profile →
         </button>
       </section>

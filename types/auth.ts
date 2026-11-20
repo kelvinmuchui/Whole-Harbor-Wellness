@@ -24,6 +24,9 @@ export interface UserProfile {
   status?: UserStatus;
   partnerId?: string; // Associated partner organization if applicable
   partnerSlug?: string;
+  businessName?: string;
+  wholesaleApprovalStatus?: 'NONE' | 'PENDING' | 'APPROVED' | 'DECLINED';
+  mfaEnabled?: boolean;
   phone?: string;
   avatarUrl?: string;
   createdAt: string;

@@ -3,6 +3,7 @@ import { useCart } from '../context/CartContext.tsx';
 import { useAuth } from '../context/AuthContext.tsx';
 import { dbService } from '../services/dbService.ts';
 import { Order, ShippingAddress } from '../types/index.ts';
+import { TEST_VARS } from '../lib/testVariables.ts';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -27,22 +28,22 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
   const [loading, setLoading] = useState(false);
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
 
-  // Form State
-  const [fullName, setFullName] = useState(currentUser?.displayName || 'Dr. Arthur Vance');
-  const [email, setEmail] = useState(currentUser?.email || 'arthur.vance@example.com');
-  const [phone, setPhone] = useState('+1 (555) 382-9104');
-  const [addressLine1, setAddressLine1] = useState('742 Evergreen Terrace');
-  const [addressLine2, setAddressLine2] = useState('Suite 400');
-  const [city, setCity] = useState('Springfield');
-  const [state, setState] = useState('OR');
-  const [postalCode, setPostalCode] = useState('97477');
-  const [country, setCountry] = useState('United States');
-  const [medicalConsent, setMedicalConsent] = useState(true);
+  // Form State (Test defaults)
+  const [fullName, setFullName] = useState<string>(currentUser?.displayName || TEST_VARS.checkout.defaultCustomerName);
+  const [email, setEmail] = useState<string>(currentUser?.email || TEST_VARS.checkout.defaultCustomerEmail);
+  const [phone, setPhone] = useState<string>(TEST_VARS.checkout.defaultPhone);
+  const [addressLine1, setAddressLine1] = useState<string>(TEST_VARS.checkout.defaultAddressLine1);
+  const [addressLine2, setAddressLine2] = useState<string>(TEST_VARS.checkout.defaultAddressLine2);
+  const [city, setCity] = useState<string>(TEST_VARS.checkout.defaultCity);
+  const [state, setState] = useState<string>(TEST_VARS.checkout.defaultState);
+  const [postalCode, setPostalCode] = useState<string>(TEST_VARS.checkout.defaultPostalCode);
+  const [country, setCountry] = useState<string>(TEST_VARS.checkout.defaultCountry);
+  const [medicalConsent, setMedicalConsent] = useState<boolean>(true);
 
-  // Payment mock state
-  const [cardNumber, setCardNumber] = useState('•••• •••• •••• 4242');
-  const [cardExp, setCardExp] = useState('12/28');
-  const [cardCvc, setCardCvc] = useState('888');
+  // Payment test state
+  const [cardNumber, setCardNumber] = useState<string>(TEST_VARS.checkout.testCardLast4);
+  const [cardExp, setCardExp] = useState<string>(TEST_VARS.checkout.testCardExp);
+  const [cardCvc, setCardCvc] = useState<string>(TEST_VARS.checkout.testCardCvc);
 
   if (!isOpen) return null;
 

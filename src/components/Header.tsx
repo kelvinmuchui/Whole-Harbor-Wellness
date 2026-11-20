@@ -9,9 +9,10 @@ interface HeaderProps {
   onOpenSearch: () => void;
   onOpenGoals?: () => void;
   onOpenPerks?: () => void;
+  onOpenAuth?: (mode?: 'login' | 'register') => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ currentPath, navigate, onOpenSearch, onOpenGoals, onOpenPerks }) => {
+export const Header: React.FC<HeaderProps> = ({ currentPath, navigate, onOpenSearch, onOpenGoals, onOpenPerks, onOpenAuth }) => {
   const { currentUser, role, switchRole, logout } = useAuth();
   const { totalVialsOrKits, setIsOpen, activeReferral, clearReferral } = useCart();
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
@@ -143,6 +144,26 @@ export const Header: React.FC<HeaderProps> = ({ currentPath, navigate, onOpenSea
             >
               Partner Portal
             </button>
+
+            {/* Log In & Sign Up Action Buttons */}
+            {onOpenAuth && (
+              <div className="hidden sm:flex items-center gap-1.5">
+                <button
+                  onClick={() => onOpenAuth('login')}
+                  className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-[#0c2340] bg-white border border-[#dfd7c7] hover:bg-[#f6f4ee] hover:border-[#c5a059] transition-all cursor-pointer shadow-2xs"
+                  title="Sign In"
+                >
+                  Log In
+                </button>
+                <button
+                  onClick={() => onOpenAuth('register')}
+                  className="px-3.5 py-1.5 rounded-full text-xs font-semibold text-white bg-[#c5a059] hover:bg-[#0c2340] transition-all cursor-pointer shadow-2xs"
+                  title="Create Account"
+                >
+                  Sign Up
+                </button>
+              </div>
+            )}
 
             {/* Shopping Bag Button */}
             <button

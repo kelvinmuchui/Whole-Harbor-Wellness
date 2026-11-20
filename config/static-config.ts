@@ -9,21 +9,21 @@ export const STATIC_CONFIG = {
     name: 'Whole Harbor Wellness',
     tagline: 'Wellness Should Be Personal.',
     url: 'http://localhost:3000',
-    mode: 'static_embedded',
+    mode: 'test',
     supportEmail: 'concierge@wholeharborwellness.com',
     version: '1.0.0'
   },
 
   database: {
-    provider: 'postgresql',
-    connectionString: 'postgresql://wh_user:wh_password@localhost:5432/whole_harbor_wellness?schema=public',
+    provider: 'firestore_test',
+    connectionString: 'test://firestore-local-cache',
     schema: 'public',
-    poolMin: 2,
-    poolMax: 10
+    poolMin: 1,
+    poolMax: 5
   },
 
   auth: {
-    secretKey: 'wh_static_master_auth_secret_e9956964_210f_4326',
+    secretKey: 'test_session_key',
     sessionExpiryDays: 30,
     cookieName: 'wh_session_token',
     pbkdf2Iterations: 100000,
@@ -48,10 +48,10 @@ export const STATIC_CONFIG = {
   },
 
   services: {
-    emailProvider: 'static_mock',
-    paymentProvider: 'static_simulator',
-    storageProvider: 'static_assets',
-    analyticsId: 'STATIC_ANALYTICS_OFF'
+    emailProvider: 'test_mock',
+    paymentProvider: 'test_simulator',
+    storageProvider: 'test_assets',
+    analyticsId: 'TEST_ANALYTICS_OFF'
   }
 } as const;
 

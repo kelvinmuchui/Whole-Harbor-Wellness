@@ -1,39 +1,34 @@
-import { 
-  collection, 
-  doc, 
-  getDocs, 
-  getDoc, 
-  setDoc, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  where, 
-  orderBy,
+import {
+  collection,
+  doc,
+  getDocs,
+  setDoc,
+  updateDoc,
+  deleteDoc,
   writeBatch
 } from 'firebase/firestore';
-import { db } from '../lib/firebase.ts';
-import { 
-  Product, 
-  WellnessProgram, 
-  Partner, 
-  Order, 
-  PartnerEarning, 
-  EducationalArticle, 
-  FAQ, 
+import { auth, db, ensureFirestoreReachable } from '../lib/firebase.ts';
+import {
+  Product,
+  WellnessProgram,
+  Partner,
+  Order,
+  PartnerEarning,
+  EducationalArticle,
+  FAQ,
   Testimonial,
   OrderStatus,
   PartnerStatus,
   AuditLogEntry
 } from '../types/index.ts';
-import { 
-  INITIAL_PROGRAMS, 
-  INITIAL_PARTNERS, 
-  INITIAL_ORDERS, 
-  INITIAL_EARNINGS, 
-  INITIAL_ARTICLES, 
-  INITIAL_FAQS, 
-  INITIAL_TESTIMONIALS 
+import {
+  INITIAL_PROGRAMS,
+  INITIAL_PARTNERS,
+  INITIAL_ORDERS,
+  INITIAL_EARNINGS,
+  INITIAL_ARTICLES,
+  INITIAL_FAQS,
+  INITIAL_TESTIMONIALS
 } from '../lib/seedData.ts';
 import { WHW_PRODUCTS } from '../lib/whwCatalog.ts';
 
@@ -55,6 +50,92 @@ const setLocal = <T>(key: string, data: T) => {
   }
 };
 
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write'
+}
+
+function logFirestorePermissionError(error: unknown, operationType: OperationType, path: string | null) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes('Missing or insufficient permissions') || message.includes('permission-denied')) {
+    const errInfo = {
+      error: message,
+      authInfo: {
+        userId: auth.currentUser?.uid ?? null,
+        email: auth.currentUser?.email ?? null,
+        emailVerified: auth.currentUser?.emailVerified ?? null,
+        isAnonymous: auth.currentUser?.isAnonymous ?? null,
+        tenantId: auth.currentUser?.tenantId ?? null,
+        providerInfo:
+          auth.currentUser?.providerData?.map(provider => ({
+            providerId: provider.providerId,
+            email: provider.email
+          })) || []
+      },
+      operationType,
+      path
+    };
+    console.warn('Firestore Error: ', JSON.stringify(errInfo));
+  }
+}
+
+// Safe timeout wrapper for queries so UI never stalls
+const safeQuery = async <T>(promise: Promise<T>, timeoutMs = 4000): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('Firestore query timeout')), timeoutMs)
+    )
+  ]);
+};
+
+async function safeGetCollection<T>(collectionName: string): Promise<T[] | null> {
+  const reachable = await ensureFirestoreReachable();
+  if (!reachable) return null;
+
+  try {
+    const snap = await safeQuery(getDocs(collection(db, collectionName)));
+    if (!snap.empty) {
+      return snap.docs.map(d => ({ ...d.data(), id: d.id } as T));
+    }
+    return [];
+  } catch (e) {
+    logFirestorePermissionError(e, OperationType.LIST, collectionName);
+    return null;
+  }
+}
+
+async function safeWriteOp(
+  op: () => Promise<void>,
+  operationType: OperationType,
+  path: string
+): Promise<void> {
+  const reachable = await ensureFirestoreReachable();
+  if (!reachable) return;
+
+  try {
+    await safeQuery(op(), 4000);
+  } catch (e) {
+    logFirestorePermissionError(e, operationType, path);
+  }
+}
+
+async function batchSeedCollection<T extends { id: string }>(
+  collectionName: string,
+  items: T[]
+): Promise<void> {
+  if (!items.length) return;
+  const batch = writeBatch(db);
+  for (const item of items) {
+    batch.set(doc(db, collectionName, item.id), item, { merge: true });
+  }
+  await safeQuery(batch.commit(), 5000);
+}
+
 // --- INITIAL SEEDING HELPER ---
 let isSeeded = false;
 const CATALOG_VERSION = 'whw_prices_v4';
@@ -66,44 +147,44 @@ export async function seedInitialDatabase(): Promise<void> {
     if (syncedVersion !== CATALOG_VERSION) {
       setLocal('products', WHW_PRODUCTS);
       localStorage.setItem(STORAGE_PREFIX + 'catalog_version', CATALOG_VERSION);
-      for (const p of WHW_PRODUCTS) {
-        await setDoc(doc(db, 'products', p.id), p, { merge: true }).catch(() => {});
-      }
     }
 
-    // Check if products collection exists in Firestore
-    const productsSnap = await getDocs(collection(db, 'products'));
-    if (productsSnap.empty) {
-      console.log('Seeding initial products into Firestore...');
-      for (const p of WHW_PRODUCTS) {
-        await setDoc(doc(db, 'products', p.id), p);
-      }
-      for (const prog of INITIAL_PROGRAMS) {
-        await setDoc(doc(db, 'wellness_programs', prog.id), prog);
-      }
-      for (const part of INITIAL_PARTNERS) {
-        await setDoc(doc(db, 'partners', part.id), part);
-      }
-      for (const ord of INITIAL_ORDERS) {
-        await setDoc(doc(db, 'orders', ord.id), ord);
-      }
-      for (const earn of INITIAL_EARNINGS) {
-        await setDoc(doc(db, 'partner_earnings', earn.id), earn);
-      }
-      for (const art of INITIAL_ARTICLES) {
-        await setDoc(doc(db, 'educational_articles', art.id), art);
-      }
-      for (const f of INITIAL_FAQS) {
-        await setDoc(doc(db, 'faqs', f.id), f);
-      }
-      for (const t of INITIAL_TESTIMONIALS) {
-        await setDoc(doc(db, 'testimonials', t.id), t);
-      }
-      console.log('Firestore seed complete!');
+    const reachable = await ensureFirestoreReachable();
+    if (!reachable) {
+      isSeeded = true;
+      return;
     }
+
+    const productsSnap = await safeQuery(getDocs(collection(db, 'products')));
+    if (productsSnap.empty) {
+      await batchSeedCollection('products', WHW_PRODUCTS);
+    }
+
+    const seedTargets: Array<{ name: string; data: Array<{ id: string }> }> = [
+      { name: 'wellness_programs', data: INITIAL_PROGRAMS },
+      { name: 'partners', data: INITIAL_PARTNERS },
+      { name: 'orders', data: INITIAL_ORDERS },
+      { name: 'partner_earnings', data: INITIAL_EARNINGS },
+      { name: 'educational_articles', data: INITIAL_ARTICLES },
+      { name: 'faqs', data: INITIAL_FAQS },
+      { name: 'testimonials', data: INITIAL_TESTIMONIALS }
+    ];
+
+    await Promise.all(
+      seedTargets.map(async ({ name, data }) => {
+        try {
+          const snap = await safeQuery(getDocs(collection(db, name)));
+          if (snap.empty) {
+            await batchSeedCollection(name, data);
+          }
+        } catch (err) {
+          logFirestorePermissionError(err, OperationType.WRITE, name);
+        }
+      })
+    );
+
     isSeeded = true;
-  } catch (err) {
-    console.warn('Firestore seed probe completed with local sync:', err);
+  } catch {
     isSeeded = true;
   }
 }
@@ -114,21 +195,22 @@ export async function getProducts(): Promise<Product[]> {
   if (syncedVersion !== CATALOG_VERSION) {
     setLocal('products', WHW_PRODUCTS);
     localStorage.setItem(STORAGE_PREFIX + 'catalog_version', CATALOG_VERSION);
-    for (const p of WHW_PRODUCTS) {
-      await setDoc(doc(db, 'products', p.id), p, { merge: true }).catch(() => {});
-    }
-    return WHW_PRODUCTS;
   }
-  try {
-    const snap = await getDocs(collection(db, 'products'));
-    if (!snap.empty) {
-      const items = snap.docs.map(d => ({ ...d.data(), id: d.id } as Product));
-      setLocal('products', items);
-      return items;
-    }
-  } catch (e) {
-    console.warn('Using local fallback for products:', e);
+
+  const items = await safeGetCollection<Product>('products');
+  if (items && items.length > 0) {
+    setLocal('products', items);
+    return items;
   }
+
+  if (items && items.length === 0) {
+    safeWriteOp(
+      () => batchSeedCollection('products', WHW_PRODUCTS),
+      OperationType.WRITE,
+      'products'
+    ).catch(() => {});
+  }
+
   return getLocal('products', WHW_PRODUCTS);
 }
 
@@ -140,11 +222,7 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 export async function createProduct(prod: Omit<Product, 'id'>, actorRole = 'ADMIN'): Promise<Product> {
   const id = 'prod-' + Date.now();
   const newProduct: Product = { ...prod, id };
-  try {
-    await setDoc(doc(db, 'products', id), newProduct);
-  } catch (e) {
-    console.warn('Firestore createProduct local save:', e);
-  }
+  await safeWriteOp(() => setDoc(doc(db, 'products', id), newProduct), OperationType.CREATE, `products/${id}`);
   const current = getLocal('products', WHW_PRODUCTS);
   const updated = [newProduct, ...current];
   setLocal('products', updated);
@@ -160,11 +238,7 @@ export async function createProduct(prod: Omit<Product, 'id'>, actorRole = 'ADMI
 
 export async function updateProduct(id: string, updates: Partial<Product>, actorRole = 'ADMIN'): Promise<void> {
   const payload = { ...updates, updatedAt: new Date().toISOString() };
-  try {
-    await updateDoc(doc(db, 'products', id), payload);
-  } catch (e) {
-    console.warn('Firestore updateProduct local save:', e);
-  }
+  await safeWriteOp(() => updateDoc(doc(db, 'products', id), payload), OperationType.UPDATE, `products/${id}`);
   const current = getLocal('products', WHW_PRODUCTS);
   const existing = current.find(p => p.id === id);
   const updated = current.map(p => p.id === id ? { ...p, ...payload } : p);
@@ -194,11 +268,7 @@ export async function updateProduct(id: string, updates: Partial<Product>, actor
 }
 
 export async function deleteProduct(id: string, actorRole = 'ADMIN'): Promise<void> {
-  try {
-    await deleteDoc(doc(db, 'products', id));
-  } catch (e) {
-    console.warn('Firestore deleteProduct local delete:', e);
-  }
+  await safeWriteOp(() => deleteDoc(doc(db, 'products', id)), OperationType.DELETE, `products/${id}`);
   const current = getLocal('products', WHW_PRODUCTS);
   const existing = current.find(p => p.id === id);
   const updated = current.filter(p => p.id !== id);
@@ -214,15 +284,10 @@ export async function deleteProduct(id: string, actorRole = 'ADMIN'): Promise<vo
 
 // --- WELLNESS PROGRAMS ---
 export async function getPrograms(): Promise<WellnessProgram[]> {
-  try {
-    const snap = await getDocs(collection(db, 'wellness_programs'));
-    if (!snap.empty) {
-      const items = snap.docs.map(d => ({ ...d.data(), id: d.id } as WellnessProgram));
-      setLocal('programs', items);
-      return items;
-    }
-  } catch (e) {
-    console.warn('Using local fallback for programs:', e);
+  const items = await safeGetCollection<WellnessProgram>('wellness_programs');
+  if (items && items.length > 0) {
+    setLocal('programs', items);
+    return items;
   }
   return getLocal('programs', INITIAL_PROGRAMS);
 }
@@ -235,11 +300,7 @@ export async function getProgramBySlug(slug: string): Promise<WellnessProgram | 
 export async function createProgram(prog: Omit<WellnessProgram, 'id'>): Promise<WellnessProgram> {
   const id = 'prog-' + Date.now();
   const newProg: WellnessProgram = { ...prog, id };
-  try {
-    await setDoc(doc(db, 'wellness_programs', id), newProg);
-  } catch (e) {
-    console.warn('Firestore createProgram local save:', e);
-  }
+  await safeWriteOp(() => setDoc(doc(db, 'wellness_programs', id), newProg), OperationType.CREATE, `wellness_programs/${id}`);
   const current = getLocal('programs', INITIAL_PROGRAMS);
   const updated = [newProg, ...current];
   setLocal('programs', updated);
@@ -248,15 +309,10 @@ export async function createProgram(prog: Omit<WellnessProgram, 'id'>): Promise<
 
 // --- PARTNERS ---
 export async function getPartners(): Promise<Partner[]> {
-  try {
-    const snap = await getDocs(collection(db, 'partners'));
-    if (!snap.empty) {
-      const items = snap.docs.map(d => ({ ...d.data(), id: d.id } as Partner));
-      setLocal('partners', items);
-      return items;
-    }
-  } catch (e) {
-    console.warn('Using local fallback for partners:', e);
+  const items = await safeGetCollection<Partner>('partners');
+  if (items && items.length > 0) {
+    setLocal('partners', items);
+    return items;
   }
   return getLocal('partners', INITIAL_PARTNERS);
 }
@@ -315,11 +371,7 @@ export async function registerPartner(data: {
     createdAt: new Date().toISOString()
   };
 
-  try {
-    await setDoc(doc(db, 'partners', id), newPartner);
-  } catch (e) {
-    console.warn('Firestore registerPartner local save:', e);
-  }
+  await safeWriteOp(() => setDoc(doc(db, 'partners', id), newPartner), OperationType.CREATE, `partners/${id}`);
   const current = getLocal('partners', INITIAL_PARTNERS);
   setLocal('partners', [newPartner, ...current]);
   await createAuditLog({
@@ -344,11 +396,7 @@ export async function updatePartnerStatus(
     updatedAt,
     ...(adminNotes !== undefined ? { adminNotes } : {})
   };
-  try {
-    await updateDoc(doc(db, 'partners', id), payload);
-  } catch (e) {
-    console.warn('Firestore updatePartnerStatus local save:', e);
-  }
+  await safeWriteOp(() => updateDoc(doc(db, 'partners', id), payload), OperationType.UPDATE, `partners/${id}`);
   const current = getLocal('partners', INITIAL_PARTNERS);
   const existing = current.find(p => p.id === id);
   const updated = current.map(p => p.id === id ? { ...p, ...payload } : p);
@@ -370,11 +418,11 @@ export async function updatePartnerStatus(
 }
 
 export async function updatePartner(id: string, updates: Partial<Partner>): Promise<void> {
-  try {
-    await updateDoc(doc(db, 'partners', id), { ...updates, updatedAt: new Date().toISOString() });
-  } catch (e) {
-    console.warn('Firestore updatePartner local save:', e);
-  }
+  await safeWriteOp(
+    () => updateDoc(doc(db, 'partners', id), { ...updates, updatedAt: new Date().toISOString() }),
+    OperationType.UPDATE,
+    `partners/${id}`
+  );
   const current = getLocal('partners', INITIAL_PARTNERS);
   const updated = current.map(p => p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p);
   setLocal('partners', updated);
@@ -382,15 +430,10 @@ export async function updatePartner(id: string, updates: Partial<Partner>): Prom
 
 // --- ORDERS & EARNINGS ---
 export async function getOrders(): Promise<Order[]> {
-  try {
-    const snap = await getDocs(collection(db, 'orders'));
-    if (!snap.empty) {
-      const items = snap.docs.map(d => ({ ...d.data(), id: d.id } as Order));
-      setLocal('orders', items);
-      return items;
-    }
-  } catch (e) {
-    console.warn('Using local fallback for orders:', e);
+  const items = await safeGetCollection<Order>('orders');
+  if (items && items.length > 0) {
+    setLocal('orders', items);
+    return items;
   }
   return getLocal('orders', INITIAL_ORDERS);
 }
@@ -418,11 +461,7 @@ export async function createOrder(orderData: Omit<Order, 'id' | 'orderNumber' | 
     createdAt
   };
 
-  try {
-    await setDoc(doc(db, 'orders', id), newOrder);
-  } catch (e) {
-    console.warn('Firestore createOrder local save:', e);
-  }
+  await safeWriteOp(() => setDoc(doc(db, 'orders', id), newOrder), OperationType.CREATE, `orders/${id}`);
 
   const currentOrders = getLocal('orders', INITIAL_ORDERS);
   setLocal('orders', [newOrder, ...currentOrders]);
@@ -445,11 +484,11 @@ export async function createOrder(orderData: Omit<Order, 'id' | 'orderNumber' | 
       createdAt
     };
 
-    try {
-      await setDoc(doc(db, 'partner_earnings', earningId), newEarning);
-    } catch (e) {
-      console.warn('Firestore createPartnerEarning local save:', e);
-    }
+    await safeWriteOp(
+      () => setDoc(doc(db, 'partner_earnings', earningId), newEarning),
+      OperationType.CREATE,
+      `partner_earnings/${earningId}`
+    );
 
     const currentEarnings = getLocal('partner_earnings', INITIAL_EARNINGS);
     setLocal('partner_earnings', [newEarning, ...currentEarnings]);
@@ -459,11 +498,11 @@ export async function createOrder(orderData: Omit<Order, 'id' | 'orderNumber' | 
 }
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus): Promise<void> {
-  try {
-    await updateDoc(doc(db, 'orders', orderId), { status, updatedAt: new Date().toISOString() });
-  } catch (e) {
-    console.warn('Firestore updateOrderStatus local save:', e);
-  }
+  await safeWriteOp(
+    () => updateDoc(doc(db, 'orders', orderId), { status, updatedAt: new Date().toISOString() }),
+    OperationType.UPDATE,
+    `orders/${orderId}`
+  );
   const current = getLocal('orders', INITIAL_ORDERS);
   const updated = current.map(o => o.id === orderId ? { ...o, status, updatedAt: new Date().toISOString() } : o);
   setLocal('orders', updated);
@@ -471,15 +510,10 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus): P
 
 // --- PARTNER EARNINGS ---
 export async function getPartnerEarnings(): Promise<PartnerEarning[]> {
-  try {
-    const snap = await getDocs(collection(db, 'partner_earnings'));
-    if (!snap.empty) {
-      const items = snap.docs.map(d => ({ ...d.data(), id: d.id } as PartnerEarning));
-      setLocal('partner_earnings', items);
-      return items;
-    }
-  } catch (e) {
-    console.warn('Using local fallback for earnings:', e);
+  const items = await safeGetCollection<PartnerEarning>('partner_earnings');
+  if (items && items.length > 0) {
+    setLocal('partner_earnings', items);
+    return items;
   }
   return getLocal('partner_earnings', INITIAL_EARNINGS);
 }
@@ -490,7 +524,7 @@ export async function getEarningsByPartner(partnerId: string): Promise<PartnerEa
 }
 
 export async function updateEarningStatus(
-  earningId: string, 
+  earningId: string,
   status: 'PENDING' | 'APPROVED' | 'PAID'
 ): Promise<void> {
   const updates: Partial<PartnerEarning> = {
@@ -498,11 +532,11 @@ export async function updateEarningStatus(
     ...(status === 'PAID' ? { paidAt: new Date().toISOString(), payoutBatchId: 'ACH-' + Date.now().toString().slice(-6) } : {})
   };
 
-  try {
-    await updateDoc(doc(db, 'partner_earnings', earningId), updates);
-  } catch (e) {
-    console.warn('Firestore updateEarningStatus local save:', e);
-  }
+  await safeWriteOp(
+    () => updateDoc(doc(db, 'partner_earnings', earningId), updates),
+    OperationType.UPDATE,
+    `partner_earnings/${earningId}`
+  );
 
   const current = getLocal('partner_earnings', INITIAL_EARNINGS);
   const updated = current.map(e => e.id === earningId ? { ...e, ...updates } : e);
@@ -511,15 +545,10 @@ export async function updateEarningStatus(
 
 // --- ARTICLES, FAQS & TESTIMONIALS ---
 export async function getArticles(): Promise<EducationalArticle[]> {
-  try {
-    const snap = await getDocs(collection(db, 'educational_articles'));
-    if (!snap.empty) {
-      const items = snap.docs.map(d => ({ ...d.data(), id: d.id } as EducationalArticle));
-      setLocal('articles', items);
-      return items;
-    }
-  } catch (e) {
-    console.warn('Using local fallback for articles:', e);
+  const items = await safeGetCollection<EducationalArticle>('educational_articles');
+  if (items && items.length > 0) {
+    setLocal('articles', items);
+    return items;
   }
   return getLocal('articles', INITIAL_ARTICLES);
 }
@@ -527,40 +556,30 @@ export async function getArticles(): Promise<EducationalArticle[]> {
 export async function createArticle(article: Omit<EducationalArticle, 'id'>): Promise<EducationalArticle> {
   const id = 'art-' + Date.now();
   const newArticle: EducationalArticle = { ...article, id };
-  try {
-    await setDoc(doc(db, 'educational_articles', id), newArticle);
-  } catch (e) {
-    console.warn('Firestore createArticle local save:', e);
-  }
+  await safeWriteOp(
+    () => setDoc(doc(db, 'educational_articles', id), newArticle),
+    OperationType.CREATE,
+    `educational_articles/${id}`
+  );
   const current = getLocal('articles', INITIAL_ARTICLES);
   setLocal('articles', [newArticle, ...current]);
   return newArticle;
 }
 
 export async function getFAQs(): Promise<FAQ[]> {
-  try {
-    const snap = await getDocs(collection(db, 'faqs'));
-    if (!snap.empty) {
-      const items = snap.docs.map(d => ({ ...d.data(), id: d.id } as FAQ));
-      setLocal('faqs', items);
-      return items;
-    }
-  } catch (e) {
-    console.warn('Using local fallback for FAQs:', e);
+  const items = await safeGetCollection<FAQ>('faqs');
+  if (items && items.length > 0) {
+    setLocal('faqs', items);
+    return items;
   }
   return getLocal('faqs', INITIAL_FAQS);
 }
 
 export async function getTestimonials(): Promise<Testimonial[]> {
-  try {
-    const snap = await getDocs(collection(db, 'testimonials'));
-    if (!snap.empty) {
-      const items = snap.docs.map(d => ({ ...d.data(), id: d.id } as Testimonial));
-      setLocal('testimonials', items);
-      return items;
-    }
-  } catch (e) {
-    console.warn('Using local fallback for testimonials:', e);
+  const items = await safeGetCollection<Testimonial>('testimonials');
+  if (items && items.length > 0) {
+    setLocal('testimonials', items);
+    return items;
   }
   return getLocal('testimonials', INITIAL_TESTIMONIALS);
 }
@@ -577,11 +596,7 @@ export async function createPartner(partner: Omit<Partner, 'id'>): Promise<Partn
     status: partner.status || 'NEW'
   };
 
-  try {
-    await setDoc(doc(db, 'partners', id), newPartner);
-  } catch (e) {
-    console.warn('Firestore createPartner local save:', e);
-  }
+  await safeWriteOp(() => setDoc(doc(db, 'partners', id), newPartner), OperationType.CREATE, `partners/${id}`);
   const current = getLocal('partners', INITIAL_PARTNERS);
   setLocal('partners', [newPartner, ...current]);
   await createAuditLog({
@@ -604,28 +619,18 @@ export async function createAuditLog(
     id,
     timestamp: new Date().toISOString()
   };
-  try {
-    await setDoc(doc(db, 'audit_logs', id), fullEntry);
-  } catch (e) {
-    console.warn('Firestore createAuditLog local save:', e);
-  }
+  await safeWriteOp(() => setDoc(doc(db, 'audit_logs', id), fullEntry), OperationType.CREATE, `audit_logs/${id}`);
   const current = getLocal<AuditLogEntry[]>('audit_logs', []);
   setLocal('audit_logs', [fullEntry, ...current].slice(0, 250));
   return fullEntry;
 }
 
 export async function getAuditLogs(): Promise<AuditLogEntry[]> {
-  try {
-    const snap = await getDocs(collection(db, 'audit_logs'));
-    if (!snap.empty) {
-      const items = snap.docs
-        .map(d => ({ ...d.data(), id: d.id } as AuditLogEntry))
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      setLocal('audit_logs', items);
-      return items;
-    }
-  } catch (e) {
-    console.warn('Using local fallback for audit_logs:', e);
+  const items = await safeGetCollection<AuditLogEntry>('audit_logs');
+  if (items && items.length > 0) {
+    const sorted = items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    setLocal('audit_logs', sorted);
+    return sorted;
   }
   return getLocal<AuditLogEntry[]>('audit_logs', []);
 }

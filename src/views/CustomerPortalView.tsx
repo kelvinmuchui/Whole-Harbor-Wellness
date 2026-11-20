@@ -236,39 +236,111 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate
         </div>
       )}
 
-      {/* Profile Tab */}
+      {/* Profile & Security Tab */}
       {activeTab === 'profile' && (
-        <div className="bg-white border border-[#dfd7c7] rounded-3xl p-8 max-w-2xl space-y-6 text-xs">
-          <h3 className="font-serif text-xl font-bold text-[#0c2340]">
-            Patient Profile &amp; Preferences
-          </h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-[#5a6b7c] block mb-1">Full Legal Name</label>
-              <input
-                type="text"
-                disabled
-                value={currentUser?.displayName || 'Dr. Arthur Vance'}
-                className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340]"
-              />
+        <div className="space-y-6">
+          <div className="bg-white border border-[#dfd7c7] rounded-3xl p-6 sm:p-8 space-y-6 text-xs">
+            <div className="flex items-center justify-between pb-4 border-b border-[#dfd7c7]/60">
+              <div>
+                <h3 className="font-serif text-xl font-bold text-[#0c2340]">
+                  Client Profile &amp; Clinical Information
+                </h3>
+                <p className="text-[#5a6b7c] mt-0.5">Secure client account details and role permissions</p>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-[#c5a059]/15 text-[#c5a059] font-bold">
+                {role}
+              </span>
             </div>
-            <div>
-              <label className="text-[#5a6b7c] block mb-1">Account Role</label>
-              <input
-                type="text"
-                disabled
-                value={role}
-                className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#c5a059] font-semibold"
-              />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-[#5a6b7c] block mb-1 font-medium">Full Legal Name</label>
+                <input
+                  type="text"
+                  disabled
+                  value={currentUser?.displayName || 'Clinical Member'}
+                  className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340]"
+                />
+              </div>
+              <div>
+                <label className="text-[#5a6b7c] block mb-1 font-medium">Email Address</label>
+                <input
+                  type="email"
+                  disabled
+                  value={currentUser?.email || 'member@wholeharbor.com'}
+                  className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340]"
+                />
+              </div>
+              {currentUser?.businessName && (
+                <div>
+                  <label className="text-[#5a6b7c] block mb-1 font-medium">Organization / Studio</label>
+                  <input
+                    type="text"
+                    disabled
+                    value={currentUser.businessName}
+                    className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="text-[#5a6b7c] block mb-1 font-medium">Wholesale 10-Vial Kit Status</label>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#f6f4ee] border border-[#dfd7c7]">
+                  <span className={`w-2 h-2 rounded-full ${
+                    currentUser?.wholesaleApprovalStatus === 'APPROVED' ? 'bg-emerald-500' :
+                    currentUser?.wholesaleApprovalStatus === 'PENDING' ? 'bg-amber-500' : 'bg-gray-400'
+                  }`}></span>
+                  <span className="font-semibold text-[#0c2340]">
+                    {currentUser?.wholesaleApprovalStatus === 'APPROVED'
+                      ? 'Approved Wholesale Partner'
+                      : currentUser?.wholesaleApprovalStatus === 'PENDING'
+                      ? 'Under WHW Review'
+                      : 'Retail Individual Buyer (Wholesale Gated)'}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="col-span-2">
-              <label className="text-[#5a6b7c] block mb-1">Email Address</label>
-              <input
-                type="email"
-                disabled
-                value={currentUser?.email || 'arthur.vance@example.com'}
-                className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340]"
-              />
+          </div>
+
+          {/* Clinical Process & Security Standards (Per PDF: Appointments/Clinical Process & Security) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white border border-[#dfd7c7] rounded-3xl p-6 space-y-4 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#c5a059] text-[20px]">medical_services</span>
+                <h4 className="font-serif text-base font-bold text-[#0c2340]">Clinical Process &amp; Intake</h4>
+              </div>
+              <p className="text-[#5a6b7c] leading-relaxed">
+                Health screening and physician oversight are maintained through compliant medical systems without duplicating regulated clinical records on the public site.
+              </p>
+              <div className="p-3 rounded-xl bg-[#f6f4ee] border border-[#dfd7c7] space-y-1">
+                <div className="flex items-center justify-between font-semibold text-[#0c2340]">
+                  <span>Prescription Eligibility</span>
+                  <span className="text-emerald-700">Active</span>
+                </div>
+                <p className="text-[11px] text-[#5a6b7c]">Compounded formulations dispensed via licensed 503A/503B partner pharmacies.</p>
+              </div>
+            </div>
+
+            <div className="bg-white border border-[#dfd7c7] rounded-3xl p-6 space-y-4 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#c5a059] text-[20px]">security</span>
+                <h4 className="font-serif text-base font-bold text-[#0c2340]">Account Security &amp; Encryption</h4>
+              </div>
+              <div className="space-y-2 text-[#5a6b7c]">
+                <div className="flex items-center justify-between py-1 border-b border-[#dfd7c7]/40">
+                  <span>SSL / HTTPS Session</span>
+                  <span className="font-mono text-emerald-700 font-semibold">TLS 1.3 Active</span>
+                </div>
+                <div className="flex items-center justify-between py-1 border-b border-[#dfd7c7]/40">
+                  <span>Role-Based Access (RBAC)</span>
+                  <span className="font-semibold text-[#0c2340]">{role}</span>
+                </div>
+                <div className="flex items-center justify-between py-1">
+                  <span>Two-Factor Authentication</span>
+                  <span className="font-semibold text-[#c5a059]">
+                    {currentUser?.mfaEnabled ? 'Enabled' : 'Standard'}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
