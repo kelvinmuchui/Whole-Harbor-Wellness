@@ -172,7 +172,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const existingProfile = await dbService.getUserByUid(firebaseUser.uid);
 
         const isAdminEmail =
-          email === 'muchuikelvin423@gmail.com' ||
+          email === 'muchuimalcolm423@gmail.com' ||
           email === 'admin@wholeharborwellness.com' ||
           email === TEST_VARS.auth.adminEmail.toLowerCase();
 
@@ -266,7 +266,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isAdminAccount =
       cleanEmail.includes('admin') ||
       cleanEmail === 'director@wholeharborwellness.com' ||
-      cleanEmail.includes('muchuikelvin');
+      cleanEmail.includes('muchuimalcolm');
     if (isAdminAccount && !mfaCode) {
       return { success: false, requiresMfa: true };
     }
@@ -309,7 +309,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (
       cleanEmail === SEEDED_ACCOUNTS.admin.email ||
       cleanEmail.includes('admin') ||
-      cleanEmail.includes('muchuikelvin')
+      cleanEmail.includes('muchuimalcolm')
     ) {
       setCurrentUser(SEEDED_ACCOUNTS.admin);
       return { success: true };

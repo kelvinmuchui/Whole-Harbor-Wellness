@@ -67,10 +67,10 @@ const setLocal = <T>(key: string, data: T) => {
 
 export const INITIAL_USERS: UserProfile[] = [
   {
-    id: 'admin-kelvin',
-    uid: 'admin-kelvin',
+    id: 'admin-malcolm',
+    uid: 'admin-malcolm',
     email: TEST_VARS.auth.adminEmail,
-    displayName: 'Kelvin Director of Wellness',
+    displayName: 'Malcolm Director of Wellness',
     role: 'ADMIN',
     status: 'ACTIVE',
     wholesaleApprovalStatus: 'APPROVED',
@@ -145,7 +145,7 @@ function isPermissionError(error: unknown): boolean {
 
 function isBootstrappedAdminAuth(): boolean {
   const email = auth.currentUser?.email?.toLowerCase() || '';
-  return email === 'muchuikelvin423@gmail.com' || email === 'admin@wholeharborwellness.com';
+  return email === 'muchuimalcolm423@gmail.com' || email === 'admin@wholeharborwellness.com';
 }
 
 // Safe timeout wrapper for queries so UI never stalls

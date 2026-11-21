@@ -81,7 +81,7 @@ All views and components adhere to an editorial clinical-luxury aesthetic define
    - Never run an unscoped `collection(db, 'orders')` or `collection(db, 'partner_earnings')` query for non-admin users. Always pass `'customer'` in `CustomerPortalView` and `'partner'` in `PartnerDashboardView`.
    - When modifying `firestore.rules`, always run `npx eslint firestore.rules` cleanly before deploying rules via `rpc_action(service_name: "fax", method_name: "DeployRules")`.
 3. **Admin & Role Access**:
-   - Bootstrapped admins in `firestore.rules` and `dbService.ts`: `muchuikelvin423@gmail.com` and `admin@wholeharborwellness.com`.
+   - Bootstrapped admins in `firestore.rules` and `dbService.ts`: `muchuimalcolm423@gmail.com` and `admin@wholeharborwellness.com`.
 4. **Verification Gate**: After every phase or feature batch, verify with:
    - `npm run lint` (`tsc --noEmit`)
    - `npm run build` (`vite build`)

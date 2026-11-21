@@ -223,7 +223,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, navigate,
             >
               <div>
                 <span className="font-semibold block text-[#0c2340] group-hover:text-white">
-                  👑 Kelvin Director of Wellness
+                  👑 Malcolm Director of Wellness
                 </span>
                 <span className="text-[10px] text-[#5a6b7c] group-hover:text-[#dfd7c7]">
                   admin@wholeharborwellness.com
