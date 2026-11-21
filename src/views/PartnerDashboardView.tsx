@@ -44,6 +44,7 @@ import {
   Order,
   PartnerEarning,
   Product,
+  ProductStrength,
   ProductCategoryType,
   WellnessProgram,
   EducationalArticle
@@ -2031,7 +2032,7 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                     <div className="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {products.map((prod) => {
-                        const tiers =
+                        const tiers: ProductStrength[] =
                           prod.wholesaleStrengths && prod.wholesaleStrengths.length > 0
                             ? prod.wholesaleStrengths
                             : [
@@ -2044,7 +2045,10 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                         const activeTierIdx = selectedWholesaleTier[prod.id] ?? 0;
                         const activeTier = tiers[activeTierIdx] || tiers[0];
                         const kitPrice = activeTier.price;
-                        const wholesalePerVial = (kitPrice / (activeTier.vialsCount || 10)).toFixed(2);
+                        const vialCount = activeTier.vialsCount || 10;
+                        const wholesalePerVial = (
+                          activeTier.pricePerVial ?? kitPrice / vialCount
+                        ).toFixed(2);
                         const inCart = wholesaleCart.find(
                           (c) => c.product.id === prod.id && c.strengthLabel === activeTier.label
                         );
@@ -2091,7 +2095,8 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                                 >
                                   {tiers.map((t, idx) => (
                                     <option key={t.label} value={idx}>
-                                      {t.label} — ${t.price.toFixed(2)}
+                                      {t.label} — ${t.price.toFixed(2)} / kit · $
+                                      {(t.pricePerVial ?? t.price / (t.vialsCount || 10)).toFixed(2)} / vial
                                     </option>
                                   ))}
                                 </select>
