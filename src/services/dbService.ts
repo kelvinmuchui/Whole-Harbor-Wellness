@@ -365,9 +365,12 @@ export async function getPartners(includeUnapproved = false): Promise<Partner[]>
     : partners.filter((partner) => partner.status === 'APPROVED');
 }
 
-export async function getMyPartnerApplications(): Promise<Partner[]> {
-  const uid = auth.currentUser?.uid;
-  const email = auth.currentUser?.email?.toLowerCase();
+export async function getMyPartnerApplications(
+  userUid = auth.currentUser?.uid,
+  userEmail = auth.currentUser?.email
+): Promise<Partner[]> {
+  const uid = userUid;
+  const email = userEmail?.toLowerCase();
   const partners = await getCollection<Partner>('partners');
   return partners.filter(
     (partner) =>

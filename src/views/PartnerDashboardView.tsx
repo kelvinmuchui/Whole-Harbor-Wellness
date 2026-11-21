@@ -261,7 +261,7 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
       try {
         const [partnersList, myApps, productsList, programsList, articlesList] = await Promise.all([
           dbService.getPartners(),
-          dbService.getMyPartnerApplications(),
+          dbService.getMyPartnerApplications(currentUser?.uid, currentUser?.email),
           dbService.getProducts(),
           dbService.getPrograms(),
           dbService.getArticles()
@@ -285,7 +285,6 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
               (currentUser?.uid && p.ownerUid === currentUser.uid) ||
               (currentUser?.email && p.email.toLowerCase() === currentUser.email.toLowerCase())
           ) ||
-          mergedPartners[0] ||
           null;
 
         await loadPartnerDetails(matchedPartner);

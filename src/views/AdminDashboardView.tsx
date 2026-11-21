@@ -217,6 +217,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   const [activeSection, setActiveSection] = useState<AdminSection>('overview');
   const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [adminDataError, setAdminDataError] = useState<string | null>(null);
 
   // Overview Controls
   const [overviewRange, setOverviewRange] = useState<'30d' | '90d' | 'ytd' | 'all'>('30d');
@@ -357,6 +358,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   }, []);
 
   const reloadData = async () => {
+    setAdminDataError(null);
     try {
       const [usrs, pts, ords, erngs, prods, progs, arts, fqs, tests, logs, inqs, analytics] = await Promise.all([
         dbService.getUsers(),
@@ -386,6 +388,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
       setAnalyticsSummary(analytics);
     } catch (err) {
       console.error('Failed to load admin data', err);
+      setAdminDataError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to load admin data from Supabase.'
+      );
     } finally {
       setLoading(false);
     }
@@ -1405,6 +1412,23 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
 
         {/* Main Scrollable Viewport */}
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-[1440px] w-full mx-auto space-y-6">
+          {adminDataError && (
+            <div
+              role="alert"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800"
+            >
+              <span>
+                Admin data could not be loaded from Supabase: {adminDataError}
+              </span>
+              <button
+                type="button"
+                onClick={reloadData}
+                className="font-semibold underline"
+              >
+                Retry
+              </button>
+            </div>
+          )}
           {adminSaveNotice && (
             <div
               role={adminSaveNotice.kind === 'error' ? 'alert' : 'status'}

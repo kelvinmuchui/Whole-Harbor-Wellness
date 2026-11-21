@@ -335,6 +335,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     }
 
+    const existingUsers = await dbService.getUsers();
+    const matchedRegistered = existingUsers.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (matchedRegistered) {
+      if (matchedRegistered.status === 'SUSPENDED') {
+        return { success: false, error: 'This account has been suspended. Please contact Whole Harbor support.' };
+      }
+      setCurrentUser(matchedRegistered);
+      return { success: true };
+    }
+
     if (
       cleanEmail.includes('vance') ||
       cleanEmail.includes('equinox') ||
@@ -346,16 +356,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (cleanEmail.includes('staff') || cleanEmail.includes('soma')) {
       setCurrentUser(DEFAULT_USERS.PARTNER_STAFF);
-      return { success: true };
-    }
-
-    const existingUsers = await dbService.getUsers();
-    const matchedRegistered = existingUsers.find((u) => u.email.toLowerCase() === cleanEmail);
-    if (matchedRegistered) {
-      if (matchedRegistered.status === 'SUSPENDED') {
-        return { success: false, error: 'This account has been suspended. Please contact Whole Harbor support.' };
-      }
-      setCurrentUser(matchedRegistered);
       return { success: true };
     }
 
