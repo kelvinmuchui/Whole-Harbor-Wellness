@@ -602,6 +602,58 @@ function MainApp() {
     );
   }
 
+  // Dedicated Partner Portal Console (self-contained dark-navy sidebar + top utility bar)
+  if (currentPath === 'partner-portal' && currentUser && (isPartner || isAdmin)) {
+    return (
+      <div className="min-h-screen bg-[#f9f8f4] text-[var(--ink)] font-sans selection:bg-[var(--rose)] selection:text-white pb-20 md:pb-0">
+        <PartnerDashboardView navigate={navigate} />
+
+        <MobileNav
+          currentPath={currentPath}
+          navigate={navigate}
+          onOpenPerks={() => setPerksOpen(true)}
+          onOpenGoals={() => setGoalsOpen(true)}
+        />
+        {mobileMenuDrawer}
+
+        <CartDrawer
+          onOpenCheckout={() => setCheckoutOpen(true)}
+          navigate={navigate}
+        />
+        <CheckoutModal
+          isOpen={checkoutOpen}
+          onClose={() => setCheckoutOpen(false)}
+          navigate={navigate}
+        />
+        <SearchModal
+          isOpen={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          navigate={navigate}
+        />
+        <AuthModal
+          isOpen={authOpen}
+          initialMode={authMode}
+          onClose={() => setAuthOpen(false)}
+          navigate={navigate}
+        />
+        <GoalsModal
+          isOpen={goalsOpen}
+          onClose={() => setGoalsOpen(false)}
+          navigate={navigate}
+        />
+        <PerksModal
+          isOpen={perksOpen}
+          onClose={() => setPerksOpen(false)}
+          navigate={navigate}
+        />
+        <AskWHWDrawer
+          currentPath={currentPath}
+          navigate={navigate}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[var(--ivory)] text-[var(--ink)] font-sans selection:bg-[var(--rose)] selection:text-white">
       <div className="site-shell">
