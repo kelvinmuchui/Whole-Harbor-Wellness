@@ -46,6 +46,7 @@ export interface CartItem {
 export interface Order {
   id: string;
   orderNumber: string; // e.g. WH-ORD-2026-8921
+  orderType?: 'RETAIL' | 'WHOLESALE';
   customerId?: string;
   customerUid?: string;
   customerName: string;
@@ -67,6 +68,7 @@ export interface Order {
   partnerName?: string;
   referralSource?: string;
   partnerCommission?: number;
+  partnerCommissionRate?: number;
   commissionStatus?: CommissionStatus;
   
   // Cold-Chain Logistics

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   onAuthStateChanged,
   signInWithPopup,
@@ -140,6 +140,7 @@ const DEFAULT_USERS: Record<UserRole, UserProfile> = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const pendingRegistrationEmail = useRef<string | null>(null);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     try {
       const saved = localStorage.getItem('wh_current_user');
@@ -159,7 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [currentUser]);
 
-  // Synchronize Firebase Auth session & Firestore /users/{uid} role profile
+  // Synchronize the Firebase Auth session with the Supabase user profile.
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
@@ -169,6 +170,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       try {
         const email = (firebaseUser.email || '').toLowerCase();
+        if (pendingRegistrationEmail.current === email) {
+          setAuthLoading(false);
+          return;
+        }
         const existingProfile = await dbService.getUserByUid(firebaseUser.uid);
 
         const isAdminEmail =
@@ -217,7 +222,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         setCurrentUser(resolvedProfile);
-        dbService.seedInitialDatabase().catch(() => {});
       } catch (err) {
         console.error('Failed to sync Firebase auth user profile:', err);
       } finally {
@@ -399,6 +403,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       name = passwordOrName;
     }
 
+    if (assignedRole !== 'CUSTOMER' && assignedRole !== 'PARTNER_OWNER') {
+      return {
+        success: false,
+        error: 'Public registration is limited to customer and partner-owner accounts.'
+      };
+    }
+
+    const registeredBusinessName = businessInfo?.businessName?.trim() || '';
+    if (assignedRole === 'PARTNER_OWNER' && !registeredBusinessName) {
+      return {
+        success: false,
+        error: 'Enter your organization or clinic name to apply as a partner.'
+      };
+    }
+
     if (passwordOrName && passwordOrName.length < 8) {
       return {
         success: false,
@@ -406,21 +425,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
 
-    const isPartnerApplicant =
-      assignedRole === 'PARTNER_OWNER' || assignedRole === 'PARTNER_STAFF';
+    if (TEST_VARS.authMode !== 'test' && !passwordOrName) {
+      return { success: false, error: 'A password is required to create your account.' };
+    }
+
+    const isPartnerApplicant = assignedRole === 'PARTNER_OWNER';
     const wholesaleApprovalStatus = isPartnerApplicant ? 'PENDING' : 'NONE';
 
-    let resolvedUid = 'user-' + Date.now();
+    let resolvedUid = `user-${globalThis.crypto.randomUUID()}`;
     if (passwordOrName && passwordOrName.length >= 8) {
+      pendingRegistrationEmail.current = cleanEmail;
       try {
         const cred = await createUserWithEmailAndPassword(auth, cleanEmail, passwordOrName);
         resolvedUid = cred.user.uid;
       } catch (err: any) {
+        pendingRegistrationEmail.current = null;
         const code = err?.code || '';
         if (code === 'auth/email-already-in-use') {
           return { success: false, error: 'An account with this email already exists. Please sign in.' };
         }
-        // If Email/Password sign-in isn't enabled yet on the Firebase console project, persist cleanly via local profile
+        if (TEST_VARS.authMode !== 'test') {
+          return {
+            success: false,
+            error: err instanceof Error ? err.message : 'Firebase account creation failed.'
+          };
+        }
+        console.warn('Firebase signup unavailable in test mode; saving a demo account profile instead.');
       }
     }
 
@@ -428,17 +458,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       uid: resolvedUid,
       email: cleanEmail,
       displayName: name,
-      businessName: businessInfo?.businessName,
+      businessName: registeredBusinessName || undefined,
       role: assignedRole,
       status: isPartnerApplicant ? 'PENDING_VERIFICATION' : 'ACTIVE',
       wholesaleApprovalStatus,
-      mfaEnabled: assignedRole === 'ADMIN' || assignedRole === 'SALES_ADMIN',
       createdAt: new Date().toISOString()
     };
 
-    await dbService.upsertUserProfile(newUser);
-    setCurrentUser(newUser);
-    return { success: true };
+    try {
+      let savedUser = newUser;
+
+      if (assignedRole === 'PARTNER_OWNER') {
+        const partner = await dbService.registerPartner({
+          name: registeredBusinessName,
+          businessName: registeredBusinessName,
+          contactPerson: name,
+          email: cleanEmail,
+          description: `Partner application submitted by ${name}.`,
+          category: businessInfo?.partnerCategory?.trim() || 'Wellness Practice',
+          ownerUid: resolvedUid
+        });
+        savedUser = {
+          ...newUser,
+          partnerId: partner.partnerId,
+          partnerSlug: partner.slug
+        };
+      }
+
+      await dbService.upsertUserProfile(savedUser);
+      setCurrentUser(savedUser);
+      return { success: true };
+    } catch (err) {
+      console.error('Failed to save registration to Supabase:', err);
+      return {
+        success: false,
+        error: `Your account was created, but its profile could not be saved: ${
+          err instanceof Error ? err.message : 'Unknown database error.'
+        }`
+      };
+    } finally {
+      if (pendingRegistrationEmail.current === cleanEmail) {
+        pendingRegistrationEmail.current = null;
+      }
+    }
   };
 
   const requestPasswordReset = async (

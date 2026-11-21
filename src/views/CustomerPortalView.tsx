@@ -169,7 +169,7 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate
                       <div>
                         <span className="font-semibold text-[#0c2340] block">Cold-Chain Express Delivery</span>
                         <span className="text-[#5a6b7c] font-mono">
-                          Tracking: {ord.trackingNumber || 'WH-EXP-CC-82910482'}
+                          Tracking: {ord.trackingNumber || 'Pending fulfillment'}
                         </span>
                       </div>
                     </div>

@@ -2254,6 +2254,7 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                                 const createdOrder = await dbService.createOrder({
                                   customerName: `${partner.name} (Wholesale)`,
                                   customerEmail: partner.email,
+                                  orderType: 'WHOLESALE',
                                   shippingAddress: {
                                     fullName: partner.contactPerson || partner.name,
                                     addressLine1: partner.address || partner.location || 'Partner Facility',
@@ -2282,8 +2283,8 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                                   shipping: 0,
                                   tax: 0,
                                   total: subtotal,
-                                  status: 'CONFIRMED',
-                                  paymentStatus: 'PAID',
+                                  status: 'PENDING',
+                                  paymentStatus: 'PENDING',
                                   partnerId: partner.id,
                                   partnerSlug: partner.slug,
                                   partnerName: partner.name,

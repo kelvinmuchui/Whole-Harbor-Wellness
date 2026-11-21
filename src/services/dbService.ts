@@ -1,319 +1,195 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  writeBatch,
-  Query
-} from 'firebase/firestore';
-import {
-  auth,
-  db,
-  ensureFirestoreReachable,
-  handleFirestoreError,
-  OperationType
-} from '../lib/firebase.ts';
-import {
-  Product,
-  WellnessProgram,
-  Partner,
-  Order,
-  PartnerEarning,
+import { auth } from '../lib/firebase.ts';
+import { INITIAL_USERS } from '../lib/seedUsers.ts';
+import { getSupabaseClient, type Json } from '../lib/supabase.ts';
+import { TEST_VARS } from '../lib/testVariables.ts';
+import type {
+  AnalyticsEvent,
+  AuditLogEntry,
+  ContactInquiry,
   EducationalArticle,
   FAQ,
-  Testimonial,
+  Order,
   OrderStatus,
+  Partner,
+  PartnerEarning,
   PartnerStatus,
-  AuditLogEntry,
+  Product,
+  Testimonial,
   UserProfile,
   UserRole,
-  ContactInquiry,
-  AnalyticsEvent
+  WellnessProgram
 } from '../types/index.ts';
-import {
-  INITIAL_PROGRAMS,
-  INITIAL_PARTNERS,
-  INITIAL_ORDERS,
-  INITIAL_EARNINGS,
-  INITIAL_ARTICLES,
-  INITIAL_FAQS,
-  INITIAL_TESTIMONIALS
-} from '../lib/seedData.ts';
-import { WHW_PRODUCTS } from '../lib/whwCatalog.ts';
-import { TEST_VARS } from '../lib/testVariables.ts';
 
-// Local storage keys for instant responsiveness and resilient offline fallback
-const STORAGE_PREFIX = 'whole_harbor_';
-const getLocal = <T>(key: string, fallback: T): T => {
-  try {
-    const val = localStorage.getItem(STORAGE_PREFIX + key);
-    return val ? JSON.parse(val) : fallback;
-  } catch {
-    return fallback;
-  }
-};
-const setLocal = <T>(key: string, data: T) => {
-  try {
-    localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(data));
-  } catch {
-    // ignore
-  }
-};
+type CollectionName =
+  | 'users'
+  | 'partners'
+  | 'products'
+  | 'orders'
+  | 'partner_earnings'
+  | 'wellness_programs'
+  | 'educational_articles'
+  | 'faqs'
+  | 'testimonials'
+  | 'inquiries'
+  | 'analytics_events'
+  | 'audit_logs';
 
-export const INITIAL_USERS: UserProfile[] = [
-  {
-    id: 'admin-malcolm',
-    uid: 'admin-malcolm',
-    email: TEST_VARS.auth.adminEmail,
-    displayName: 'Malcolm Director of Wellness',
-    role: 'ADMIN',
-    status: 'ACTIVE',
-    wholesaleApprovalStatus: 'APPROVED',
-    mfaEnabled: true,
-    createdAt: '2026-01-01T00:00:00Z'
-  },
-  {
-    id: 'partner-equinox-owner',
-    uid: 'partner-equinox-owner',
-    email: 'julian@vancemedical.com',
-    displayName: 'Dr. Julian Vance',
-    businessName: 'Equinox Longevity Suite',
-    role: 'PARTNER_OWNER',
-    status: 'ACTIVE',
-    partnerId: 'WH-P-000001',
-    partnerSlug: 'equinox-longevity',
-    wholesaleApprovalStatus: 'APPROVED',
-    createdAt: '2026-01-05T00:00:00Z'
-  },
-  {
-    id: 'partner-harbor-owner',
-    uid: 'partner-harbor-owner',
-    email: 'helena@harborsanctuary.com',
-    displayName: 'Dr. Helena Vance',
-    businessName: 'Harbor Sanctuary Beverly Hills',
-    role: 'PARTNER_OWNER',
-    status: 'ACTIVE',
-    partnerId: 'WH-P-000002',
-    partnerSlug: 'harbor-sanctuary',
-    wholesaleApprovalStatus: 'APPROVED',
-    createdAt: '2026-01-12T00:00:00Z'
-  },
-  {
-    id: 'cust-elena-r',
-    uid: 'cust-elena-r',
-    email: 'elena.rostova@example.com',
-    displayName: 'Elena Rostova',
-    role: 'CUSTOMER',
-    status: 'ACTIVE',
-    wholesaleApprovalStatus: 'NONE',
-    createdAt: '2026-02-01T00:00:00Z'
-  },
-  {
-    id: 'cust-marcus-c',
-    uid: 'cust-marcus-c',
-    email: 'marcus.chen@example.com',
-    displayName: 'Marcus Chen',
-    role: 'CUSTOMER',
-    status: 'ACTIVE',
-    wholesaleApprovalStatus: 'NONE',
-    createdAt: '2026-02-08T00:00:00Z'
-  },
-  {
-    id: 'cust-sarah-m',
-    uid: 'cust-sarah-m',
-    email: 'sarah.miller@example.com',
-    displayName: 'Sarah Miller',
-    role: 'CUSTOMER',
-    status: 'ACTIVE',
-    wholesaleApprovalStatus: 'NONE',
-    createdAt: '2026-02-14T00:00:00Z'
-  }
-];
-
-function isPermissionError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return (
-    message.includes('Missing or insufficient permissions') ||
-    message.includes('permission-denied')
-  );
+interface RecordRow {
+  record_id: string;
+  data: Json;
+  is_demo: boolean;
 }
 
-function isBootstrappedAdminAuth(): boolean {
-  const email = auth.currentUser?.email?.toLowerCase() || '';
-  return email === 'muchuimalcolm423@gmail.com' || email === 'admin@wholeharborwellness.com';
+export { INITIAL_USERS };
+
+function raiseSupabaseError(operation: string, error: { message: string }): never {
+  console.error(`Supabase ${operation} failed:`, error.message);
+  throw new Error(`Supabase ${operation} failed: ${error.message}`);
 }
 
-// Safe timeout wrapper for queries so UI never stalls
-const safeQuery = async <T>(promise: Promise<T>, timeoutMs = 4500): Promise<T> => {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error('Firestore query timeout')), timeoutMs)
+function fromRow<T>(row: RecordRow): T {
+  if (!row.data || typeof row.data !== 'object' || Array.isArray(row.data)) {
+    throw new Error(`Supabase record "${row.record_id}" has invalid JSON data.`);
+  }
+  return { ...(row.data as Record<string, unknown>), id: row.record_id } as T;
+}
+
+function toJson(value: object): Json {
+  return JSON.parse(JSON.stringify(value)) as Json;
+}
+
+function isDemoEnvironment(): boolean {
+  return TEST_VARS.appMode !== 'production';
+}
+
+function makeId(prefix: string): string {
+  return `${prefix}-${globalThis.crypto.randomUUID()}`;
+}
+
+function getId(record: object): string {
+  if ('id' in record && typeof record.id === 'string') return record.id;
+  if ('uid' in record && typeof record.uid === 'string') return record.uid;
+  throw new Error('Supabase records must have an id or uid.');
+}
+
+async function getRecord<T>(collectionName: CollectionName, id: string): Promise<T | null> {
+  const { data, error } = await getSupabaseClient()
+    .from('whw_records')
+    .select('record_id,data,is_demo')
+    .eq('collection', collectionName)
+    .eq('record_id', id)
+    .maybeSingle();
+
+  if (error) raiseSupabaseError(`read ${collectionName}/${id}`, error);
+  return data ? fromRow<T>(data as RecordRow) : null;
+}
+
+async function getCollection<T>(collectionName: CollectionName): Promise<T[]> {
+  const { data, error } = await getSupabaseClient()
+    .from('whw_records')
+    .select('record_id,data,is_demo')
+    .eq('collection', collectionName);
+
+  if (error) raiseSupabaseError(`list ${collectionName}`, error);
+  return ((data ?? []) as RecordRow[]).map((row) => fromRow<T>(row));
+}
+
+async function insertRecord<T extends object>(
+  collectionName: CollectionName,
+  record: T
+): Promise<T> {
+  const id = getId(record);
+  const { data, error } = await getSupabaseClient()
+    .from('whw_records')
+    .insert({
+      collection: collectionName,
+      record_id: id,
+      data: toJson(record),
+      is_demo: isDemoEnvironment()
+    })
+    .select('record_id,data,is_demo')
+    .single();
+
+  if (error) raiseSupabaseError(`create ${collectionName}/${id}`, error);
+  return fromRow<T>(data as RecordRow);
+}
+
+async function upsertRecord<T extends object>(
+  collectionName: CollectionName,
+  id: string,
+  record: T
+): Promise<T> {
+  const { data, error } = await getSupabaseClient()
+    .from('whw_records')
+    .upsert(
+      {
+        collection: collectionName,
+        record_id: id,
+        data: toJson(record),
+        is_demo: isDemoEnvironment()
+      },
+      { onConflict: 'collection,record_id' }
     )
-  ]);
-};
+    .select('record_id,data,is_demo')
+    .single();
 
-async function safeGetCollection<T>(
-  collectionName: string,
-  customQuery?: Query
-): Promise<T[] | null> {
-  const reachable = await ensureFirestoreReachable();
-  if (!reachable) return null;
-
-  try {
-    const target = customQuery || collection(db, collectionName);
-    const snap = await safeQuery(getDocs(target));
-    if (!snap.empty) {
-      return snap.docs.map(d => ({ ...(d.data() as Record<string, unknown>), id: d.id } as T));
-    }
-    return [];
-  } catch (e) {
-    if (isPermissionError(e)) {
-      if (auth.currentUser) {
-        try {
-          handleFirestoreError(e, OperationType.LIST, collectionName);
-        } catch {
-          // Graceful fallback after structured error log
-        }
-      }
-      return null;
-    }
-    return null;
-  }
+  if (error) raiseSupabaseError(`save ${collectionName}/${id}`, error);
+  return fromRow<T>(data as RecordRow);
 }
 
-async function safeWriteOp(
-  op: () => Promise<void>,
-  operationType: OperationType,
-  path: string
-): Promise<boolean> {
-  const reachable = await ensureFirestoreReachable();
-  if (!reachable) return false;
-
-  try {
-    await safeQuery(op(), 4500);
-    return true;
-  } catch (e) {
-    if (isPermissionError(e) && auth.currentUser) {
-      handleFirestoreError(e, operationType, path);
-    }
-    return false;
-  }
-}
-
-async function batchSeedCollection<T extends { id?: string; uid?: string }>(
-  collectionName: string,
-  items: T[]
+async function updateRecord<U extends object>(
+  collectionName: CollectionName,
+  id: string,
+  updates: U
 ): Promise<void> {
-  if (!items.length) return;
-  const batch = writeBatch(db);
-  for (const item of items) {
-    const docId = item.id || item.uid;
-    if (!docId) continue;
-    batch.set(doc(db, collectionName, docId), item, { merge: true });
+  const existing = await getRecord<Record<string, unknown>>(collectionName, id);
+  if (!existing) {
+    throw new Error(`Cannot update missing ${collectionName} record "${id}".`);
   }
-  await safeQuery(batch.commit(), 6000);
-}
 
-// --- INITIAL SEEDING HELPER ---
-let isSeeded = false;
-const CATALOG_VERSION = 'whw_prices_v4';
+  const { data, error } = await getSupabaseClient()
+    .from('whw_records')
+    .update({ data: toJson({ ...existing, ...updates, id }) })
+    .eq('collection', collectionName)
+    .eq('record_id', id)
+    .select('record_id,data,is_demo')
+    .maybeSingle();
 
-export async function seedInitialDatabase(): Promise<void> {
-  if (isSeeded) return;
-  try {
-    const syncedVersion = localStorage.getItem(STORAGE_PREFIX + 'catalog_version');
-    if (syncedVersion !== CATALOG_VERSION) {
-      setLocal('products', WHW_PRODUCTS);
-      localStorage.setItem(STORAGE_PREFIX + 'catalog_version', CATALOG_VERSION);
-    }
-
-    // Ensure local cache has seeded user accounts ready
-    const existingLocalUsers = getLocal<UserProfile[]>('users', []);
-    if (!existingLocalUsers.length) {
-      setLocal('users', INITIAL_USERS);
-    }
-
-    const reachable = await ensureFirestoreReachable();
-    if (!reachable) {
-      isSeeded = true;
-      return;
-    }
-
-    // Seed public catalog & content collections when admin is authenticated
-    if (auth.currentUser && isBootstrappedAdminAuth()) {
-      const seedTargets: Array<{ name: string; data: Array<{ id?: string; uid?: string }> }> = [
-        { name: 'products', data: WHW_PRODUCTS },
-        { name: 'wellness_programs', data: INITIAL_PROGRAMS },
-        { name: 'partners', data: INITIAL_PARTNERS },
-        { name: 'users', data: INITIAL_USERS },
-        { name: 'orders', data: INITIAL_ORDERS },
-        { name: 'partner_earnings', data: INITIAL_EARNINGS },
-        { name: 'educational_articles', data: INITIAL_ARTICLES },
-        { name: 'faqs', data: INITIAL_FAQS },
-        { name: 'testimonials', data: INITIAL_TESTIMONIALS }
-      ];
-
-      await Promise.all(
-        seedTargets.map(async ({ name, data }) => {
-          try {
-            const snap = await safeQuery(getDocs(collection(db, name)));
-            if (snap.empty) {
-              await batchSeedCollection(name, data);
-            }
-          } catch {
-            // Skip collections blocked for non-admin sessions
-          }
-        })
-      );
-    }
-
-    isSeeded = true;
-  } catch {
-    isSeeded = true;
+  if (error) raiseSupabaseError(`update ${collectionName}/${id}`, error);
+  if (!data) {
+    throw new Error(`Supabase did not update ${collectionName}/${id}; check the row policy.`);
   }
 }
 
-// --- USERS & ROLES (CLIENTS, PARTNERS, ADMINS) ---
+async function deleteRecord(collectionName: CollectionName, id: string): Promise<void> {
+  const { data, error } = await getSupabaseClient()
+    .from('whw_records')
+    .delete()
+    .eq('collection', collectionName)
+    .eq('record_id', id)
+    .select('record_id')
+    .maybeSingle();
+
+  if (error) raiseSupabaseError(`delete ${collectionName}/${id}`, error);
+  if (!data) {
+    throw new Error(`Supabase did not delete ${collectionName}/${id}; check the row policy.`);
+  }
+}
+
+function newestFirst<T extends { createdAt?: string; timestamp?: string }>(items: T[]): T[] {
+  return items.sort((a, b) => {
+    const aDate = a.createdAt || a.timestamp || '';
+    const bDate = b.createdAt || b.timestamp || '';
+    return new Date(bDate).getTime() - new Date(aDate).getTime();
+  });
+}
+
 export async function getUsers(): Promise<UserProfile[]> {
-  if (auth.currentUser) {
-    const items = await safeGetCollection<UserProfile>(
-      'users',
-      isBootstrappedAdminAuth()
-        ? collection(db, 'users')
-        : query(collection(db, 'users'), where('uid', '==', auth.currentUser.uid))
-    );
-    if (items && items.length > 0) {
-      if (isBootstrappedAdminAuth()) {
-        setLocal('users', items);
-      }
-      return items;
-    }
-  }
-  return getLocal<UserProfile[]>('users', INITIAL_USERS);
+  return getCollection<UserProfile>('users');
 }
 
 export async function getUserByUid(uid: string): Promise<UserProfile | null> {
-  const reachable = await ensureFirestoreReachable();
-  if (reachable && auth.currentUser) {
-    try {
-      const snap = await safeQuery(getDoc(doc(db, 'users', uid)));
-      if (snap.exists()) {
-        return { ...(snap.data() as UserProfile), id: snap.id };
-      }
-    } catch (e) {
-      if (isPermissionError(e) && auth.currentUser.uid === uid) {
-        handleFirestoreError(e, OperationType.GET, `users/${uid}`);
-      }
-    }
-  }
-  const localUsers = getLocal<UserProfile[]>('users', INITIAL_USERS);
-  return localUsers.find(u => u.uid === uid || u.id === uid) || null;
+  return getRecord<UserProfile>('users', uid);
 }
 
 export async function upsertUserProfile(user: UserProfile): Promise<UserProfile> {
@@ -323,24 +199,7 @@ export async function upsertUserProfile(user: UserProfile): Promise<UserProfile>
     createdAt: user.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
-
-  if (auth.currentUser && (auth.currentUser.uid === cleanUser.uid || isBootstrappedAdminAuth())) {
-    await safeWriteOp(
-      () => setDoc(doc(db, 'users', cleanUser.uid), cleanUser, { merge: true }),
-      OperationType.WRITE,
-      `users/${cleanUser.uid}`
-    ).catch(() => false);
-  }
-
-  const localUsers = getLocal<UserProfile[]>('users', INITIAL_USERS);
-  const existsIdx = localUsers.findIndex(u => u.uid === cleanUser.uid || u.email === cleanUser.email);
-  const updated =
-    existsIdx >= 0
-      ? localUsers.map((u, i) => (i === existsIdx ? { ...u, ...cleanUser } : u))
-      : [cleanUser, ...localUsers];
-  setLocal('users', updated);
-
-  return cleanUser;
+  return upsertRecord('users', cleanUser.uid, cleanUser);
 }
 
 export async function updateUserRole(
@@ -348,25 +207,12 @@ export async function updateUserRole(
   role: UserRole,
   wholesaleApprovalStatus?: UserProfile['wholesaleApprovalStatus']
 ): Promise<void> {
-  const updatedAt = new Date().toISOString();
-  const payload: Partial<UserProfile> = {
+  const updates: Partial<UserProfile> = {
     role,
-    updatedAt,
+    updatedAt: new Date().toISOString(),
     ...(wholesaleApprovalStatus !== undefined ? { wholesaleApprovalStatus } : {})
   };
-
-  if (auth.currentUser) {
-    await safeWriteOp(
-      () => updateDoc(doc(db, 'users', uid), payload),
-      OperationType.UPDATE,
-      `users/${uid}`
-    );
-  }
-
-  const localUsers = getLocal<UserProfile[]>('users', INITIAL_USERS);
-  const updated = localUsers.map(u => (u.uid === uid || u.id === uid ? { ...u, ...payload } : u));
-  setLocal('users', updated);
-
+  await updateRecord('users', uid, updates);
   await createAuditLog({
     userId: auth.currentUser?.uid,
     userRole: 'ADMIN',
@@ -383,26 +229,13 @@ export async function updateUserStatus(
   partnerId?: string,
   partnerSlug?: string
 ): Promise<void> {
-  const updatedAt = new Date().toISOString();
-  const payload: Partial<UserProfile> = {
+  const updates: Partial<UserProfile> = {
     status,
-    updatedAt,
+    updatedAt: new Date().toISOString(),
     ...(partnerId !== undefined ? { partnerId } : {}),
     ...(partnerSlug !== undefined ? { partnerSlug } : {})
   };
-
-  if (auth.currentUser) {
-    await safeWriteOp(
-      () => updateDoc(doc(db, 'users', uid), payload),
-      OperationType.UPDATE,
-      `users/${uid}`
-    );
-  }
-
-  const localUsers = getLocal<UserProfile[]>('users', INITIAL_USERS);
-  const updated = localUsers.map(u => (u.uid === uid || u.id === uid ? { ...u, ...payload } : u));
-  setLocal('users', updated);
-
+  await updateRecord('users', uid, updates);
   await createAuditLog({
     userId: auth.currentUser?.uid,
     userRole: 'ADMIN',
@@ -413,58 +246,46 @@ export async function updateUserStatus(
   });
 }
 
-// --- PRODUCTS ---
 export async function getProducts(): Promise<Product[]> {
-  const syncedVersion = localStorage.getItem(STORAGE_PREFIX + 'catalog_version');
-  if (syncedVersion !== CATALOG_VERSION) {
-    setLocal('products', WHW_PRODUCTS);
-    localStorage.setItem(STORAGE_PREFIX + 'catalog_version', CATALOG_VERSION);
-  }
-
-  const items = await safeGetCollection<Product>('products');
-  if (items && items.length > 0) {
-    setLocal('products', items);
-    return items;
-  }
-
-  return getLocal('products', WHW_PRODUCTS);
+  return getCollection<Product>('products');
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
-  const all = await getProducts();
-  return all.find(p => p.slug === slug) || null;
+  return (await getProducts()).find((product) => product.slug === slug) ?? null;
 }
 
-export async function createProduct(prod: Omit<Product, 'id'>, actorRole = 'ADMIN'): Promise<Product> {
-  const id = 'prod-' + Date.now();
-  const newProduct: Product = { ...prod, id };
-  if (auth.currentUser) {
-    await safeWriteOp(() => setDoc(doc(db, 'products', id), newProduct), OperationType.CREATE, `products/${id}`);
-  }
-  const current = getLocal('products', WHW_PRODUCTS);
-  const updated = [newProduct, ...current];
-  setLocal('products', updated);
+export async function createProduct(
+  product: Omit<Product, 'id'>,
+  actorRole = 'ADMIN'
+): Promise<Product> {
+  const newProduct: Product = { ...product, id: makeId('prod') };
+  await insertRecord('products', newProduct);
   await createAuditLog({
     userId: auth.currentUser?.uid,
     userRole: actorRole,
     action: 'PRODUCT_CREATED',
     resource: 'Product',
-    resourceId: id,
-    metadata: { name: newProduct.name, sku: newProduct.sku, price: newProduct.price, status: newProduct.status }
+    resourceId: newProduct.id,
+    metadata: {
+      name: newProduct.name,
+      sku: newProduct.sku,
+      price: newProduct.price,
+      status: newProduct.status
+    }
   });
   return newProduct;
 }
 
-export async function updateProduct(id: string, updates: Partial<Product>, actorRole = 'ADMIN'): Promise<void> {
-  const payload = { ...updates, updatedAt: new Date().toISOString() };
-  if (auth.currentUser) {
-    await safeWriteOp(() => updateDoc(doc(db, 'products', id), payload), OperationType.UPDATE, `products/${id}`);
-  }
-  const current = getLocal('products', WHW_PRODUCTS);
-  const existing = current.find(p => p.id === id);
-  const updated = current.map(p => (p.id === id ? { ...p, ...payload } : p));
-  setLocal('products', updated);
-
+export async function updateProduct(
+  id: string,
+  updates: Partial<Product>,
+  actorRole = 'ADMIN'
+): Promise<void> {
+  const previous = await getRecord<Product>('products', id);
+  await updateRecord('products', id, {
+    ...updates,
+    updatedAt: new Date().toISOString()
+  });
   const action =
     updates.status === 'DISABLED'
       ? 'PRODUCT_DISABLED'
@@ -479,24 +300,25 @@ export async function updateProduct(id: string, updates: Partial<Product>, actor
     resource: 'Product',
     resourceId: id,
     metadata: {
-      productName: updates.name || existing?.name || id,
+      productName: updates.name || previous?.name || id,
       changedFields: Object.keys(updates),
-      ...(updates.price !== undefined ? { newPrice: updates.price, previousPrice: existing?.price } : {}),
-      ...(updates.wholesalePrice !== undefined ? { newWholesalePrice: updates.wholesalePrice } : {}),
-      ...(updates.status !== undefined ? { newStatus: updates.status, previousStatus: existing?.status } : {}),
+      ...(updates.price !== undefined
+        ? { newPrice: updates.price, previousPrice: previous?.price }
+        : {}),
+      ...(updates.wholesalePrice !== undefined
+        ? { newWholesalePrice: updates.wholesalePrice }
+        : {}),
+      ...(updates.status !== undefined
+        ? { newStatus: updates.status, previousStatus: previous?.status }
+        : {}),
       ...(updates.category !== undefined ? { newCategory: updates.category } : {})
     }
   });
 }
 
 export async function deleteProduct(id: string, actorRole = 'ADMIN'): Promise<void> {
-  if (auth.currentUser) {
-    await safeWriteOp(() => deleteDoc(doc(db, 'products', id)), OperationType.DELETE, `products/${id}`);
-  }
-  const current = getLocal('products', WHW_PRODUCTS);
-  const existing = current.find(p => p.id === id);
-  const updated = current.filter(p => p.id !== id);
-  setLocal('products', updated);
+  const existing = await getRecord<Product>('products', id);
+  await deleteRecord('products', id);
   await createAuditLog({
     userId: auth.currentUser?.uid,
     userRole: actorRole,
@@ -507,109 +329,73 @@ export async function deleteProduct(id: string, actorRole = 'ADMIN'): Promise<vo
   });
 }
 
-// --- WELLNESS PROGRAMS ---
 export async function getPrograms(): Promise<WellnessProgram[]> {
-  const items = await safeGetCollection<WellnessProgram>('wellness_programs');
-  if (items && items.length > 0) {
-    setLocal('programs', items);
-    return items;
-  }
-  return getLocal('programs', INITIAL_PROGRAMS);
+  return getCollection<WellnessProgram>('wellness_programs');
 }
 
 export async function getProgramBySlug(slug: string): Promise<WellnessProgram | null> {
-  const all = await getPrograms();
-  return all.find(p => p.slug === slug) || null;
+  return (await getPrograms()).find((program) => program.slug === slug) ?? null;
 }
 
-export async function createProgram(prog: Omit<WellnessProgram, 'id'>): Promise<WellnessProgram> {
-  const id = 'prog-' + Date.now();
-  const newProg: WellnessProgram = { ...prog, id };
-  if (auth.currentUser) {
-    await safeWriteOp(
-      () => setDoc(doc(db, 'wellness_programs', id), newProg),
-      OperationType.CREATE,
-      `wellness_programs/${id}`
-    );
-  }
-  const current = getLocal('programs', INITIAL_PROGRAMS);
-  const updated = [newProg, ...current];
-  setLocal('programs', updated);
-  return newProg;
+export async function createProgram(
+  program: Omit<WellnessProgram, 'id'>
+): Promise<WellnessProgram> {
+  const newProgram: WellnessProgram = { ...program, id: makeId('prog') };
+  return insertRecord('wellness_programs', newProgram);
 }
 
-export async function updateProgram(id: string, updates: Partial<WellnessProgram>): Promise<void> {
-  if (auth.currentUser) {
-    await safeWriteOp(
-      () => updateDoc(doc(db, 'wellness_programs', id), updates),
-      OperationType.UPDATE,
-      `wellness_programs/${id}`
-    );
-  }
-  const current = getLocal('programs', INITIAL_PROGRAMS);
-  setLocal('programs', current.map(p => (p.id === id ? { ...p, ...updates } : p)));
+export async function updateProgram(
+  id: string,
+  updates: Partial<WellnessProgram>
+): Promise<void> {
+  await updateRecord('wellness_programs', id, {
+    ...updates,
+    updatedAt: new Date().toISOString()
+  });
 }
 
 export async function deleteProgram(id: string): Promise<void> {
-  if (auth.currentUser) {
-    await safeWriteOp(
-      () => deleteDoc(doc(db, 'wellness_programs', id)),
-      OperationType.DELETE,
-      `wellness_programs/${id}`
-    );
-  }
-  const current = getLocal('programs', INITIAL_PROGRAMS);
-  setLocal('programs', current.filter(p => p.id !== id));
+  await deleteRecord('wellness_programs', id);
 }
 
-// --- PARTNERS ---
 export async function getPartners(includeUnapproved = false): Promise<Partner[]> {
-  const partnerQuery =
-    includeUnapproved && isBootstrappedAdminAuth()
-      ? collection(db, 'partners')
-      : query(collection(db, 'partners'), where('status', '==', 'APPROVED'));
-
-  const items = await safeGetCollection<Partner>('partners', partnerQuery);
-  if (items && items.length > 0) {
-    if (includeUnapproved) {
-      setLocal('partners', items);
-    }
-    return items;
-  }
-  return getLocal('partners', INITIAL_PARTNERS);
+  const partners = await getCollection<Partner>('partners');
+  return includeUnapproved
+    ? partners
+    : partners.filter((partner) => partner.status === 'APPROVED');
 }
 
 export async function getMyPartnerApplications(): Promise<Partner[]> {
-  if (auth.currentUser) {
-    const items = await safeGetCollection<Partner>(
-      'partners',
-      query(collection(db, 'partners'), where('ownerUid', '==', auth.currentUser.uid))
-    );
-    if (items && items.length > 0) {
-      return items;
-    }
-  }
-  const email = auth.currentUser?.email?.toLowerCase();
   const uid = auth.currentUser?.uid;
-  const local = getLocal('partners', INITIAL_PARTNERS);
-  return local.filter(
-    p => (uid && p.ownerUid === uid) || (email && p.email.toLowerCase() === email)
+  const email = auth.currentUser?.email?.toLowerCase();
+  const partners = await getCollection<Partner>('partners');
+  return partners.filter(
+    (partner) =>
+      (uid && partner.ownerUid === uid) ||
+      (email && partner.email.toLowerCase() === email)
   );
 }
 
 export async function getPartnerBySlug(slug: string): Promise<Partner | null> {
-  const all = await getPartners();
   const normalized = slug.toLowerCase().replace(/[^a-z0-9-]/g, '');
-  return all.find(p => p.slug.toLowerCase() === normalized) || null;
+  return (
+    (await getPartners()).find(
+      (partner) => partner.slug.toLowerCase() === normalized
+    ) ?? null
+  );
 }
 
 export async function getPartnerById(partnerId: string): Promise<Partner | null> {
-  const all = await getPartners();
-  return all.find(p => p.id === partnerId || p.partnerId === partnerId) || null;
+  return (
+    (await getPartners(true)).find(
+      (partner) => partner.id === partnerId || partner.partnerId === partnerId
+    ) ?? null
+  );
 }
 
 export async function registerPartner(data: {
   name: string;
+  businessName?: string;
   contactPerson: string;
   email: string;
   phone?: string;
@@ -617,53 +403,47 @@ export async function registerPartner(data: {
   category: string;
   website?: string;
   address?: string;
+  ownerUid?: string;
 }): Promise<Partner> {
-  const all = await getPartners(true);
-  const nextNum = (all.length + 1).toString().padStart(6, '0');
-  const partnerId = `WH-P-${nextNum}`;
+  const allPartners = await getPartners(true);
+  const ownerUid = data.ownerUid || auth.currentUser?.uid;
+  const existingApplication = ownerUid
+    ? allPartners.find((partner) => partner.ownerUid === ownerUid)
+    : undefined;
+  if (existingApplication) return existingApplication;
 
-  let baseSlug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-  if (!baseSlug) baseSlug = 'partner-' + nextNum;
+  const nextNumber = String(allPartners.length + 1).padStart(6, '0');
+  const partnerId = `WH-P-${nextNumber}`;
+  const baseSlug =
+    data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') ||
+    `partner-${nextNumber}`;
   let slug = baseSlug;
-  let counter = 1;
-  while (all.some(p => p.slug === slug)) {
-    slug = `${baseSlug}-${counter++}`;
+  let suffix = 1;
+  while (allPartners.some((partner) => partner.slug === slug)) {
+    slug = `${baseSlug}-${suffix++}`;
   }
 
-  const id = 'partner-' + Date.now();
-  const newPartner: Partner = {
-    id,
+  const partner: Partner = {
+    ...data,
+    id: makeId('partner'),
     partnerId,
-    name: data.name,
     slug,
-    contactPerson: data.contactPerson,
-    email: data.email,
-    phone: data.phone,
-    description: data.description,
-    category: data.category,
-    website: data.website,
-    address: data.address,
-    ownerUid: auth.currentUser?.uid,
+    ...(ownerUid ? { ownerUid } : {}),
     status: 'NEW',
     commissionRate: 0.25,
     memberDiscountRate: 0.15,
     createdAt: new Date().toISOString()
   };
-
-  if (auth.currentUser) {
-    await safeWriteOp(() => setDoc(doc(db, 'partners', id), newPartner), OperationType.CREATE, `partners/${id}`);
-  }
-  const current = getLocal('partners', INITIAL_PARTNERS);
-  setLocal('partners', [newPartner, ...current]);
+  const created = await insertRecord('partners', partner);
   await createAuditLog({
     userId: auth.currentUser?.uid,
     userRole: auth.currentUser ? 'PARTNER_APPLICANT' : 'PUBLIC_APPLICANT',
     action: 'PARTNER_CREATED',
     resource: 'Partner',
-    resourceId: id,
-    metadata: { partnerId, name: data.name, status: 'NEW' }
+    resourceId: created.id,
+    metadata: { partnerId, name: partner.name, status: partner.status }
   });
-  return newPartner;
+  return created;
 }
 
 export async function updatePartnerStatus(
@@ -672,56 +452,33 @@ export async function updatePartnerStatus(
   adminNotes?: string,
   actorRole = 'ADMIN'
 ): Promise<void> {
+  const existing = await getRecord<Partner>('partners', id);
   const updatedAt = new Date().toISOString();
-  const payload: Partial<Partner> = {
+  const updates: Partial<Partner> = {
     status,
     updatedAt,
     ...(adminNotes !== undefined ? { adminNotes } : {})
   };
-  if (auth.currentUser) {
-    await safeWriteOp(() => updateDoc(doc(db, 'partners', id), payload), OperationType.UPDATE, `partners/${id}`);
-  }
-  const current = getLocal('partners', INITIAL_PARTNERS);
-  const existing = current.find(p => p.id === id);
-  const updated = current.map(p => (p.id === id ? { ...p, ...payload } : p));
-  setLocal('partners', updated);
+  await updateRecord('partners', id, updates);
 
-  // Sync wholesaleApprovalStatus & partner link on the corresponding user profile
-  if (existing) {
-    const mappedWholesaleStatus: UserProfile['wholesaleApprovalStatus'] =
-      status === 'APPROVED'
-        ? 'APPROVED'
-        : status === 'DECLINED' || status === 'REJECTED' || status === 'SUSPENDED'
-        ? 'DECLINED'
-        : 'PENDING';
-    const localUsers = getLocal<UserProfile[]>('users', INITIAL_USERS);
-    const matchingUser = localUsers.find(
-      u =>
-        (existing.ownerUid && u.uid === existing.ownerUid) ||
-        u.email.toLowerCase() === existing.email.toLowerCase()
-    );
-    const targetUid = existing.ownerUid || matchingUser?.uid;
-    if (targetUid) {
-      const userSyncPayload: Partial<UserProfile> = {
-        wholesaleApprovalStatus: mappedWholesaleStatus,
+  if (existing?.ownerUid) {
+    const user = await getUserByUid(existing.ownerUid);
+    if (user) {
+      const wholesaleApprovalStatus: UserProfile['wholesaleApprovalStatus'] =
+        status === 'APPROVED'
+          ? 'APPROVED'
+          : ['DECLINED', 'REJECTED', 'SUSPENDED'].includes(status)
+          ? 'DECLINED'
+          : 'PENDING';
+      await updateRecord('users', user.uid, {
+        wholesaleApprovalStatus,
         partnerId: existing.partnerId,
         partnerSlug: existing.slug,
-        ...(status === 'APPROVED' && (!matchingUser || matchingUser.role === 'CUSTOMER')
+        ...(status === 'APPROVED' && user.role === 'CUSTOMER'
           ? { role: 'PARTNER_OWNER' as UserRole }
           : {}),
         updatedAt
-      };
-      if (auth.currentUser) {
-        await safeWriteOp(
-          () => updateDoc(doc(db, 'users', targetUid), userSyncPayload),
-          OperationType.UPDATE,
-          `users/${targetUid}`
-        ).catch(() => false);
-      }
-      setLocal(
-        'users',
-        localUsers.map(u => (u.uid === targetUid ? { ...u, ...userSyncPayload } : u))
-      );
+      });
     }
   }
 
@@ -741,160 +498,120 @@ export async function updatePartnerStatus(
   });
 }
 
-export async function updatePartner(id: string, updates: Partial<Partner>): Promise<void> {
-  if (auth.currentUser) {
-    await safeWriteOp(
-      () => updateDoc(doc(db, 'partners', id), { ...updates, updatedAt: new Date().toISOString() }),
-      OperationType.UPDATE,
-      `partners/${id}`
-    );
-  }
-  const current = getLocal('partners', INITIAL_PARTNERS);
-  const updated = current.map(p =>
-    p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p
-  );
-  setLocal('partners', updated);
+export async function updatePartner(
+  id: string,
+  updates: Partial<Partner>
+): Promise<void> {
+  await updateRecord('partners', id, {
+    ...updates,
+    updatedAt: new Date().toISOString()
+  });
 }
 
-// --- ORDERS & EARNINGS ---
-export async function getOrders(scope: 'admin' | 'partner' | 'customer' = 'admin'): Promise<Order[]> {
-  if (auth.currentUser) {
-    if (!isBootstrappedAdminAuth() && scope === 'admin') {
-      return getLocal('orders', INITIAL_ORDERS);
-    }
-
-    let orderQuery: Query = collection(db, 'orders');
-    if (!isBootstrappedAdminAuth()) {
-      orderQuery =
-        scope === 'partner'
-          ? query(collection(db, 'orders'), where('partnerOwnerUid', '==', auth.currentUser.uid))
-          : query(collection(db, 'orders'), where('customerUid', '==', auth.currentUser.uid));
-    }
-
-    const items = await safeGetCollection<Order>('orders', orderQuery);
-    if (items && items.length > 0) {
-      if (scope === 'admin' && isBootstrappedAdminAuth()) {
-        setLocal('orders', items);
-      }
-      return items;
-    }
+export async function getOrders(
+  scope: 'admin' | 'partner' | 'customer' = 'admin'
+): Promise<Order[]> {
+  const orders = await getCollection<Order & { partnerOwnerUid?: string }>('orders');
+  const uid = auth.currentUser?.uid;
+  if (scope === 'partner' && uid) {
+    return orders.filter((order) => order.partnerOwnerUid === uid);
   }
-  return getLocal('orders', INITIAL_ORDERS);
+  if (scope === 'customer' && uid) {
+    return orders.filter((order) => order.customerUid === uid);
+  }
+  return orders;
 }
 
 export async function getOrdersByPartner(partnerId: string): Promise<Order[]> {
-  const all = await getOrders('partner');
-  return all.filter(o => o.partnerId === partnerId || o.partnerSlug === partnerId);
+  return (await getOrders('partner')).filter(
+    (order) => order.partnerId === partnerId || order.partnerSlug === partnerId
+  );
 }
 
 export async function getOrdersByCustomer(customerEmail: string): Promise<Order[]> {
-  const all = await getOrders('customer');
-  return all.filter(o => o.customerEmail.toLowerCase() === customerEmail.toLowerCase());
+  const normalizedEmail = customerEmail.toLowerCase();
+  return (await getOrders('customer')).filter(
+    (order) => order.customerEmail.toLowerCase() === normalizedEmail
+  );
 }
 
 export async function createOrder(
-  orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt'> & { orderNumber?: string }
-): Promise<Order> {
-  const id = 'ord-' + Date.now();
-  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-  const orderNumber = orderData.orderNumber || `WH-ORD-2026-${randomSuffix}`;
-  const createdAt = new Date().toISOString();
-
-  let partnerOwnerUid: string | undefined;
-  if (orderData.partnerId) {
-    const matchedPartner = await getPartnerById(orderData.partnerId);
-    partnerOwnerUid = matchedPartner?.ownerUid;
+  orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt'> & {
+    orderNumber?: string;
   }
-
-  const newOrder: Order = {
+): Promise<Order> {
+  const id = makeId('ord');
+  const orderNumber =
+    orderData.orderNumber ||
+    `WH-ORD-${new Date().getFullYear()}-${globalThis.crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+  const createdAt = new Date().toISOString();
+  const matchedPartner = orderData.partnerId
+    ? await getPartnerById(orderData.partnerId)
+    : null;
+  const order: Order & { partnerOwnerUid?: string } = {
     ...orderData,
-    customerUid: auth.currentUser?.uid || orderData.customerUid || 'guest-cust-id',
-    ...(partnerOwnerUid ? { partnerOwnerUid } : {}),
     id,
     orderNumber,
-    createdAt
+    createdAt,
+    customerUid: auth.currentUser?.uid || orderData.customerUid || 'guest-cust-id',
+    ...(matchedPartner?.ownerUid
+      ? { partnerOwnerUid: matchedPartner.ownerUid }
+      : {}),
+    ...(auth.currentUser
+      ? { status: 'PENDING' as const, paymentStatus: 'PENDING' as const }
+      : {})
   };
+  const created = await insertRecord('orders', order);
 
-  if (auth.currentUser) {
-    await safeWriteOp(() => setDoc(doc(db, 'orders', id), newOrder), OperationType.CREATE, `orders/${id}`);
-  }
-
-  const currentOrders = getLocal('orders', INITIAL_ORDERS);
-  setLocal('orders', [newOrder, ...currentOrders]);
-
-  // If order was referred by an approved partner, create an auditable PartnerEarning record
-  if (newOrder.partnerId && newOrder.partnerCommission && newOrder.partnerCommission > 0) {
-    const earningId = 'earn-' + Date.now();
-    const newEarning: PartnerEarning & { partnerOwnerUid?: string } = {
-      id: earningId,
-      partnerId: newOrder.partnerId,
-      partnerSlug: newOrder.partnerSlug || '',
-      ...(partnerOwnerUid ? { partnerOwnerUid } : {}),
-      orderId: newOrder.id,
-      orderNumber: newOrder.orderNumber,
-      customerName: newOrder.customerName,
-      grossSales: newOrder.subtotal,
-      eligibleSales: newOrder.subtotal - (newOrder.partnerDiscount || 0),
-      commissionRate: 0.25,
-      earningAmount: newOrder.partnerCommission,
+  if (!auth.currentUser && order.partnerId && (order.partnerCommission ?? 0) > 0) {
+    const earning: PartnerEarning & { partnerOwnerUid?: string } = {
+      id: makeId('earn'),
+      partnerId: order.partnerId,
+      partnerSlug: order.partnerSlug || '',
+      ...(matchedPartner?.ownerUid
+        ? { partnerOwnerUid: matchedPartner.ownerUid }
+        : {}),
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      customerName: order.customerName,
+      grossSales: order.subtotal,
+      eligibleSales: order.subtotal - order.partnerDiscount,
+      commissionRate: matchedPartner?.commissionRate ?? 0.25,
+      earningAmount: order.partnerCommission ?? 0,
       status: 'PENDING',
       createdAt
     };
-
-    if (auth.currentUser) {
-      await safeWriteOp(
-        () => setDoc(doc(db, 'partner_earnings', earningId), newEarning),
-        OperationType.CREATE,
-        `partner_earnings/${earningId}`
-      );
-    }
-
-    const currentEarnings = getLocal('partner_earnings', INITIAL_EARNINGS);
-    setLocal('partner_earnings', [newEarning, ...currentEarnings]);
+    await insertRecord('partner_earnings', earning);
   }
 
-  return newOrder;
+  return created;
 }
 
-export async function updateOrderStatus(orderId: string, status: OrderStatus): Promise<void> {
-  if (auth.currentUser) {
-    await safeWriteOp(
-      () => updateDoc(doc(db, 'orders', orderId), { status, updatedAt: new Date().toISOString() }),
-      OperationType.UPDATE,
-      `orders/${orderId}`
-    );
-  }
-  const current = getLocal('orders', INITIAL_ORDERS);
-  const updated = current.map(o =>
-    o.id === orderId ? { ...o, status, updatedAt: new Date().toISOString() } : o
-  );
-  setLocal('orders', updated);
+export async function updateOrderStatus(
+  orderId: string,
+  status: OrderStatus
+): Promise<void> {
+  await updateRecord('orders', orderId, {
+    status,
+    updatedAt: new Date().toISOString()
+  });
 }
 
-// --- PARTNER EARNINGS ---
-export async function getPartnerEarnings(partnerId?: string): Promise<PartnerEarning[]> {
-  if (auth.currentUser) {
-    const earningsQuery = isBootstrappedAdminAuth()
-      ? collection(db, 'partner_earnings')
-      : query(collection(db, 'partner_earnings'), where('partnerOwnerUid', '==', auth.currentUser.uid));
-
-    const items = await safeGetCollection<PartnerEarning>('partner_earnings', earningsQuery);
-    if (items && items.length > 0) {
-      if (isBootstrappedAdminAuth()) {
-        setLocal('partner_earnings', items);
-      }
-      return partnerId
-        ? items.filter(e => e.partnerId === partnerId || e.partnerSlug === partnerId)
-        : items;
-    }
-  }
-  const local = getLocal('partner_earnings', INITIAL_EARNINGS);
+export async function getPartnerEarnings(
+  partnerId?: string
+): Promise<PartnerEarning[]> {
+  const earnings = await getCollection<PartnerEarning>('partner_earnings');
   return partnerId
-    ? local.filter(e => e.partnerId === partnerId || e.partnerSlug === partnerId)
-    : local;
+    ? earnings.filter(
+        (earning) =>
+          earning.partnerId === partnerId || earning.partnerSlug === partnerId
+      )
+    : earnings;
 }
 
-export async function getEarningsByPartner(partnerId: string): Promise<PartnerEarning[]> {
+export async function getEarningsByPartner(
+  partnerId: string
+): Promise<PartnerEarning[]> {
   return getPartnerEarnings(partnerId);
 }
 
@@ -902,304 +619,179 @@ export async function updateEarningStatus(
   earningId: string,
   status: 'PENDING' | 'APPROVED' | 'PAID'
 ): Promise<void> {
-  const updates: Partial<PartnerEarning> = {
+  await updateRecord('partner_earnings', earningId, {
     status,
     ...(status === 'PAID'
-      ? { paidAt: new Date().toISOString(), payoutBatchId: 'ACH-' + Date.now().toString().slice(-6) }
-      : {})
-  };
-
-  if (auth.currentUser) {
-    await safeWriteOp(
-      () => updateDoc(doc(db, 'partner_earnings', earningId), updates),
-      OperationType.UPDATE,
-      `partner_earnings/${earningId}`
-    );
-  }
-
-  const current = getLocal('partner_earnings', INITIAL_EARNINGS);
-  const updated = current.map(e => (e.id === earningId ? { ...e, ...updates } : e));
-  setLocal('partner_earnings', updated);
+      ? {
+          paidAt: new Date().toISOString(),
+          payoutBatchId: `ACH-${Date.now().toString().slice(-6)}`
+        }
+      : {}),
+    updatedAt: new Date().toISOString()
+  });
 }
 
-// --- ARTICLES, FAQS & TESTIMONIALS ---
 export async function getArticles(): Promise<EducationalArticle[]> {
-  const items = await safeGetCollection<EducationalArticle>('educational_articles');
-  if (items && items.length > 0) {
-    setLocal('articles', items);
-    return items;
-  }
-  return getLocal('articles', INITIAL_ARTICLES);
+  return getCollection<EducationalArticle>('educational_articles');
 }
 
-export async function createArticle(article: Omit<EducationalArticle, 'id'>): Promise<EducationalArticle> {
-  const id = 'art-' + Date.now();
-  const newArticle: EducationalArticle = { ...article, id };
-  if (auth.currentUser) {
-    await safeWriteOp(
-      () => setDoc(doc(db, 'educational_articles', id), newArticle),
-      OperationType.CREATE,
-      `educational_articles/${id}`
-    );
-  }
-  const current = getLocal('articles', INITIAL_ARTICLES);
-  setLocal('articles', [newArticle, ...current]);
-  return newArticle;
+export async function createArticle(
+  article: Omit<EducationalArticle, 'id'>
+): Promise<EducationalArticle> {
+  return insertRecord('educational_articles', {
+    ...article,
+    id: makeId('art')
+  });
 }
 
-export async function updateArticle(id: string, updates: Partial<EducationalArticle>): Promise<void> {
-  const payload = { ...updates, updatedAt: new Date().toISOString() };
-  if (auth.currentUser) {
-    await safeWriteOp(
-      () => updateDoc(doc(db, 'educational_articles', id), payload),
-      OperationType.UPDATE,
-      `educational_articles/${id}`
-    );
-  }
-  const current = getLocal('articles', INITIAL_ARTICLES);
-  setLocal('articles', current.map(a => (a.id === id ? { ...a, ...payload } : a)));
+export async function updateArticle(
+  id: string,
+  updates: Partial<EducationalArticle>
+): Promise<void> {
+  await updateRecord('educational_articles', id, {
+    ...updates,
+    updatedAt: new Date().toISOString()
+  });
 }
 
 export async function deleteArticle(id: string): Promise<void> {
-  if (auth.currentUser) {
-    await safeWriteOp(
-      () => deleteDoc(doc(db, 'educational_articles', id)),
-      OperationType.DELETE,
-      `educational_articles/${id}`
-    );
-  }
-  const current = getLocal('articles', INITIAL_ARTICLES);
-  setLocal('articles', current.filter(a => a.id !== id));
+  await deleteRecord('educational_articles', id);
 }
 
 export async function getFAQs(): Promise<FAQ[]> {
-  const items = await safeGetCollection<FAQ>('faqs');
-  if (items && items.length > 0) {
-    setLocal('faqs', items);
-    return items;
-  }
-  return getLocal('faqs', INITIAL_FAQS);
+  return getCollection<FAQ>('faqs');
 }
 
 export async function createFaq(faq: Omit<FAQ, 'id'>): Promise<FAQ> {
-  const id = 'faq-' + Date.now();
-  const newFaq: FAQ = { ...faq, id };
-  if (auth.currentUser) {
-    await safeWriteOp(() => setDoc(doc(db, 'faqs', id), newFaq), OperationType.CREATE, `faqs/${id}`);
-  }
-  const current = getLocal('faqs', INITIAL_FAQS);
-  setLocal('faqs', [...current, newFaq]);
-  return newFaq;
+  return insertRecord('faqs', { ...faq, id: makeId('faq') });
 }
 
 export async function updateFaq(id: string, updates: Partial<FAQ>): Promise<void> {
-  if (auth.currentUser) {
-    await safeWriteOp(() => updateDoc(doc(db, 'faqs', id), updates), OperationType.UPDATE, `faqs/${id}`);
-  }
-  const current = getLocal('faqs', INITIAL_FAQS);
-  setLocal('faqs', current.map(f => (f.id === id ? { ...f, ...updates } : f)));
+  await updateRecord('faqs', id, updates);
 }
 
 export async function deleteFaq(id: string): Promise<void> {
-  if (auth.currentUser) {
-    await safeWriteOp(() => deleteDoc(doc(db, 'faqs', id)), OperationType.DELETE, `faqs/${id}`);
-  }
-  const current = getLocal('faqs', INITIAL_FAQS);
-  setLocal('faqs', current.filter(f => f.id !== id));
+  await deleteRecord('faqs', id);
 }
 
 export async function getTestimonials(): Promise<Testimonial[]> {
-  const items = await safeGetCollection<Testimonial>('testimonials');
-  if (items && items.length > 0) {
-    setLocal('testimonials', items);
-    return items;
-  }
-  return getLocal('testimonials', INITIAL_TESTIMONIALS);
+  return getCollection<Testimonial>('testimonials');
 }
 
-export async function createTestimonial(testimonial: Omit<Testimonial, 'id'>): Promise<Testimonial> {
-  const id = 'test-' + Date.now();
-  const newItem: Testimonial = { ...testimonial, id };
-  if (auth.currentUser) {
-    await safeWriteOp(() => setDoc(doc(db, 'testimonials', id), newItem), OperationType.CREATE, `testimonials/${id}`);
-  }
-  const current = getLocal('testimonials', INITIAL_TESTIMONIALS);
-  setLocal('testimonials', [newItem, ...current]);
-  return newItem;
+export async function createTestimonial(
+  testimonial: Omit<Testimonial, 'id'>
+): Promise<Testimonial> {
+  return insertRecord('testimonials', {
+    ...testimonial,
+    id: makeId('testimonial')
+  });
 }
 
-export async function updateTestimonial(id: string, updates: Partial<Testimonial>): Promise<void> {
-  if (auth.currentUser) {
-    await safeWriteOp(() => updateDoc(doc(db, 'testimonials', id), updates), OperationType.UPDATE, `testimonials/${id}`);
-  }
-  const current = getLocal('testimonials', INITIAL_TESTIMONIALS);
-  setLocal('testimonials', current.map(t => (t.id === id ? { ...t, ...updates } : t)));
+export async function updateTestimonial(
+  id: string,
+  updates: Partial<Testimonial>
+): Promise<void> {
+  await updateRecord('testimonials', id, updates);
 }
 
 export async function deleteTestimonial(id: string): Promise<void> {
-  if (auth.currentUser) {
-    await safeWriteOp(() => deleteDoc(doc(db, 'testimonials', id)), OperationType.DELETE, `testimonials/${id}`);
-  }
-  const current = getLocal('testimonials', INITIAL_TESTIMONIALS);
-  setLocal('testimonials', current.filter(t => t.id !== id));
+  await deleteRecord('testimonials', id);
 }
 
-export async function createPartner(partner: Omit<Partner, 'id'>): Promise<Partner> {
-  const all = await getPartners(true);
-  const nextNum = (all.length + 1).toString().padStart(6, '0');
-  const partnerId = partner.partnerId || `WH-P-${nextNum}`;
-  const id = 'partner-' + Date.now();
+export async function createPartner(
+  partner: Omit<Partner, 'id'>
+): Promise<Partner> {
+  const allPartners = await getPartners(true);
+  const nextNumber = String(allPartners.length + 1).padStart(6, '0');
   const newPartner: Partner = {
     ...partner,
-    id,
-    partnerId,
-    ownerUid: partner.ownerUid || auth.currentUser?.uid,
+    id: makeId('partner'),
+    partnerId: partner.partnerId || `WH-P-${nextNumber}`,
+    ownerUid:
+      partner.ownerUid ||
+      (auth.currentUser?.email?.toLowerCase() === partner.email.toLowerCase()
+        ? auth.currentUser.uid
+        : undefined),
     status: partner.status || 'NEW'
   };
-
-  if (auth.currentUser) {
-    await safeWriteOp(() => setDoc(doc(db, 'partners', id), newPartner), OperationType.CREATE, `partners/${id}`);
-  }
-  const current = getLocal('partners', INITIAL_PARTNERS);
-  setLocal('partners', [newPartner, ...current]);
+  const created = await insertRecord('partners', newPartner);
   await createAuditLog({
     userId: auth.currentUser?.uid,
     userRole: auth.currentUser ? 'PARTNER_APPLICANT' : 'PUBLIC_APPLICANT',
     action: 'PARTNER_CREATED',
     resource: 'Partner',
-    resourceId: id,
-    metadata: { partnerId, name: newPartner.name, status: newPartner.status }
+    resourceId: created.id,
+    metadata: {
+      partnerId: created.partnerId,
+      name: created.name,
+      status: created.status
+    }
   });
-  return newPartner;
+  return created;
 }
 
-// --- AUDIT LOGS ---
 export async function createAuditLog(
   entry: Omit<AuditLogEntry, 'id' | 'timestamp'>
 ): Promise<AuditLogEntry> {
-  const id = 'audit-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-  const fullEntry: AuditLogEntry = {
+  const auditLog: AuditLogEntry = {
     ...entry,
-    id,
+    id: makeId('audit'),
     timestamp: new Date().toISOString()
   };
-  if (auth.currentUser) {
-    await safeWriteOp(() => setDoc(doc(db, 'audit_logs', id), fullEntry), OperationType.CREATE, `audit_logs/${id}`).catch(
-      () => false
-    );
-  }
-  const current = getLocal<AuditLogEntry[]>('audit_logs', []);
-  setLocal('audit_logs', [fullEntry, ...current].slice(0, 250));
-  return fullEntry;
+  return insertRecord('audit_logs', auditLog);
 }
 
 export async function getAuditLogs(): Promise<AuditLogEntry[]> {
-  if (auth.currentUser && isBootstrappedAdminAuth()) {
-    const items = await safeGetCollection<AuditLogEntry>('audit_logs');
-    if (items && items.length > 0) {
-      const sorted = items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      setLocal('audit_logs', sorted);
-      return sorted;
-    }
-  }
-  return getLocal<AuditLogEntry[]>('audit_logs', []);
+  return newestFirst(await getCollection<AuditLogEntry>('audit_logs'));
 }
 
-// --- INQUIRIES & ANALYTICS ---
 export async function createInquiry(
   data: Omit<ContactInquiry, 'id' | 'status' | 'createdAt'>
 ): Promise<ContactInquiry> {
-  const id = 'inq-' + Date.now();
   const inquiry: ContactInquiry = {
     ...data,
-    id,
+    id: makeId('inq'),
     status: 'NEW',
     userId: auth.currentUser?.uid,
     createdAt: new Date().toISOString()
   };
-
-  if (auth.currentUser) {
-    await safeWriteOp(
-      () => setDoc(doc(db, 'inquiries', id), inquiry),
-      OperationType.CREATE,
-      `inquiries/${id}`
-    ).catch(() => false);
-  }
-
-  const current = getLocal<ContactInquiry[]>('inquiries', []);
-  setLocal('inquiries', [inquiry, ...current]);
-  return inquiry;
+  return insertRecord('inquiries', inquiry);
 }
 
 export async function getInquiries(): Promise<ContactInquiry[]> {
-  if (auth.currentUser) {
-    const q = isBootstrappedAdminAuth()
-      ? collection(db, 'inquiries')
-      : query(collection(db, 'inquiries'), where('userId', '==', auth.currentUser.uid));
-    const items = await safeGetCollection<ContactInquiry>('inquiries', q);
-    if (items && items.length > 0) {
-      const sorted = items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      if (isBootstrappedAdminAuth()) setLocal('inquiries', sorted);
-      return sorted;
-    }
-  }
-  return getLocal<ContactInquiry[]>('inquiries', []);
+  return newestFirst(await getCollection<ContactInquiry>('inquiries'));
 }
 
-export async function updateInquiryStatus(id: string, status: ContactInquiry['status']): Promise<void> {
-  const payload = { status, updatedAt: new Date().toISOString() };
-  if (auth.currentUser) {
-    await safeWriteOp(
-      () => updateDoc(doc(db, 'inquiries', id), payload),
-      OperationType.UPDATE,
-      `inquiries/${id}`
-    );
-  }
-  const current = getLocal<ContactInquiry[]>('inquiries', []);
-  setLocal('inquiries', current.map(i => (i.id === id ? { ...i, ...payload } : i)));
+export async function updateInquiryStatus(
+  id: string,
+  status: ContactInquiry['status']
+): Promise<void> {
+  await updateRecord('inquiries', id, {
+    status,
+    updatedAt: new Date().toISOString()
+  });
 }
 
 export async function logAnalyticsEvent(
   event: Omit<AnalyticsEvent, 'id' | 'timestamp'>
 ): Promise<AnalyticsEvent> {
-  const id = 'evt-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-  const fullEvent: AnalyticsEvent = {
+  const analyticsEvent: AnalyticsEvent = {
     ...event,
-    id,
+    id: makeId('evt'),
     userId: auth.currentUser?.uid,
     timestamp: new Date().toISOString()
   };
-
-  if (auth.currentUser) {
-    await safeWriteOp(
-      () => setDoc(doc(db, 'analytics_events', id), fullEvent),
-      OperationType.CREATE,
-      `analytics_events/${id}`
-    ).catch(() => false);
-  }
-
-  const current = getLocal<AnalyticsEvent[]>('analytics_events', []);
-  setLocal('analytics_events', [fullEvent, ...current].slice(0, 400));
-  return fullEvent;
+  return insertRecord('analytics_events', analyticsEvent);
 }
 
 export async function getAnalyticsEvents(): Promise<AnalyticsEvent[]> {
-  if (auth.currentUser && isBootstrappedAdminAuth()) {
-    const items = await safeGetCollection<AnalyticsEvent>('analytics_events');
-    if (items && items.length > 0) {
-      const sorted = items.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      setLocal('analytics_events', sorted);
-      return sorted;
-    }
-  }
-  return getLocal<AnalyticsEvent[]>('analytics_events', []);
+  return newestFirst(await getCollection<AnalyticsEvent>('analytics_events'));
 }
 
 export const getFaqs = getFAQs;
 export const updatePartnerEarningStatus = updateEarningStatus;
 
 export const dbService = {
-  seedInitialDatabase,
   getUsers,
   getUserByUid,
   upsertUserProfile,
@@ -1231,7 +823,7 @@ export const dbService = {
   getPartnerEarnings,
   getEarningsByPartner,
   updateEarningStatus,
-  updatePartnerEarningStatus: updateEarningStatus,
+  updatePartnerEarningStatus,
   getArticles,
   createArticle,
   updateArticle,

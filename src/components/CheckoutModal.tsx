@@ -73,8 +73,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
 
     try {
       const orderNumber = `WH-ORD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-      const trackingNumber = `WH-EXP-CC-${Math.floor(10000000 + Math.random() * 90000000)}`;
-
       const shippingAddress: ShippingAddress = {
         fullName,
         addressLine1,
@@ -106,8 +104,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
         shipping,
         tax,
         total: finalTotal,
-        status: 'CONFIRMED',
-        paymentStatus: 'PAID',
+        status: 'PENDING',
+        paymentStatus: 'PENDING',
         partnerId: activeReferral?.partnerId,
         partnerSlug: activeReferral?.partnerSlug,
         partnerName: activeReferral?.partnerName,
@@ -116,8 +114,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
           : undefined,
         partnerCommission,
         commissionStatus,
-        trackingNumber,
-        coldChainLogged: true,
+        coldChainLogged: false,
         createdAt: new Date().toISOString()
       };
 
@@ -161,7 +158,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
 
             <div>
               <span className="inline-block px-3 py-1 rounded-full bg-[#c5a059] text-[#fffdfb] text-xs font-semibold uppercase tracking-wider mb-2">
-                Order Confirmed &amp; Dispatched to Lab
+                Order Submitted
               </span>
               <h2 className="font-serif text-2xl text-[#0c2340] font-bold">
                 Thank You, {completedOrder.customerName}
@@ -175,9 +172,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
             <div className="bg-[#f6f4ee] rounded-xl p-4 border border-[#dfd7c7] text-left flex items-start gap-3">
               <span className="material-symbols-outlined text-[#c5a059] text-[24px]">ac_unit</span>
               <div className="text-xs">
-                <p className="font-semibold text-[#0c2340]">Cold-Chain Packaging In Progress</p>
+                <p className="font-semibold text-[#0c2340]">Fulfillment Pending</p>
                 <p className="text-[#5a6b7c] mt-0.5">
-                  Your vials are packed with temp-monitored medical refrigerant packs. Tracking number: <strong className="font-mono text-[#c5a059]">{completedOrder.trackingNumber}</strong>.
+                  Fulfillment and tracking updates will appear here after the order is processed.
                 </p>
                 {completedOrder.partnerName && (
                   <p className="mt-2 text-[#c5a059] font-medium flex items-center gap-1">

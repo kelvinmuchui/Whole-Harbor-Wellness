@@ -28,6 +28,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, navigate,
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [businessName, setBusinessName] = useState('');
+  const [partnerCategory, setPartnerCategory] = useState('Wellness Practice');
   const [selectedRole, setSelectedRole] = useState<UserRole>('CUSTOMER');
   const [mfaCode, setMfaCode] = useState('');
   const [requiresMfa, setRequiresMfa] = useState(false);
@@ -67,7 +68,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, navigate,
           setLoading(false);
           return;
         }
-        const res = await register(email, password, displayName, selectedRole, { businessName });
+        const res = await register(email, password, displayName, selectedRole, {
+          businessName,
+          partnerCategory
+        });
         if (!res.success) {
           setAuthError(res.error || 'Registration failed');
           return;
@@ -87,7 +91,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, navigate,
       onClose();
     } catch (err) {
       console.error('Auth error', err);
-      setAuthError('An unexpected authentication error occurred.');
+      setAuthError(err instanceof Error ? err.message : 'An unexpected authentication error occurred.');
     } finally {
       setLoading(false);
     }
@@ -480,9 +484,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, navigate,
                   >
                     <option value="CUSTOMER">Customer / Patient (Retail Access)</option>
                     <option value="PARTNER_OWNER">Partner Owner (Wholesale Portal • Review Required)</option>
-                    <option value="PARTNER_STAFF">Partner Staff / Care Coordinator</option>
-                    <option value="ADMIN">System Administrator (MFA Required)</option>
-                    <option value="SALES_ADMIN">Sales Administrator</option>
                   </select>
                 </div>
 
@@ -500,6 +501,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, navigate,
                     <p className="text-[10px] text-[#c5a059] mt-1">
                       ✦ Partner accounts require WHW review &amp; approval before wholesale 10-vial kit ordering is enabled.
                     </p>
+                  </div>
+                )}
+                {selectedRole === 'PARTNER_OWNER' && (
+                  <div>
+                    <label className="block text-[#5a6b7c] font-medium mb-1">Organization Category</label>
+                    <select
+                      value={partnerCategory}
+                      onChange={(e) => setPartnerCategory(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    >
+                      <option value="Wellness Practice">Wellness Practice</option>
+                      <option value="Longevity Clinic">Longevity Clinic</option>
+                      <option value="Fitness Studio">Fitness Studio</option>
+                      <option value="Medical Concierge">Medical Concierge</option>
+                      <option value="Nutrition & Recovery">Nutrition &amp; Recovery</option>
+                    </select>
                   </div>
                 )}
               </>

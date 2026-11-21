@@ -283,6 +283,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   const [newPartnerDiscount, setNewPartnerDiscount] = useState(15);
   const [newPartnerDescription, setNewPartnerDescription] = useState('');
   const [savingNewPartner, setSavingNewPartner] = useState(false);
+  const [savingProduct, setSavingProduct] = useState(false);
+  const [adminSaveNotice, setAdminSaveNotice] = useState<{
+    kind: 'success' | 'error';
+    message: string;
+  } | null>(null);
 
   // CMS Inline Editors
   const [editingProgram, setEditingProgram] = useState<Partial<WellnessProgram> | null>(null);
@@ -650,6 +655,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
     e.preventDefault();
     if (!newPartnerName.trim() || !newPartnerEmail.trim()) return;
     setSavingNewPartner(true);
+    setAdminSaveNotice(null);
+    let saved = false;
     try {
       const slugBase = newPartnerName
         .toLowerCase()
@@ -659,7 +666,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
         ? `${slugBase}-${Date.now().toString().slice(-4)}`
         : slugBase || `partner-${Date.now().toString().slice(-4)}`;
 
-      await dbService.createPartner({
+      const createdPartner = await dbService.createPartner({
         partnerId: `WH-P-${String(partners.length + 1).padStart(6, '0')}`,
         name: newPartnerName.trim(),
         businessName: newPartnerName.trim(),
@@ -678,6 +685,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
         preferredCategories: ['metabolic', 'recovery', 'longevity'],
         createdAt: new Date().toISOString()
       });
+      saved = true;
 
       setAddPartnerOpen(false);
       setNewPartnerName('');
@@ -687,6 +695,23 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
       setNewPartnerLocation('');
       setNewPartnerDescription('');
       await reloadData();
+      setAdminSaveNotice({
+        kind: 'success',
+        message: `${createdPartner.name} was saved to the Supabase partner records.`
+      });
+    } catch (err) {
+      console.error('Failed to save partner record:', err);
+      setAdminSaveNotice({
+        kind: saved ? 'success' : 'error',
+        message: saved
+          ? `Partner record was saved, but the dashboard could not refresh: ${
+              err instanceof Error ? err.message : 'Unknown error.'
+            }`
+          : `Partner record was not saved: ${
+              err instanceof Error ? err.message : 'Unknown database error.'
+            }`
+      });
+      if (saved) setAddPartnerOpen(false);
     } finally {
       setSavingNewPartner(false);
     }
@@ -729,7 +754,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
     await reloadData();
   };
 
+  const openAddPartnerModal = () => {
+    setAdminSaveNotice(null);
+    setAddPartnerOpen(true);
+  };
+
   const openCreateProductModal = () => {
+    setAdminSaveNotice(null);
     setEditingProduct(null);
     setProdName('');
     setProdSku('');
@@ -749,6 +780,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   };
 
   function openEditProductModal(product: Product) {
+    setAdminSaveNotice(null);
     setEditingProduct(product);
     setProdName(product.name);
     setProdSku(product.sku);
@@ -781,68 +813,102 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSavingProduct(true);
+    setAdminSaveNotice(null);
     const slug = prodName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
     const numericPrice = Number(prodPrice);
     const numericWholesale = Number(prodWholesalePrice);
+    let saved = false;
+    try {
+      if (editingProduct) {
+        const updatedStrengths = editingProduct.strengths?.length
+          ? editingProduct.strengths.map((s, idx) =>
+              idx === 0 ? { ...s, price: numericPrice } : s
+            )
+          : [
+              { label: '5mg (10 Vials)', vialsCount: 10, price: numericPrice },
+              {
+                label: '10mg (10 Vials)',
+                vialsCount: 10,
+                price: Math.round(numericPrice * 1.75)
+              }
+            ];
 
-    if (editingProduct) {
-      const updatedStrengths = editingProduct.strengths?.length
-        ? editingProduct.strengths.map((s, idx) => (idx === 0 ? { ...s, price: numericPrice } : s))
-        : [
+        await dbService.updateProduct(editingProduct.id, {
+          name: prodName,
+          sku: prodSku || editingProduct.sku,
+          category: prodCategory,
+          categoryLabel: CATEGORY_LABELS[prodCategory] || 'Peptide',
+          status: prodStatus,
+          price: numericPrice,
+          wholesalePrice: numericWholesale,
+          purity: prodPurity,
+          stockQuantity: Number(prodStock),
+          lotNumber: prodLotNumber,
+          imageUrl: prodImageUrl,
+          shortDescription: prodShortDesc,
+          description: prodDescription || prodShortDesc,
+          disclosures: prodDisclosures,
+          educationalMaterial: prodEducationalMaterial,
+          strengths: updatedStrengths
+        });
+      } else {
+        const newProd: Omit<Product, 'id'> = {
+          name: prodName,
+          slug,
+          sku: prodSku || `WH-${slug.slice(0, 4).toUpperCase()}-2026`,
+          category: prodCategory,
+          categoryLabel: CATEGORY_LABELS[prodCategory] || 'Peptide',
+          shortDescription: prodShortDesc,
+          description: prodDescription || prodShortDesc,
+          disclosures: prodDisclosures,
+          educationalMaterial: prodEducationalMaterial,
+          price: numericPrice,
+          wholesalePrice: numericWholesale,
+          stockQuantity: Number(prodStock),
+          status: prodStatus,
+          featured: false,
+          purity: prodPurity,
+          lotNumber: prodLotNumber,
+          imageUrl: prodImageUrl,
+          strengths: [
             { label: '5mg (10 Vials)', vialsCount: 10, price: numericPrice },
             { label: '10mg (10 Vials)', vialsCount: 10, price: Math.round(numericPrice * 1.75) }
-          ];
+          ],
+          createdAt: new Date().toISOString()
+        };
 
-      await dbService.updateProduct(editingProduct.id, {
-        name: prodName,
-        sku: prodSku || editingProduct.sku,
-        category: prodCategory,
-        categoryLabel: CATEGORY_LABELS[prodCategory] || 'Peptide',
-        status: prodStatus,
-        price: numericPrice,
-        wholesalePrice: numericWholesale,
-        purity: prodPurity,
-        stockQuantity: Number(prodStock),
-        lotNumber: prodLotNumber,
-        imageUrl: prodImageUrl,
-        shortDescription: prodShortDesc,
-        description: prodDescription || prodShortDesc,
-        disclosures: prodDisclosures,
-        educationalMaterial: prodEducationalMaterial,
-        strengths: updatedStrengths
+        await dbService.createProduct(newProd);
+      }
+      saved = true;
+      await reloadData();
+      setProductModalOpen(false);
+      setEditingProduct(null);
+      setAdminSaveNotice({
+        kind: 'success',
+        message: editingProduct
+          ? `${prodName} was updated in Supabase.`
+          : `${prodName} was saved to the Supabase product records.`
       });
-    } else {
-      const newProd: Omit<Product, 'id'> = {
-        name: prodName,
-        slug,
-        sku: prodSku || `WH-${slug.slice(0, 4).toUpperCase()}-2026`,
-        category: prodCategory,
-        categoryLabel: CATEGORY_LABELS[prodCategory] || 'Peptide',
-        shortDescription: prodShortDesc,
-        description: prodDescription || prodShortDesc,
-        disclosures: prodDisclosures,
-        educationalMaterial: prodEducationalMaterial,
-        price: numericPrice,
-        wholesalePrice: numericWholesale,
-        stockQuantity: Number(prodStock),
-        status: prodStatus,
-        featured: false,
-        purity: prodPurity,
-        lotNumber: prodLotNumber,
-        imageUrl: prodImageUrl,
-        strengths: [
-          { label: '5mg (10 Vials)', vialsCount: 10, price: numericPrice },
-          { label: '10mg (10 Vials)', vialsCount: 10, price: Math.round(numericPrice * 1.75) }
-        ],
-        createdAt: new Date().toISOString()
-      };
-
-      await dbService.createProduct(newProd);
+    } catch (err) {
+      console.error('Failed to save formulation:', err);
+      setAdminSaveNotice({
+        kind: saved ? 'success' : 'error',
+        message: saved
+          ? `Formulation was saved, but the dashboard could not refresh: ${
+              err instanceof Error ? err.message : 'Unknown error.'
+            }`
+          : `Formulation was not saved: ${
+              err instanceof Error ? err.message : 'Unknown database error.'
+            }`
+      });
+      if (saved) {
+        setProductModalOpen(false);
+        setEditingProduct(null);
+      }
+    } finally {
+      setSavingProduct(false);
     }
-
-    setProductModalOpen(false);
-    setEditingProduct(null);
-    await reloadData();
   };
 
   const handleQuickProductStatus = async (product: Product, newStatus: ProductStatus) => {
@@ -1339,6 +1405,25 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
 
         {/* Main Scrollable Viewport */}
         <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-[1440px] w-full mx-auto space-y-6">
+          {adminSaveNotice && (
+            <div
+              role={adminSaveNotice.kind === 'error' ? 'alert' : 'status'}
+              className={`flex items-start justify-between gap-4 rounded-xl border p-3 text-xs ${
+                adminSaveNotice.kind === 'error'
+                  ? 'border-red-200 bg-red-50 text-red-800'
+                  : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              }`}
+            >
+              <span>{adminSaveNotice.message}</span>
+              <button
+                type="button"
+                onClick={() => setAdminSaveNotice(null)}
+                className="shrink-0 font-semibold underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
           {/* ============================================================== */}
           {/* SECTION 1: OVERVIEW (Matches Reference Layout + WHW Theme)     */}
           {/* ============================================================== */}
@@ -1381,7 +1466,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
 
                   <button
                     type="button"
-                    onClick={() => setAddPartnerOpen(true)}
+                    onClick={openAddPartnerModal}
                     className="h-10 px-4 rounded-xl bg-[#0c2340] hover:bg-[#c5a059] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs whitespace-nowrap"
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -1726,7 +1811,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                 </div>
                 <button
                   type="button"
-                  onClick={() => setAddPartnerOpen(true)}
+                  onClick={openAddPartnerModal}
                   className="h-10 px-4 rounded-xl bg-[#0c2340] hover:bg-[#c5a059] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shrink-0"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -2151,7 +2236,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                             )}
                           </td>
                           <td className="p-4 font-bold text-[#0c2340] tabular-nums">${ord.total.toFixed(2)}</td>
-                          <td className="p-4 font-mono text-[11px] text-[#c5a059]">{ord.trackingNumber || 'WH-EXP-CC-8291'}</td>
+                          <td className="p-4 font-mono text-[11px] text-[#c5a059]">{ord.trackingNumber || 'Pending fulfillment'}</td>
                           <td className="p-4">
                             <select
                               value={ord.status}
@@ -4031,9 +4116,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
               <button
                 type="submit"
                 form="whw-admin-product-form"
-                className="flex-1 py-3 px-4 rounded-xl bg-[#0c2340] hover:bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider cursor-pointer"
+                disabled={savingProduct}
+                className="flex-1 py-3 px-4 rounded-xl bg-[#0c2340] hover:bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider cursor-pointer disabled:opacity-50"
               >
-                {editingProduct ? 'Save Product Changes' : 'Save Formulation to Database'}
+                {savingProduct
+                  ? 'Saving to Database...'
+                  : editingProduct
+                  ? 'Save Product Changes'
+                  : 'Save Formulation to Database'}
               </button>
             </div>
           </div>
@@ -4103,7 +4193,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                 <div>
                   <span className="text-[10px] uppercase font-bold text-[#5a6b7c] block">Cold-Chain Tracking</span>
                   <span className="font-mono font-semibold text-[#0c2340] block">
-                    {inspectingOrder.trackingNumber || 'WH-EXP-CC-PENDING'}
+                    {inspectingOrder.trackingNumber || 'Pending fulfillment'}
                   </span>
                   <span className="text-[10px] text-[#5a6b7c]">
                     Commission: ${(inspectingOrder.partnerCommission || 0).toFixed(2)} ({inspectingOrder.commissionStatus || 'NONE'})

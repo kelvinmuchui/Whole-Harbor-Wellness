@@ -4,7 +4,7 @@
  * so local development, previews, and shared deployments run out of the box.
  */
 
-const env = import.meta.env;
+const env = import.meta.env || {};
 
 export const TEST_VARS = {
   appMode: env.VITE_APP_MODE || 'test',

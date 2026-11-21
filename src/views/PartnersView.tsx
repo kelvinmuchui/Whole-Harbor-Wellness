@@ -24,6 +24,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ navigate }) => {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const [loading, setLoading] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [createdPartner, setCreatedPartner] = useState<Partner | null>(null);
   const [copiedChannel, setCopiedChannel] = useState<'direct' | 'partner' | null>(null);
 
@@ -31,6 +32,7 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ navigate }) => {
     e.preventDefault();
     if (!agreedToTerms) return;
     setLoading(true);
+    setSubmitError(null);
 
     try {
       const slug = businessName
@@ -71,6 +73,11 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ navigate }) => {
       setCreatedPartner(partner);
     } catch (err) {
       console.error('Failed to submit partner application', err);
+      setSubmitError(
+        err instanceof Error
+          ? err.message
+          : 'Your partner application could not be saved. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
@@ -367,6 +374,14 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ navigate }) => {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6 text-xs">
+              {submitError && (
+                <div
+                  role="alert"
+                  className="rounded-xl border border-red-200 bg-red-50 p-3 text-red-800"
+                >
+                  Partner application was not saved: {submitError}
+                </div>
+              )}
               {/* Section 1: Organization & Contact */}
               <div className="space-y-4">
                 <h3 className="font-serif text-sm font-bold text-[#0c2340] border-b border-[#dfd7c7]/60 pb-1.5">
