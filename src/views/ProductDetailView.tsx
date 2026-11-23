@@ -20,24 +20,45 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({ slug, navi
   const { addToCart, setIsOpen, activeReferral } = useCart();
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
+    let active = true;
+    const load = async (initialLoad = false) => {
+      if (initialLoad) setLoading(true);
       try {
         const prod = await dbService.getProductBySlug(slug);
+        if (!active) return;
         if (prod) {
           setProduct(prod);
-          setSelectedStrength(prod.strengths[0] || null);
-          analyticsService.trackProductView(prod.slug, prod.name);
+          setSelectedStrength((current) =>
+            prod.strengths.find((strength) => strength.label === current?.label) ||
+            prod.strengths[0] ||
+            null
+          );
+          if (initialLoad) analyticsService.trackProductView(prod.slug, prod.name);
           const all = await dbService.getProducts();
-          setRelatedProducts(all.filter((p) => p.id !== prod.id && p.category === prod.category).slice(0, 3));
+          if (active) {
+            setRelatedProducts(
+              all.filter((p) => p.id !== prod.id && p.category === prod.category).slice(0, 3)
+            );
+          }
+        } else {
+          setProduct(null);
+          setSelectedStrength(null);
+          setRelatedProducts([]);
         }
       } catch (err) {
         console.error('Failed to load product', err);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
-    load();
+    void load(true);
+    const unsubscribe = dbService.subscribeToCollections(['products'], () => {
+      void load();
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [slug]);
 
   if (loading) {

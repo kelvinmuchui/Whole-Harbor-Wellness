@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CartItem, Product, ProductStrength, ReferralSession } from '../types/index.ts';
 import { analyticsService } from '../services/analyticsService.ts';
+import { calculateOrderTotals, calculateVolumeDiscount } from '../../server/services/orderService.ts';
 
 function readUrlReferralSource(): string | undefined {
   try {
@@ -169,33 +170,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setItems([]);
   };
 
-  // Calculations
+  // Keep the cart and persisted order breakdown on the same pricing rules.
   const totalVialsOrKits = items.reduce((sum, item) => sum + item.quantity, 0);
-  const subtotal = items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-
-  // Volume Tier Discount
-  let volumeDiscountRate = 0;
-  if (totalVialsOrKits >= 6) {
-    volumeDiscountRate = 0.10; // 10% for 6+ kits
-  } else if (totalVialsOrKits >= 4) {
-    volumeDiscountRate = 0.08; // 8% for 4-5 kits
-  } else if (totalVialsOrKits >= 2) {
-    volumeDiscountRate = 0.05; // 5% for 2-3 kits
-  }
-  const volumeDiscount = Number((subtotal * volumeDiscountRate).toFixed(2));
-
-  // Partner VIP member discount
   const partnerDiscountRate = activeReferral?.discountRate || 0;
-  const partnerDiscount = Number(((subtotal - volumeDiscount) * partnerDiscountRate).toFixed(2));
-
-  // Free Cold-Chain shipping for orders $500+ or if subtotal is 0
-  const afterDiscount = subtotal - volumeDiscount - partnerDiscount;
-  const shipping = afterDiscount >= 500 || items.length === 0 ? 0 : 15.00;
-
-  // Approximate 8.25% sales tax on tangible formulations
-  const taxableAmount = Math.max(0, afterDiscount);
-  const tax = Number((taxableAmount * 0.0825).toFixed(2));
-  const total = Number((taxableAmount + shipping + tax).toFixed(2));
+  const { discountRate: volumeDiscountRate } = calculateVolumeDiscount(items);
+  const { subtotal, volumeDiscount, partnerDiscount, shipping, tax, total } =
+    calculateOrderTotals(items, partnerDiscountRate);
 
   const setReferral = (refData: any) => {
     const partnerId = refData.partnerId || refData.id;

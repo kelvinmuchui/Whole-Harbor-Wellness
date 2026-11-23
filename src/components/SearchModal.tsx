@@ -15,11 +15,35 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, navig
   const [articles, setArticles] = useState<EducationalArticle[]>([]);
 
   useEffect(() => {
-    if (isOpen) {
-      dbService.getProducts().then(setProducts);
-      dbService.getPrograms().then(setPrograms);
-      dbService.getArticles().then(setArticles);
-    }
+    if (!isOpen) return;
+    let active = true;
+    const loadSearchData = async () => {
+      try {
+        const [productData, programData, articleData] = await Promise.all([
+          dbService.getProducts(),
+          dbService.getPrograms(),
+          dbService.getArticles()
+        ]);
+        if (active) {
+          setProducts(productData);
+          setPrograms(programData);
+          setArticles(articleData);
+        }
+      } catch (error) {
+        console.error('Failed to load search data', error);
+      }
+    };
+    void loadSearchData();
+    const unsubscribe = dbService.subscribeToCollections(
+      ['products', 'wellness_programs', 'educational_articles'],
+      () => {
+        void loadSearchData();
+      }
+    );
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [isOpen]);
 
   useEffect(() => {

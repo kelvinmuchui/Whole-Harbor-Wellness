@@ -258,6 +258,7 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
   };
 
   useEffect(() => {
+    let active = true;
     const loadDashboard = async () => {
       try {
         const [partnersList, myApps, productsList, programsList, articlesList] = await Promise.all([
@@ -268,6 +269,7 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
           dbService.getArticles()
         ]);
 
+        if (!active) return;
         const mergedMap = new Map<string, Partner>();
         [...myApps, ...partnersList].forEach((p) => {
           mergedMap.set(p.id, p);
@@ -295,8 +297,57 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
         setLoading(false);
       }
     };
-    loadDashboard();
+    void loadDashboard();
+    const unsubscribe = dbService.subscribeToCollections(['partners', 'users'], () => {
+      void loadDashboard();
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [currentUser]);
+
+  useEffect(() => {
+    if (!partner) return;
+    let active = true;
+    const refreshLiveData = async () => {
+      try {
+        const [allOrders, allEarnings, productsList, programsList, articlesList] =
+          await Promise.all([
+            dbService.getOrders('partner'),
+            dbService.getPartnerEarnings(partner.id),
+            dbService.getProducts(),
+            dbService.getPrograms(),
+            dbService.getArticles()
+          ]);
+        if (!active) return;
+        setOrders(
+          allOrders.filter(
+            (order) =>
+              order.partnerId === partner.id ||
+              order.partnerId === partner.partnerId ||
+              order.partnerSlug === partner.slug
+          )
+        );
+        setEarnings(allEarnings);
+        setProducts(productsList.filter((product) => product.status === 'ACTIVE'));
+        setPrograms(programsList.filter((program) => program.status === 'ACTIVE'));
+        setArticles(articlesList.filter((article) => article.status === 'PUBLISHED'));
+      } catch (error) {
+        console.error('Failed to refresh partner dashboard data', error);
+      }
+    };
+    const unsubscribe = dbService.subscribeToCollections(
+      ['orders', 'partner_earnings', 'products', 'wellness_programs', 'educational_articles'],
+      () => {
+        void refreshLiveData();
+      }
+    );
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [partner]);
 
   const referralUrl = partner ? `${window.location.origin}/#/partner/${partner.slug}` : '';
 

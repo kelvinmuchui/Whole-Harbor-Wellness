@@ -11,6 +11,7 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate
   const { currentUser, role, isAdmin, changePassword } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'protocols'>('orders');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -19,9 +20,12 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate
   const [savingPwd, setSavingPwd] = useState(false);
 
   useEffect(() => {
+    let active = true;
     const loadOrders = async () => {
       try {
         const all = await dbService.getOrders(isAdmin ? 'admin' : 'customer');
+        if (!active) return;
+        setOrdersError(null);
         if (!isAdmin && currentUser) {
           const emailLower = currentUser.email.toLowerCase();
           const scoped = all.filter(
@@ -35,11 +39,21 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate
         }
       } catch (err) {
         console.error('Failed to load customer orders', err);
+        if (active) {
+          setOrdersError('Unable to load your orders from the database. Please try again shortly.');
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
-    loadOrders();
+    void loadOrders();
+    const unsubscribe = dbService.subscribeToCollections(['orders'], () => {
+      void loadOrders();
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [currentUser, isAdmin]);
 
   return (
@@ -109,7 +123,11 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate
       {/* Orders Tab Content */}
       {activeTab === 'orders' && (
         <div className="space-y-6">
-          {loading ? (
+          {ordersError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
+              {ordersError}
+            </div>
+          ) : loading ? (
             <div className="py-12 text-center text-[#5a6b7c]">
               <span className="w-8 h-8 border-2 border-[#c5a059] border-t-transparent rounded-full animate-spin inline-block"></span>
               <p className="text-xs mt-2">Retrieving orders...</p>

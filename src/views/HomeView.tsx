@@ -17,10 +17,12 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const { addToCart, setIsOpen } = useCart();
 
   useEffect(() => {
+    let active = true;
     const load = async () => {
       try {
         const [prods, progs, tests, faqData] = await Promise.all([
@@ -29,17 +31,31 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
           dbService.getTestimonials(),
           dbService.getFaqs()
         ]);
-        setProducts(prods);
-        setPrograms(progs);
-        setTestimonials(tests);
-        setFaqs(faqData);
+        if (active) {
+          setProducts(prods);
+          setPrograms(progs);
+          setTestimonials(tests);
+          setFaqs(faqData);
+          setLoadError(null);
+        }
       } catch (err) {
         console.error('Failed to load home data', err);
+        if (active) setLoadError('Unable to load current catalog information. Please try again shortly.');
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
-    load();
+    void load();
+    const unsubscribe = dbService.subscribeToCollections(
+      ['products', 'wellness_programs', 'testimonials', 'faqs'],
+      () => {
+        void load();
+      }
+    );
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   const scrollToCatalog = () => {
@@ -60,6 +76,10 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
       return matchesCat && matchesSearch;
     });
   }, [products, selectedCategory, searchQuery]);
+
+  const featuredProducts = products
+    .filter((product) => product.featured && product.status === 'ACTIVE')
+    .slice(0, 3);
 
   return (
     <div className="space-y-12">
@@ -164,132 +184,58 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
           }}
           className="cursor-pointer"
         >
-          View all {products.length || 103} options →
+          View all {products.length} options →
         </a>
       </section>
 
-      {/* 4. Product Grid (Featured Trio with Authentic Assets) */}
-      <section className="product-grid">
-        {/* SEMAGLUTIDE */}
-        <article className="product-card">
-          <div className="product-image">
-            <img
-              src="/images/featured-semaglutide.png"
-              alt="SEMAGLUTIDE"
-              className="w-full h-full object-cover"
-            />
-            <span>Most Popular</span>
-          </div>
-          <div className="product-info">
-            <h3 className="font-serif text-xl font-semibold text-[var(--deep)] mb-1">SEMAGLUTIDE</h3>
-            <p className="text-xs text-[var(--muted)] mb-3 line-clamp-2">
-              Dual-action GLP-1 receptor agonist studied for appetite regulation and metabolic balance.
-            </p>
-            <div className="strength">
-              <span>Option</span>
-              <b>5mg • 10 vials</b>
-            </div>
-            <div className="price-row">
-              <div>
-                <small className="text-[10px] text-[var(--muted)] block">From</small>
-                <strong>$145.00</strong>
-              </div>
-              <button
-                onClick={() => navigate('product-detail', 'semaglutide-b12')}
-                className="cursor-pointer"
-              >
-                View Options →
-              </button>
-            </div>
-          </div>
-        </article>
-
-        {/* BPC-157 */}
-        <article className="product-card">
-          <div className="product-image">
-            <img
-              src="/images/featured-bpc157-clean.png"
-              alt="BPC-157"
-              className="w-full h-full object-cover"
-            />
-            <span>Clinician Choice</span>
-          </div>
-          <div className="product-info">
-            <h3 className="font-serif text-xl font-semibold text-[var(--deep)] mb-1">BPC-157</h3>
-            <p className="text-xs text-[var(--muted)] mb-3 line-clamp-2">
-              Synthesized pentadecapeptide studied for tendon, ligament, and gut mucosal tissue repair.
-            </p>
-            <div className="strength">
-              <span>Option</span>
-              <b>10mg • 10 vials</b>
-            </div>
-            <div className="price-row">
-              <div>
-                <small className="text-[10px] text-[var(--muted)] block">From</small>
-                <strong>$165.00</strong>
-              </div>
-              <button
-                onClick={() => navigate('product-detail', 'bpc-157-tb-500')}
-                className="cursor-pointer"
-              >
-                View Options →
-              </button>
-            </div>
-          </div>
-        </article>
-
-        {/* MOTS-C */}
-        <article className="product-card">
-          <div className="product-image">
-            <img
-              src="/images/featured-motsc.png"
-              alt="MOTS-C"
-              className="w-full h-full object-cover"
-            />
-            <span>Mitochondrial</span>
-          </div>
-          <div className="product-info">
-            <h3 className="font-serif text-xl font-semibold text-[var(--deep)] mb-1">MOTS-C</h3>
-            <p className="text-xs text-[var(--muted)] mb-3 line-clamp-2">
-              Mitochondrial-derived 16-amino acid peptide for intracellular AMPK bioenergetics and resilience.
-            </p>
-            <div className="strength">
-              <span>Option</span>
-              <b>20mg • 10 vials</b>
-            </div>
-            <div className="price-row">
-              <div>
-                <small className="text-[10px] text-[var(--muted)] block">From</small>
-                <strong>$285.00</strong>
-              </div>
-              <button
-                onClick={() => navigate('product-detail', 'mots-c-activator')}
-                className="cursor-pointer"
-              >
-                View Options →
-              </button>
-            </div>
-          </div>
-        </article>
-      </section>
+      {/* 4. Featured products from the database */}
+      {featuredProducts.length > 0 && (
+        <section className="product-grid">
+          {featuredProducts.map((product) => {
+            const strength = product.strengths[0];
+            return (
+              <article className="product-card" key={product.id}>
+                <div className="product-image">
+                  <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                  <span>{product.categoryLabel}</span>
+                </div>
+                <div className="product-info">
+                  <h3 className="font-serif text-xl font-semibold text-[var(--deep)] mb-1">{product.name}</h3>
+                  <p className="text-xs text-[var(--muted)] mb-3 line-clamp-2">{product.shortDescription}</p>
+                  {strength && (
+                    <div className="price-row">
+                      <div>
+                        <small className="text-[10px] text-[var(--muted)] block">{strength.label}</small>
+                        <strong>${strength.price.toFixed(2)}</strong>
+                      </div>
+                      <button
+                        onClick={() => navigate('product-detail', product.slug)}
+                        className="cursor-pointer"
+                      >
+                        View Options →
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
 
       {/* 5. Savings Strip (Multi-tier volume discounts) */}
       <section className="savings-strip">
         <div>
           <b>5% OFF</b>
-          <span>2+ KITS</span>
+          <span>2-3 KITS</span>
         </div>
         <div>
-          <b>10% OFF</b>
-          <span>3+ KITS</span>
+          <b>8% OFF</b>
+          <span>4-5 KITS</span>
         </div>
         <div>
-          <b>15% OFF</b>
-          <span>5+ KITS</span>
-        </div>
-        <div>
-          <b>20% OFF</b>
-          <span>10+ KITS</span>
+          <b>12% OFF</b>
+          <span>6+ KITS</span>
         </div>
       </section>
 
@@ -348,6 +294,16 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
           ))}
         </div>
 
+        {loading ? (
+          <div className="py-12 text-center text-xs text-[var(--muted)]" role="status">
+            Loading catalog...
+          </div>
+        ) : loadError ? (
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-center text-sm text-red-800" role="alert">
+            {loadError}
+          </div>
+        ) : (
+        <>
         {/* Catalog Grid */}
         <div className="catalog-grid">
           {filteredCatalog.map(prod => (
@@ -416,6 +372,8 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
               Reset Filters
             </button>
           </div>
+        )}
+        </>
         )}
       </section>
 

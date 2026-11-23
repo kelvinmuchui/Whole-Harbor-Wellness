@@ -16,7 +16,23 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ navigate }) => {
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
-    dbService.getPrograms().then(setPrograms);
+    let active = true;
+    const loadPrograms = async () => {
+      try {
+        const data = await dbService.getPrograms();
+        if (active) setPrograms(data);
+      } catch (error) {
+        console.error('Failed to load wellness programs', error);
+      }
+    };
+    void loadPrograms();
+    const unsubscribe = dbService.subscribeToCollections(['wellness_programs'], () => {
+      void loadPrograms();
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {

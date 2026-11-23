@@ -18,7 +18,23 @@ export const AboutView: React.FC<AboutViewProps> = ({ initialSection, navigate }
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    dbService.getTestimonials().then(setTestimonials);
+    let active = true;
+    const loadTestimonials = async () => {
+      try {
+        const data = await dbService.getTestimonials();
+        if (active) setTestimonials(data);
+      } catch (error) {
+        console.error('Failed to load testimonials', error);
+      }
+    };
+    void loadTestimonials();
+    const unsubscribe = dbService.subscribeToCollections(['testimonials'], () => {
+      void loadTestimonials();
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   const handleContactSubmit = async (e: React.FormEvent) => {

@@ -13,7 +13,7 @@ import {
 import { auth, googleAuthProvider } from '../lib/firebase.ts';
 import { dbService, INITIAL_USERS } from '../services/dbService.ts';
 import { UserProfile, UserRole, PermissionMatrix } from '../types/index.ts';
-import { TEST_VARS } from '../lib/testVariables.ts';
+import { demoModeEnabled, TEST_VARS } from '../lib/testVariables.ts';
 
 export interface AuthContextType {
   currentUser: UserProfile | null;
@@ -41,7 +41,7 @@ export interface AuthContextType {
   logout: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<{ success: boolean; error?: string; message?: string }>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string; message?: string }>;
-  updateCurrentUserProfile: (updates: Partial<UserProfile>) => void;
+  updateCurrentUserProfile: (updates: Partial<UserProfile>) => Promise<void>;
 }
 
 export const ROLE_PERMISSIONS: Record<UserRole, PermissionMatrix> = {
@@ -164,6 +164,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
+        setCurrentUser((user) => {
+          const isDemoPersona =
+            demoModeEnabled &&
+            [...Object.values(DEFAULT_USERS), ...SEEDED_ACCOUNTS.partners, ...SEEDED_ACCOUNTS.customers]
+              .some((demoUser) => demoUser.uid === user?.uid);
+          return isDemoPersona ? user : null;
+        });
         setAuthLoading(false);
         return;
       }
@@ -175,11 +182,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
         const existingProfile = await dbService.getUserByUid(firebaseUser.uid);
+        if (existingProfile?.status === 'SUSPENDED') {
+          await signOut(auth);
+          setCurrentUser(null);
+          setAuthLoading(false);
+          return;
+        }
 
         const isAdminEmail =
-          email === 'muchuimalcolm423@gmail.com' ||
-          email === 'admin@wholeharborwellness.com' ||
-          email === TEST_VARS.auth.adminEmail.toLowerCase();
+          firebaseUser.emailVerified &&
+          [
+            'muchuimalcolm423@gmail.com',
+            'admin@wholeharborwellness.com',
+            TEST_VARS.auth.adminEmail.toLowerCase()
+          ].includes(email);
 
         const matchedPartner = SEEDED_ACCOUNTS.partners.find(
           (p) => p.email.toLowerCase() === email
@@ -224,6 +240,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCurrentUser(resolvedProfile);
       } catch (err) {
         console.error('Failed to sync Firebase auth user profile:', err);
+        setCurrentUser(null);
       } finally {
         setAuthLoading(false);
       }
@@ -251,6 +268,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const switchRole = (newRole: UserRole, customUser?: Partial<UserProfile>) => {
+    if (!demoModeEnabled) {
+      console.error('Demo role switching is only available when test seed mode is enabled.');
+      return;
+    }
     const base = DEFAULT_USERS[newRole];
     const userToSet: UserProfile = {
       ...base,
@@ -268,15 +289,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const cleanEmail = email.trim().toLowerCase();
 
     const isAdminAccount =
-      cleanEmail.includes('admin') ||
-      cleanEmail === 'director@wholeharborwellness.com' ||
-      cleanEmail.includes('muchuimalcolm');
-    if (isAdminAccount && !mfaCode) {
+      cleanEmail === TEST_VARS.auth.adminEmail.toLowerCase() ||
+      cleanEmail === 'muchuimalcolm423@gmail.com' ||
+      cleanEmail === 'director@wholeharborwellness.com';
+    if (isAdminAccount && demoModeEnabled && !mfaCode) {
       return { success: false, requiresMfa: true };
     }
 
     if (
       isAdminAccount &&
+      demoModeEnabled &&
       mfaCode &&
       mfaCode.trim() !== TEST_VARS.auth.mfaCode &&
       mfaCode.trim() !== TEST_VARS.auth.fallbackMfaCode
@@ -288,89 +310,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
 
-    // Attempt live Firebase Email/Password authentication when password is provided for non-seeded users
-    const isSeededDemo =
-      cleanEmail === SEEDED_ACCOUNTS.admin.email.toLowerCase() ||
-      SEEDED_ACCOUNTS.partners.some((p) => p.email.toLowerCase() === cleanEmail) ||
-      SEEDED_ACCOUNTS.customers.some((c) => c.email.toLowerCase() === cleanEmail);
-
-    if (password && !isSeededDemo) {
-      try {
-        await signInWithEmailAndPassword(auth, cleanEmail, password);
-        return { success: true };
-      } catch (err: any) {
-        const code = err?.code || '';
-        if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
-          return { success: false, error: 'Invalid email or password. Please try again.' };
-        }
-        // Fallback smoothly for environments where Email/Password provider is not yet enabled in Firebase Console
-        if (code !== 'auth/operation-not-allowed' && code !== 'auth/user-not-found') {
-          console.warn('Firebase email sign-in fallback:', code);
-        }
-      }
-    }
-
-    if (
-      cleanEmail === SEEDED_ACCOUNTS.admin.email ||
-      cleanEmail.includes('admin') ||
-      cleanEmail.includes('muchuimalcolm')
-    ) {
-      setCurrentUser(SEEDED_ACCOUNTS.admin);
-      return { success: true };
-    }
-
-    const matchedPartner = SEEDED_ACCOUNTS.partners.find(
-      (p) => p.email.toLowerCase() === cleanEmail
+    const seededAccounts = [
+      { profile: SEEDED_ACCOUNTS.admin, expectedPassword: TEST_VARS.auth.demoPasswords.admin },
+      ...SEEDED_ACCOUNTS.partners.map((profile) => ({
+        profile,
+        expectedPassword: TEST_VARS.auth.demoPasswords.partner
+      })),
+      ...SEEDED_ACCOUNTS.customers.map((profile) => ({
+        profile,
+        expectedPassword: TEST_VARS.auth.demoPasswords.customer
+      }))
+    ];
+    const seededAccount = seededAccounts.find(
+      ({ profile }) => profile.email.toLowerCase() === cleanEmail
     );
-    if (matchedPartner) {
-      setCurrentUser(matchedPartner);
-      return { success: true };
-    }
 
-    const matchedCustomer = SEEDED_ACCOUNTS.customers.find(
-      (c) => c.email.toLowerCase() === cleanEmail
-    );
-    if (matchedCustomer) {
-      setCurrentUser(matchedCustomer);
-      return { success: true };
-    }
-
-    const existingUsers = await dbService.getUsers();
-    const matchedRegistered = existingUsers.find((u) => u.email.toLowerCase() === cleanEmail);
-    if (matchedRegistered) {
-      if (matchedRegistered.status === 'SUSPENDED') {
-        return { success: false, error: 'This account has been suspended. Please contact Whole Harbor support.' };
+    if (seededAccount && demoModeEnabled) {
+      if (password !== seededAccount.expectedPassword) {
+        return { success: false, error: 'Invalid email or password. Please try again.' };
       }
-      setCurrentUser(matchedRegistered);
+      setCurrentUser(seededAccount.profile);
       return { success: true };
     }
 
-    if (
-      cleanEmail.includes('vance') ||
-      cleanEmail.includes('equinox') ||
-      cleanEmail.includes('partner')
-    ) {
-      setCurrentUser(SEEDED_ACCOUNTS.partners[0]);
-      return { success: true };
+    if (!password) {
+      return { success: false, error: 'Enter your password to sign in.' };
     }
 
-    if (cleanEmail.includes('staff') || cleanEmail.includes('soma')) {
-      setCurrentUser(DEFAULT_USERS.PARTNER_STAFF);
+    try {
+      await signInWithEmailAndPassword(auth, cleanEmail, password);
       return { success: true };
+    } catch (err) {
+      const code =
+        typeof err === 'object' && err !== null && 'code' in err ? err.code : '';
+      if (code === 'auth/wrong-password' || code === 'auth/invalid-credential' || code === 'auth/user-not-found') {
+        return { success: false, error: 'Invalid email or password. Please try again.' };
+      }
+      if (code === 'auth/operation-not-allowed') {
+        return {
+          success: false,
+          error: 'Email and password sign-in is not enabled for this Firebase project.'
+        };
+      }
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Unable to sign in. Please try again.'
+      };
     }
-
-    const customerUser: UserProfile = {
-      uid: 'user-' + Date.now(),
-      email: cleanEmail,
-      displayName: cleanEmail.split('@')[0],
-      role: 'CUSTOMER',
-      status: 'ACTIVE',
-      wholesaleApprovalStatus: 'NONE',
-      createdAt: new Date().toISOString()
-    };
-    await dbService.upsertUserProfile(customerUser);
-    setCurrentUser(customerUser);
-    return { success: true };
   };
 
   const register = async (
@@ -418,40 +404,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
     }
 
-    if (passwordOrName && passwordOrName.length < 8) {
+    if (!passwordOrName || passwordOrName.length < 8) {
       return {
         success: false,
-        error: 'Security requirement: Password must be at least 8 characters long.'
+        error: 'A password of at least 8 characters is required.'
       };
-    }
-
-    if (TEST_VARS.authMode !== 'test' && !passwordOrName) {
-      return { success: false, error: 'A password is required to create your account.' };
     }
 
     const isPartnerApplicant = assignedRole === 'PARTNER_OWNER';
     const wholesaleApprovalStatus = isPartnerApplicant ? 'PENDING' : 'NONE';
 
-    let resolvedUid = `user-${globalThis.crypto.randomUUID()}`;
-    if (passwordOrName && passwordOrName.length >= 8) {
-      pendingRegistrationEmail.current = cleanEmail;
-      try {
-        const cred = await createUserWithEmailAndPassword(auth, cleanEmail, passwordOrName);
-        resolvedUid = cred.user.uid;
-      } catch (err: any) {
-        pendingRegistrationEmail.current = null;
-        const code = err?.code || '';
-        if (code === 'auth/email-already-in-use') {
-          return { success: false, error: 'An account with this email already exists. Please sign in.' };
-        }
-        if (TEST_VARS.authMode !== 'test') {
-          return {
-            success: false,
-            error: err instanceof Error ? err.message : 'Firebase account creation failed.'
-          };
-        }
-        console.warn('Firebase signup unavailable in test mode; saving a demo account profile instead.');
+    let resolvedUid: string;
+    pendingRegistrationEmail.current = cleanEmail;
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, cleanEmail, passwordOrName);
+      resolvedUid = cred.user.uid;
+    } catch (err) {
+      pendingRegistrationEmail.current = null;
+      const code =
+        typeof err === 'object' && err !== null && 'code' in err ? err.code : '';
+      if (code === 'auth/email-already-in-use') {
+        return { success: false, error: 'An account with this email already exists. Please sign in.' };
       }
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Firebase account creation failed.'
+      };
     }
 
     const newUser: UserProfile = {
@@ -516,12 +494,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         success: true,
         message: `Password reset instructions dispatched to ${cleanEmail}. Please check your inbox.`
       };
-    } catch (err: any) {
-      const code = err?.code || '';
-      if (code === 'auth/operation-not-allowed' || code === 'auth/user-not-found') {
+    } catch (err) {
+      const code =
+        typeof err === 'object' && err !== null && 'code' in err ? err.code : '';
+      if (code === 'auth/user-not-found') {
         return {
           success: true,
-          message: `If an account exists for ${cleanEmail}, recovery guidance has been queued.`
+          message: `If an account exists for ${cleanEmail}, password recovery instructions will be sent.`
+        };
+      }
+      if (code === 'auth/operation-not-allowed') {
+        return {
+          success: false,
+          error: 'Password recovery is not enabled for this Firebase project.'
         };
       }
       return {
@@ -553,35 +538,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           success: true,
           message: 'Your Google-linked session manages passwords via your Google Account security settings.'
         };
-      } catch (err: any) {
+      } catch (err) {
         return {
           success: false,
           error: err instanceof Error ? err.message : 'Failed to update password. Check your current password.'
         };
       }
     }
-    if (!currentPassword) {
-      return { success: false, error: 'Please enter your current password to verify changes.' };
-    }
-    await dbService.createAuditLog({
-      userId: currentUser?.uid,
-      userRole: currentUser?.role || 'CUSTOMER',
-      action: 'SECURITY_EVENT',
-      resource: 'User',
-      resourceId: currentUser?.uid,
-      metadata: { event: 'password_updated' }
-    });
-    return { success: true, message: 'Password credentials updated for this account session.' };
+    return {
+      success: false,
+      error: 'A verified Firebase session is required to change your password.'
+    };
   };
 
-  const updateCurrentUserProfile = (updates: Partial<UserProfile>) => {
+  const updateCurrentUserProfile = async (updates: Partial<UserProfile>): Promise<void> => {
     if (!currentUser) return;
     const updated: UserProfile = {
       ...currentUser,
       ...updates,
       updatedAt: new Date().toISOString()
     };
-    dbService.upsertUserProfile(updated).catch(() => {});
+    await dbService.upsertUserProfile(updated);
     setCurrentUser(updated);
   };
 

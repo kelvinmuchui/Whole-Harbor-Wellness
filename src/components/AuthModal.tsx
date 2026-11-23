@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth, SEEDED_ACCOUNTS } from '../context/AuthContext.tsx';
-import { TEST_VARS } from '../lib/testVariables.ts';
+import { demoModeEnabled, TEST_VARS } from '../lib/testVariables.ts';
 import { UserRole } from '../types/index.ts';
 
 interface AuthModalProps {
@@ -197,14 +197,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, navigate,
           <span>Continue with Google</span>
         </button>
 
-        <div className="flex items-center gap-3 text-[10px] uppercase tracking-wider text-[#5a6b7c]">
-          <span className="flex-1 h-px bg-[#dfd7c7]" />
-          <span>or account switcher &amp; email</span>
-          <span className="flex-1 h-px bg-[#dfd7c7]" />
-        </div>
+        {demoModeEnabled && (
+          <>
+            <div className="flex items-center gap-3 text-[10px] uppercase tracking-wider text-[#5a6b7c]">
+              <span className="flex-1 h-px bg-[#dfd7c7]" />
+              <span>or demo account switcher</span>
+              <span className="flex-1 h-px bg-[#dfd7c7]" />
+            </div>
 
-        {/* Seeded Accounts Switcher */}
-        <div className="bg-[#f6f4ee] p-3 rounded-2xl border border-[#dfd7c7] space-y-2">
+            {/* Seeded Accounts Switcher */}
+            <div className="bg-[#f6f4ee] p-3 rounded-2xl border border-[#dfd7c7] space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase font-bold tracking-wider text-[#5a6b7c]">
               Seeded Accounts (Click to Auto-fill &amp; Switch)
@@ -360,6 +362,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, navigate,
             </div>
           </div>
         </div>
+        </>
+        )}
 
         {/* Password Reset Flow */}
         {isForgotPassword ? (
@@ -376,6 +380,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, navigate,
                 } else {
                   setResetNotice(res.message || 'Recovery email dispatched.');
                 }
+              } catch (error) {
+                setAuthError(
+                  error instanceof Error ? error.message : 'Could not send password recovery instructions.'
+                );
               } finally {
                 setLoading(false);
               }
@@ -423,7 +431,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, navigate,
               <span className="material-symbols-outlined text-[28px] text-[#c5a059]">verified_user</span>
               <p className="font-serif text-sm font-semibold text-[#0c2340]">Administrator Two-Factor Authentication</p>
               <p className="text-[11px] text-[#5a6b7c]">
-                Per WHW security protocol, administrators require multi-factor verification. Enter test code <b>{TEST_VARS.auth.mfaCode}</b>.
+                Per WHW security protocol, administrators require multi-factor verification.
+                {demoModeEnabled && (
+                  <> Enter test code <b>{TEST_VARS.auth.mfaCode}</b>.</>
+                )}
               </p>
             </div>
 

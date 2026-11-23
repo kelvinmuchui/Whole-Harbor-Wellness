@@ -1,7 +1,7 @@
 import { auth } from '../lib/firebase.ts';
 import { INITIAL_USERS } from '../lib/seedUsers.ts';
 import { getSupabaseClient, type Json } from '../lib/supabase.ts';
-import { TEST_VARS } from '../lib/testVariables.ts';
+import { demoModeEnabled } from '../lib/testVariables.ts';
 import type {
   AnalyticsEvent,
   AuditLogEntry,
@@ -20,7 +20,7 @@ import type {
   WellnessProgram
 } from '../types/index.ts';
 
-type CollectionName =
+export type CollectionName =
   | 'users'
   | 'partners'
   | 'products'
@@ -59,7 +59,7 @@ function toJson(value: object): Json {
 }
 
 function isDemoEnvironment(): boolean {
-  return TEST_VARS.appMode !== 'production';
+  return demoModeEnabled;
 }
 
 function makeId(prefix: string): string {
@@ -92,6 +92,43 @@ async function getCollection<T>(collectionName: CollectionName): Promise<T[]> {
 
   if (error) raiseSupabaseError(`list ${collectionName}`, error);
   return ((data ?? []) as RecordRow[]).map((row) => fromRow<T>(row));
+}
+
+export function subscribeToCollections(
+  collections: CollectionName[],
+  onChange: () => void
+): () => void {
+  const client = getSupabaseClient();
+  const channels = collections.map((collectionName) =>
+    client
+      .channel(`whw-${collectionName}-${globalThis.crypto.randomUUID()}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'whw_records',
+          filter: `collection=eq.${collectionName}`
+        },
+        onChange
+      )
+      .subscribe((status, error) => {
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error(
+            `Supabase realtime subscription failed for ${collectionName} (${status}):`,
+            error
+          );
+        }
+      })
+  );
+
+  return () => {
+    channels.forEach((channel) => {
+      void client.removeChannel(channel).catch((error) => {
+        console.error('Failed to close Supabase realtime subscription:', error);
+      });
+    });
+  };
 }
 
 async function insertRecord<T extends object>(
@@ -801,6 +838,7 @@ export const dbService = {
   updateUserRole,
   updateUserStatus,
   getProducts,
+  subscribeToCollections,
   getProductBySlug,
   createProduct,
   updateProduct,

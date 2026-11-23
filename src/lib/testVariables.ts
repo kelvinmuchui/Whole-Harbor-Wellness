@@ -30,18 +30,9 @@ export const TEST_VARS = {
     attributionWindowDays: Number(env.VITE_ATTRIBUTION_WINDOW_DAYS || 30)
   },
 
-  checkout: {
-    defaultCustomerName: 'Dr. Arthur Vance',
-    defaultCustomerEmail: 'arthur.vance@example.com',
-    defaultPhone: '+1 (555) 382-9104',
-    defaultAddressLine1: '742 Evergreen Terrace',
-    defaultAddressLine2: 'Suite 400',
-    defaultCity: 'Springfield',
-    defaultState: 'OR',
-    defaultPostalCode: '97477',
-    defaultCountry: 'United States',
-    testCardLast4: '•••• •••• •••• 4242',
-    testCardExp: '12/28',
-    testCardCvc: '888'
-  }
 } as const;
+
+export const demoModeEnabled =
+  TEST_VARS.appMode === 'test' &&
+  TEST_VARS.authMode === 'test' &&
+  TEST_VARS.enableTestSeed;

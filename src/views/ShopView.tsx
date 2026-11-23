@@ -11,6 +11,7 @@ interface ShopViewProps {
 export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory || 'all');
   const [searchQuery, setSearchQuery] = useState('');
   const [addedItems, setAddedItems] = useState<Record<string, boolean>>({});
@@ -35,17 +36,31 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
   }, [selectedEducationProduct]);
 
   useEffect(() => {
+    let active = true;
     const loadProducts = async () => {
       try {
         const data = await dbService.getProducts();
-        setProducts(data);
+        if (active) {
+          setProducts(data);
+          setLoadError(null);
+        }
       } catch (err) {
         console.error('Failed to load products', err);
+        if (active) {
+          setLoadError('Unable to load the catalog from the database. Please try again shortly.');
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
-    loadProducts();
+    void loadProducts();
+    const unsubscribe = dbService.subscribeToCollections(['products'], () => {
+      void loadProducts();
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   // Smooth scroll if loaded with hash
@@ -107,10 +122,10 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
     });
   }, [products, selectedCategory, searchQuery]);
 
-  // Find featured items for Best Sellers trio
-  const semaglutideProd = products.find((p) => p.slug === 'semaglutide-b12') || products[0];
-  const bpcProd = products.find((p) => p.slug === 'bpc-157-tb-500') || products[1];
-  const motscProd = products.find((p) => p.slug === 'mots-c-activator') || products[2];
+  const featuredProducts = products.filter((product) => product.featured && product.status === 'ACTIVE').slice(0, 3);
+  const featuredStacks = products.filter(
+    (product) => product.isStack && product.status === 'ACTIVE'
+  );
 
   return (
     <div className="space-y-12">
@@ -205,7 +220,7 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
       {/* 3. Section Head: Best Sellers */}
       <section className="section-head" id="best-sellers">
         <div>
-          <h2>Best Sellers</h2>
+          <h2>Featured Formulations</h2>
           <p className="text-xs text-[var(--muted)] mt-1">
             Independently verified with high-performance liquid chromatography and mass spectrometry.
           </p>
@@ -218,192 +233,78 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
           }}
           className="cursor-pointer"
         >
-          View all {products.length || 103} options →
+          View all {products.length} options →
         </a>
       </section>
 
-      {/* 4. Product Grid (Best Sellers Featured Trio) */}
-      <section className="product-grid">
-        {/* SEMAGLUTIDE */}
-        <article className="product-card">
-          <div className="product-image">
-            <img
-              src="/images/featured-semaglutide.png"
-              alt="SEMAGLUTIDE"
-              className="w-full h-full object-cover"
-            />
-            <span>Most Popular</span>
-          </div>
-          <div className="product-info">
-            <p className="product-detail">Metabolic Regulation</p>
-            <h3 className="font-serif text-xl font-semibold text-[var(--deep)] mb-1">SEMAGLUTIDE</h3>
-            <p className="text-xs text-[var(--muted)] mb-3 line-clamp-2">
-              Dual-action GLP-1 receptor agonist studied for appetite regulation and metabolic balance.
-            </p>
-            <div className="strength">
-              <span>Retail Unit</span>
-              <b>Individual Vial (5mg)</b>
-            </div>
-            <div className="price-row">
-              <div className="featured-price">
-                <small>Individual Vial</small>
-                <strong>
-                  ${semaglutideProd?.strengths?.[0]
-                    ? (semaglutideProd.strengths[0].price / (semaglutideProd.strengths[0].vialsCount || 1)).toFixed(2)
-                    : '14.50'}
-                </strong>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    if (semaglutideProd?.strengths?.[0]) {
-                      handleQuickAdd(semaglutideProd, semaglutideProd.strengths[0]);
-                      setIsOpen(true);
-                    }
-                  }}
-                  className="cursor-pointer"
-                  title="Quick Add to Cart"
-                >
-                  Add to Cart
-                </button>
-                <button
-                  onClick={() => navigate('product-detail', 'semaglutide-b12')}
-                  className="cursor-pointer !bg-white !text-[var(--deep)] !border !border-[var(--line)] hover:!bg-[var(--blush)]"
-                  title="View detailed formulation specifications"
-                >
-                  Options
-                </button>
-              </div>
-            </div>
-          </div>
-        </article>
-
-        {/* BPC-157 */}
-        <article className="product-card">
-          <div className="product-image">
-            <img
-              src="/images/featured-bpc157-clean.png"
-              alt="BPC-157"
-              className="w-full h-full object-cover"
-            />
-            <span>Recovery Pick</span>
-          </div>
-          <div className="product-info">
-            <p className="product-detail">Tissue &amp; Gut Repair</p>
-            <h3 className="font-serif text-xl font-semibold text-[var(--deep)] mb-1">BPC-157</h3>
-            <p className="text-xs text-[var(--muted)] mb-3 line-clamp-2">
-              Synthesized pentadecapeptide studied for tendon, ligament, and gut mucosal tissue repair.
-            </p>
-            <div className="strength">
-              <span>Retail Unit</span>
-              <b>Individual Vial (10mg)</b>
-            </div>
-            <div className="price-row">
-              <div className="featured-price">
-                <small>Individual Vial</small>
-                <strong>
-                  ${bpcProd?.strengths?.[0]
-                    ? (bpcProd.strengths[0].price / (bpcProd.strengths[0].vialsCount || 1)).toFixed(2)
-                    : '16.50'}
-                </strong>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    if (bpcProd?.strengths?.[0]) {
-                      handleQuickAdd(bpcProd, bpcProd.strengths[0]);
-                      setIsOpen(true);
-                    }
-                  }}
-                  className="cursor-pointer"
-                  title="Quick Add to Cart"
-                >
-                  Add to Cart
-                </button>
-                <button
-                  onClick={() => navigate('product-detail', 'bpc-157-tb-500')}
-                  className="cursor-pointer !bg-white !text-[var(--deep)] !border !border-[var(--line)] hover:!bg-[var(--blush)]"
-                  title="View detailed formulation specifications"
-                >
-                  Options
-                </button>
-              </div>
-            </div>
-          </div>
-        </article>
-
-        {/* MOTS-C */}
-        <article className="product-card">
-          <div className="product-image">
-            <img
-              src="/images/featured-motsc.png"
-              alt="MOTS-C"
-              className="w-full h-full object-cover"
-            />
-            <span>Mitochondrial</span>
-          </div>
-          <div className="product-info">
-            <p className="product-detail">Cellular Energy</p>
-            <h3 className="font-serif text-xl font-semibold text-[var(--deep)] mb-1">MOTS-C</h3>
-            <p className="text-xs text-[var(--muted)] mb-3 line-clamp-2">
-              Mitochondrial-derived 16-amino acid peptide for intracellular AMPK bioenergetics and resilience.
-            </p>
-            <div className="strength">
-              <span>Retail Unit</span>
-              <b>Individual Vial (20mg)</b>
-            </div>
-            <div className="price-row">
-              <div className="featured-price">
-                <small>Individual Vial</small>
-                <strong>
-                  ${motscProd?.strengths?.[0]
-                    ? (motscProd.strengths[0].price / (motscProd.strengths[0].vialsCount || 1)).toFixed(2)
-                    : '28.50'}
-                </strong>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    if (motscProd?.strengths?.[0]) {
-                      handleQuickAdd(motscProd, motscProd.strengths[0]);
-                      setIsOpen(true);
-                    }
-                  }}
-                  className="cursor-pointer"
-                  title="Quick Add to Cart"
-                >
-                  Add to Cart
-                </button>
-                <button
-                  onClick={() => navigate('product-detail', 'mots-c-activator')}
-                  className="cursor-pointer !bg-white !text-[var(--deep)] !border !border-[var(--line)] hover:!bg-[var(--blush)]"
-                  title="View detailed formulation specifications"
-                >
-                  Options
-                </button>
-              </div>
-            </div>
-          </div>
-        </article>
-      </section>
+      {/* 4. Featured products from the catalog */}
+      {featuredProducts.length > 0 && (
+        <section className="product-grid">
+          {featuredProducts.map((product) => {
+            const strength = product.strengths[0];
+            return (
+              <article className="product-card" key={product.id}>
+                <div className="product-image">
+                  <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                  <span>{product.categoryLabel}</span>
+                </div>
+                <div className="product-info">
+                  <p className="product-detail">{product.categoryLabel}</p>
+                  <h3 className="font-serif text-xl font-semibold text-[var(--deep)] mb-1">{product.name}</h3>
+                  <p className="text-xs text-[var(--muted)] mb-3 line-clamp-2">{product.shortDescription}</p>
+                  {strength && (
+                    <>
+                      <div className="strength">
+                        <span>Available option</span>
+                        <b>{strength.label}</b>
+                      </div>
+                      <div className="price-row">
+                        <div className="featured-price">
+                          <small>{strength.vialsCount} vial{strength.vialsCount === 1 ? '' : 's'}</small>
+                          <strong>${strength.price.toFixed(2)}</strong>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              handleQuickAdd(product, strength);
+                              setIsOpen(true);
+                            }}
+                            className="cursor-pointer"
+                            title={`Add ${product.name} to cart`}
+                          >
+                            Add to Cart
+                          </button>
+                          <button
+                            onClick={() => navigate('product-detail', product.slug)}
+                            className="cursor-pointer !bg-white !text-[var(--deep)] !border !border-[var(--line)] hover:!bg-[var(--blush)]"
+                            title="View detailed formulation specifications"
+                          >
+                            Options
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
 
       {/* 5. Savings Strip (Multi-tier volume discounts) */}
       <section className="savings-strip">
         <div>
           <b>5% OFF</b>
-          <span>2+ KITS</span>
+          <span>2-3 KITS</span>
         </div>
         <div>
-          <b>10% OFF</b>
-          <span>3+ KITS</span>
+          <b>8% OFF</b>
+          <span>4-5 KITS</span>
         </div>
         <div>
-          <b>15% OFF</b>
-          <span>5+ KITS</span>
-        </div>
-        <div>
-          <b>20% OFF</b>
-          <span>10+ KITS</span>
+          <b>12% OFF</b>
+          <span>6+ KITS</span>
         </div>
       </section>
 
@@ -444,6 +345,10 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
           <div className="py-20 text-center text-[var(--muted)] space-y-3">
             <span className="w-8 h-8 border-2 border-[var(--rose)] border-t-transparent rounded-full animate-spin inline-block"></span>
             <p className="text-xs">Loading clinical catalog...</p>
+          </div>
+        ) : loadError ? (
+          <div className="my-8 rounded-xl border border-red-200 bg-red-50 p-4 text-center text-sm text-red-800" role="alert">
+            {loadError}
           </div>
         ) : (
           /* Catalog Grid */
@@ -540,121 +445,52 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
         )}
       </section>
 
-      {/* 7. Curated Synergies & Stacks Section */}
-      <section className="stacks-section">
-        <div className="section-head">
-          <div>
-            <h2>Curated Synergies &amp; Stacks</h2>
-            <p>Multi-peptide regimens designed for synergistic cellular pathways.</p>
+      {/* 7. Stacks from the active database catalog */}
+      {featuredStacks.length > 0 && (
+        <section className="stacks-section">
+          <div className="section-head">
+            <div>
+              <h2>Curated Synergies &amp; Stacks</h2>
+              <p>Available combinations and prices from the current product catalog.</p>
+            </div>
+            <button
+              onClick={() => {
+                setSelectedCategory('stacks');
+                scrollToCatalog();
+              }}
+            >
+              View All Stacks →
+            </button>
           </div>
-          <button
-            onClick={() => {
-              setSelectedCategory('stacks');
-              scrollToCatalog();
-            }}
-          >
-            View All Stacks →
-          </button>
-        </div>
 
-        <div className="stack-grid">
-          {/* Wolverine Protocol */}
-          <article>
-            <span>Tissue Recovery</span>
-            <h3>Wolverine Protocol</h3>
-            <p>
-              Dual-action BPC-157 and TB-500 synergy for accelerating tendon, ligament, and connective tissue remodeling.
-            </p>
-            <div>
-              <small>20 Vials Total • Syringes Included</small>
-              <strong>$320.00</strong>
-              <button
-                onClick={() => {
-                  const item = products.find((p) => p.slug === 'bpc-157-tb-500');
-                  if (item?.strengths?.[1]) {
-                    handleQuickAdd(item, item.strengths[1]);
-                    setIsOpen(true);
-                  }
-                }}
-              >
-                Add Kit +
-              </button>
-            </div>
-          </article>
-
-          {/* Metabolic Ignite */}
-          <article>
-            <span>Metabolic Balance</span>
-            <h3>Metabolic Ignite</h3>
-            <p>
-              Semaglutide paired with synergistic micronutrient methylation for prolonged appetite and glucose stability.
-            </p>
-            <div>
-              <small>20 Vials Total • Cold Pouch</small>
-              <strong>$280.00</strong>
-              <button
-                onClick={() => {
-                  const item = products.find((p) => p.slug === 'metabolic-optimizer-stack') || semaglutideProd;
-                  if (item?.strengths?.[0]) {
-                    handleQuickAdd(item, item.strengths[0]);
-                    setIsOpen(true);
-                  }
-                }}
-              >
-                Add Kit +
-              </button>
-            </div>
-          </article>
-
-          {/* Cellular Rejuvenation */}
-          <article>
-            <span>Longevity &amp; DNA</span>
-            <h3>Cellular Rejuvenation</h3>
-            <p>
-              Mitochondrial MOTS-c combined with pure NAD+ co-factor to trigger deep intracellular ATP synthesis.
-            </p>
-            <div>
-              <small>20 Vials Total • HPLC &gt;99.5%</small>
-              <strong>$450.00</strong>
-              <button
-                onClick={() => {
-                  const item = products.find((p) => p.slug === 'glow-rebuild-collagen-matrix') || motscProd;
-                  if (item?.strengths?.[0]) {
-                    handleQuickAdd(item, item.strengths[0]);
-                    setIsOpen(true);
-                  }
-                }}
-              >
-                Add Kit +
-              </button>
-            </div>
-          </article>
-
-          {/* Deep Rest & Renewal */}
-          <article>
-            <span>Restorative Sleep</span>
-            <h3>Deep Rest &amp; Renewal</h3>
-            <p>
-              Nocturnal growth hormone secretagogue blend synchronizing slow-wave delta restorative sleep.
-            </p>
-            <div>
-              <small>20 Vials Total • Fast Dispatch</small>
-              <strong>$290.00</strong>
-              <button
-                onClick={() => {
-                  const item = products.find((p) => p.slug === 'sleep-architecture-gh-blend') || products[0];
-                  if (item?.strengths?.[0]) {
-                    handleQuickAdd(item, item.strengths[0]);
-                    setIsOpen(true);
-                  }
-                }}
-              >
-                Add Kit +
-              </button>
-            </div>
-          </article>
-        </div>
-      </section>
+          <div className="stack-grid">
+            {featuredStacks.map((product) => {
+              const strength = product.strengths[0];
+              return (
+                <article key={product.id}>
+                  <span>{product.categoryLabel}</span>
+                  <h3>{product.name}</h3>
+                  <p>{product.shortDescription}</p>
+                  {strength && (
+                    <div>
+                      <small>{strength.label}</small>
+                      <strong>${strength.price.toFixed(2)}</strong>
+                      <button
+                        onClick={() => {
+                          handleQuickAdd(product, strength);
+                          setIsOpen(true);
+                        }}
+                      >
+                        Add Kit +
+                      </button>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* 8. Trust Row */}
       <section className="trust-row">

@@ -9,12 +9,16 @@ customer data in this test database.
 
 1. In the Supabase dashboard, open the SQL Editor for the test project.
 2. Run [`migrations/20261121000000_whw_records.sql`](./migrations/20261121000000_whw_records.sql).
-3. Then run [`seed.sql`](./seed.sql) to load the 50 demo records.
-4. Restart the Vite app and verify the storefront and dashboards display the
+3. Run [`migrations/20261122000000_enable_whw_realtime.sql`](./migrations/20261122000000_enable_whw_realtime.sql)
+   to add the records table to Supabase Realtime.
+4. Then run [`seed.sql`](./seed.sql) to load the 50 demo records.
+5. Restart the Vite app and verify the storefront and dashboards display the
    seeded records.
-5. In the admin dashboard, add a formulation and partner; confirm each appears
+6. In the admin dashboard, add a formulation and partner; confirm each appears
    in the dashboard after saving. New customer signups are saved as user
    profiles, and partner-owner signups also create a partner application.
+7. With the storefront and a dashboard open in separate tabs, update an order
+   or product and confirm both views refresh without reloading.
 
 The seed is safe to re-run: it only updates existing demo rows and does not
 overwrite live rows. After changing the app's demo data, regenerate it with
@@ -31,3 +35,13 @@ Firebase ID token, so configure Firebase as a third-party authentication
 provider in Supabase before testing authenticated live data. The test migration
 is not a production security policy; create and review production-specific RLS
 policies before using real data.
+
+The app listens for Realtime changes on the records used by the storefront,
+customer portal, partner portal, and admin dashboard. Supabase Realtime must be
+enabled for `public.whw_records`; the migration above enables it for new and
+existing test projects.
+
+Checkout in this repository is demo order submission only. It records an order
+with pending payment status and does not charge a card. Stripe processing,
+including server-side payment creation and webhook confirmation, must be
+implemented and configured before accepting real payments.

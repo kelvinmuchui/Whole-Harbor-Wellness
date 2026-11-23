@@ -399,7 +399,26 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   };
 
   useEffect(() => {
-    reloadData();
+    void reloadData();
+    return dbService.subscribeToCollections(
+      [
+        'users',
+        'partners',
+        'orders',
+        'partner_earnings',
+        'products',
+        'wellness_programs',
+        'educational_articles',
+        'faqs',
+        'testimonials',
+        'audit_logs',
+        'inquiries',
+        'analytics_events'
+      ],
+      () => {
+        void reloadData();
+      }
+    );
   }, []);
 
   const switchSection = (sec: AdminSection) => {

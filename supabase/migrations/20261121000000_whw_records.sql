@@ -196,6 +196,75 @@ on public.whw_records for update to anon, authenticated
 using (is_demo or public.whw_is_admin())
 with check (is_demo or public.whw_is_admin());
 
+drop policy if exists whw_partner_owner_update on public.whw_records;
+create policy whw_partner_owner_update
+on public.whw_records for update to authenticated
+using (
+  not is_demo
+  and collection = 'partners'
+  and data ->> 'ownerUid' = public.whw_firebase_uid()
+)
+with check (
+  not is_demo
+  and collection = 'partners'
+  and data ->> 'ownerUid' = public.whw_firebase_uid()
+);
+
+create or replace function public.whw_protect_partner_owner_update()
+returns trigger
+language plpgsql
+set search_path = public, pg_temp
+as $$
+begin
+  if old.collection = 'partners'
+    and not old.is_demo
+    and not public.whw_is_admin()
+    and old.data ->> 'ownerUid' = public.whw_firebase_uid()
+  then
+    if new.collection <> old.collection
+      or new.record_id <> old.record_id
+      or new.is_demo <> old.is_demo
+      or (new.data - array[
+        'name',
+        'businessName',
+        'contactPerson',
+        'phone',
+        'description',
+        'website',
+        'address',
+        'location',
+        'logoUrl',
+        'preferredCategories',
+        'updatedAt'
+      ]::text[]) <> (
+        old.data - array[
+          'name',
+          'businessName',
+          'contactPerson',
+          'phone',
+          'description',
+          'website',
+          'address',
+          'location',
+          'logoUrl',
+          'preferredCategories',
+          'updatedAt'
+        ]::text[]
+      )
+    then
+      raise exception 'Partner owners may only update their organization profile fields';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists whw_protect_partner_owner_update_trigger on public.whw_records;
+create trigger whw_protect_partner_owner_update_trigger
+before update on public.whw_records
+for each row execute function public.whw_protect_partner_owner_update();
+
 drop policy if exists whw_records_delete on public.whw_records;
 create policy whw_records_delete
 on public.whw_records for delete to anon, authenticated

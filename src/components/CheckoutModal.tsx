@@ -5,7 +5,7 @@ import { dbService } from '../services/dbService.ts';
 import { analyticsService } from '../services/analyticsService.ts';
 import { auth } from '../lib/firebase.ts';
 import { Order, ShippingAddress } from '../types/index.ts';
-import { TEST_VARS } from '../lib/testVariables.ts';
+import { demoModeEnabled } from '../lib/testVariables.ts';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -31,22 +31,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
-  // Form State (Test defaults)
-  const [fullName, setFullName] = useState<string>(currentUser?.displayName || TEST_VARS.checkout.defaultCustomerName);
-  const [email, setEmail] = useState<string>(currentUser?.email || TEST_VARS.checkout.defaultCustomerEmail);
-  const [phone, setPhone] = useState<string>(TEST_VARS.checkout.defaultPhone);
-  const [addressLine1, setAddressLine1] = useState<string>(TEST_VARS.checkout.defaultAddressLine1);
-  const [addressLine2, setAddressLine2] = useState<string>(TEST_VARS.checkout.defaultAddressLine2);
-  const [city, setCity] = useState<string>(TEST_VARS.checkout.defaultCity);
-  const [state, setState] = useState<string>(TEST_VARS.checkout.defaultState);
-  const [postalCode, setPostalCode] = useState<string>(TEST_VARS.checkout.defaultPostalCode);
-  const [country, setCountry] = useState<string>(TEST_VARS.checkout.defaultCountry);
-  const [medicalConsent, setMedicalConsent] = useState<boolean>(true);
-
-  // Payment test state
-  const [cardNumber, setCardNumber] = useState<string>(TEST_VARS.checkout.testCardLast4);
-  const [cardExp, setCardExp] = useState<string>(TEST_VARS.checkout.testCardExp);
-  const [cardCvc, setCardCvc] = useState<string>(TEST_VARS.checkout.testCardCvc);
+  const [fullName, setFullName] = useState<string>(currentUser?.displayName || '');
+  const [email, setEmail] = useState<string>(currentUser?.email || '');
+  const [phone, setPhone] = useState<string>('');
+  const [addressLine1, setAddressLine1] = useState<string>('');
+  const [addressLine2, setAddressLine2] = useState<string>('');
+  const [city, setCity] = useState<string>('');
+  const [state, setState] = useState<string>('');
+  const [postalCode, setPostalCode] = useState<string>('');
+  const [country, setCountry] = useState<string>('');
+  const [medicalConsent, setMedicalConsent] = useState<boolean>(false);
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -68,11 +62,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
       setCheckoutError('Please confirm the clinical compliance statement before proceeding.');
       return;
     }
+    if (!currentUser && !demoModeEnabled) {
+      setCheckoutError('Sign in before submitting an order so it can be saved to your account.');
+      return;
+    }
 
     setLoading(true);
 
     try {
-      const orderNumber = `WH-ORD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const shippingAddress: ShippingAddress = {
         fullName,
         addressLine1,
@@ -80,19 +77,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
         city,
         state,
         postalCode,
-        country
+        country,
+        phone
       };
 
       // Compute partner commission if referral exists
       let partnerCommission = 0;
       let commissionStatus: 'NONE' | 'PENDING' = 'NONE';
       if (activeReferral) {
-        partnerCommission = Number((subtotal * activeReferral.commissionRate).toFixed(2));
+        partnerCommission = Number(
+          (Math.max(0, subtotal - partnerDiscount) * activeReferral.commissionRate).toFixed(2)
+        );
         commissionStatus = 'PENDING';
       }
 
-      const orderData: Omit<Order, 'id'> = {
-        orderNumber,
+      const orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt'> = {
         customerUid: auth.currentUser?.uid || currentUser?.uid || 'guest-cust-id',
         customerName: fullName,
         customerEmail: email,
@@ -114,8 +113,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
           : undefined,
         partnerCommission,
         commissionStatus,
-        coldChainLogged: false,
-        createdAt: new Date().toISOString()
+        coldChainLogged: false
       };
 
       const created = await dbService.createOrder(orderData);
@@ -307,6 +305,24 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
                       className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
                     />
                   </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[#5a6b7c] font-medium mb-1">Apartment, suite, etc. (optional)</label>
+                    <input
+                      type="text"
+                      value={addressLine2}
+                      onChange={(e) => setAddressLine2(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[#5a6b7c] font-medium mb-1">Phone (optional)</label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
+                    />
+                  </div>
                   <div>
                     <label className="block text-[#5a6b7c] font-medium mb-1">City</label>
                     <input
@@ -339,6 +355,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
                       />
                     </div>
                   </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[#5a6b7c] font-medium mb-1">Country</label>
+                    <input
+                      type="text"
+                      required
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -346,38 +372,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
               <div className="pt-2 border-t border-[#dfd7c7]/60">
                 <h3 className="text-xs uppercase font-bold tracking-wider text-[#5a6b7c] mb-3 flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[16px] text-[#c5a059]">credit_card</span>
-                  2. Secure Payment Simulation
+                  2. Payment
                 </h3>
-                <div className="bg-white p-3 rounded-xl border border-[#dfd7c7] space-y-3 text-xs">
-                  <div>
-                    <label className="block text-[#5a6b7c] font-medium mb-1">Card Number</label>
-                    <input
-                      type="text"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-[#fffdfb]/50 border border-[#dfd7c7] font-mono text-[#0c2340] focus:outline-[#c5a059]"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[#5a6b7c] font-medium mb-1">Expiration</label>
-                      <input
-                        type="text"
-                        value={cardExp}
-                        onChange={(e) => setCardExp(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg bg-[#fffdfb]/50 border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[#5a6b7c] font-medium mb-1">CVC</label>
-                      <input
-                        type="text"
-                        value={cardCvc}
-                        onChange={(e) => setCardCvc(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg bg-[#fffdfb]/50 border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
-                      />
-                    </div>
-                  </div>
+                <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 text-xs text-amber-900">
+                  Demo checkout only: submitting records an unpaid order as pending. No card is collected
+                  and no payment is processed. Stripe checkout is not connected yet.
                 </div>
               </div>
 
@@ -461,7 +460,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
                 ) : (
                   <>
                     <span className="material-symbols-outlined text-[18px]">verified_user</span>
-                    <span>Authorize &amp; Complete Order (${finalTotal.toFixed(2)})</span>
+                    <span>Submit Demo Order - No Charge (${finalTotal.toFixed(2)})</span>
                   </>
                 )}
               </button>

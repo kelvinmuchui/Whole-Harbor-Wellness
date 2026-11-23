@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Menu, X, Search, LogIn, UserPlus, LogOut } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext.tsx';
 import { CartProvider, useCart } from './context/CartContext.tsx';
-import { testFirestoreConnection } from './lib/firebase.ts';
 import {
   DESKTOP_PRIMARY_TABS,
   getVisiblePortalTabs,
@@ -41,7 +40,7 @@ import { FAQView } from './views/FAQView.tsx';
 import { ContactView } from './views/ContactView.tsx';
 
 function MainApp() {
-  const { currentUser, role, isAdmin, isPartner, logout } = useAuth();
+  const { currentUser, role, isAdmin, isPartner, authLoading, logout } = useAuth();
   const { totalVialsOrKits, setIsOpen: setCartOpen } = useCart();
   const [currentPath, setCurrentPath] = useState<string>('home');
   const [currentParam, setCurrentParam] = useState<string | undefined>(undefined);
@@ -73,10 +72,6 @@ function MainApp() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [mobileMenuOpen]);
-
-  useEffect(() => {
-    testFirestoreConnection().catch(() => {});
-  }, []);
 
   useEffect(() => {
     updatePageSeo(currentPath, currentParam);
@@ -147,6 +142,14 @@ function MainApp() {
     setCurrentParam(param);
     window.scrollTo(0, 0);
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#fffdfb] text-[#5a6b7c]">
+        <p role="status" className="text-sm">Loading your account...</p>
+      </div>
+    );
+  }
 
   const mobileMenuDrawer = mobileMenuOpen ? (
     <div

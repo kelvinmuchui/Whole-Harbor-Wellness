@@ -60,6 +60,42 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
     load();
   }, [slug]);
 
+  useEffect(() => {
+    if (!partner) return;
+    let active = true;
+    const refreshCatalog = async () => {
+      try {
+        const [allProducts, allPrograms] = await Promise.all([
+          dbService.getProducts(),
+          dbService.getPrograms()
+        ]);
+        if (!active) return;
+        const activeProducts = allProducts.filter((product) => product.status !== 'DISABLED');
+        const preferredCategories = partner.preferredCategories || [];
+        const matchingProducts =
+          preferredCategories.length > 0
+            ? activeProducts.filter((product) => preferredCategories.includes(product.category))
+            : [];
+        setProducts(
+          (matchingProducts.length > 0 ? matchingProducts : activeProducts).slice(0, 4)
+        );
+        setPrograms(allPrograms.slice(0, 2));
+      } catch (error) {
+        console.error('Failed to refresh partner storefront catalog', error);
+      }
+    };
+    const unsubscribe = dbService.subscribeToCollections(
+      ['products', 'wellness_programs'],
+      () => {
+        void refreshCatalog();
+      }
+    );
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [partner]);
+
   if (loading) {
     return (
       <div className="py-24 text-center text-[#5a6b7c] space-y-3">

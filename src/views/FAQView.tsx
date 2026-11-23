@@ -13,9 +13,23 @@ export const FAQView: React.FC<FAQViewProps> = ({ navigate }) => {
   const [expandedId, setExpandedId] = useState<string | null>('faq-1');
 
   useEffect(() => {
-    dbService.getFaqs().then((data) => {
-      setFaqs(data);
+    let active = true;
+    const loadFaqs = async () => {
+      try {
+        const data = await dbService.getFaqs();
+        if (active) setFaqs(data);
+      } catch (error) {
+        console.error('Failed to load FAQs', error);
+      }
+    };
+    void loadFaqs();
+    const unsubscribe = dbService.subscribeToCollections(['faqs'], () => {
+      void loadFaqs();
     });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   const categories = useMemo(() => {
