@@ -39,7 +39,15 @@ service cloud.firestore {
       );
     }
 
-    function isAdmin() {
+    function isFullAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerifiedUser() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN'
+      );
+    }
+
+    function isSalesOrFullAdmin() {
       return isBootstrappedAdmin() || (
         isVerifiedUser() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -91,12 +99,30 @@ service cloud.firestore {
         (!('commissionRate' in data) || (data.commissionRate is number && data.commissionRate >= 0 && data.commissionRate <= 1)) &&
         (!('memberDiscountRate' in data) || (data.memberDiscountRate is number && data.memberDiscountRate >= 0 && data.memberDiscountRate <= 1)) &&
         (!('ownerUid' in data) || (data.ownerUid is string && data.ownerUid.size() <= 128)) &&
+        (!('businessName' in data) || (data.businessName is string && data.businessName.size() <= 256)) &&
+        (!('contactPerson' in data) || (data.contactPerson is string && data.contactPerson.size() <= 128)) &&
+        (!('phone' in data) || (data.phone is string && data.phone.size() <= 64)) &&
         (!('description' in data) || (data.description is string && data.description.size() <= 2048)) &&
         (!('logoUrl' in data) || (data.logoUrl is string && data.logoUrl.size() <= 524288)) &&
+        (!('website' in data) || (data.website is string && data.website.size() <= 512)) &&
+        (!('category' in data) || (data.category is string && data.category.size() <= 128)) &&
+        (!('address' in data) || (data.address is string && data.address.size() <= 512)) &&
+        (!('location' in data) || (data.location is string && data.location.size() <= 256)) &&
+        (!('populationServed' in data) || (data.populationServed is string && data.populationServed.size() <= 512)) &&
+        (!('memberBaseSize' in data) || (data.memberBaseSize is string && data.memberBaseSize.size() <= 128)) &&
+        (!('currentWellnessServices' in data) || (data.currentWellnessServices is string && data.currentWellnessServices.size() <= 1024)) &&
+        (!('whyPartner' in data) || (data.whyPartner is string && data.whyPartner.size() <= 2048)) &&
+        (!('marketingStrategy' in data) || (data.marketingStrategy is string && data.marketingStrategy.size() <= 2048)) &&
+        (!('promotionPlan' in data) || (data.promotionPlan is string && data.promotionPlan.size() <= 2048)) &&
+        (!('agreedToTerms' in data) || data.agreedToTerms is bool) &&
+        (!('agreedAt' in data) || (data.agreedAt is string && data.agreedAt.size() <= 64)) &&
+        (!('adminNotes' in data) || (data.adminNotes is string && data.adminNotes.size() <= 2048)) &&
         (!('landingPageVisible' in data) || data.landingPageVisible is bool) &&
         (!('landingPageHeadline' in data) || (data.landingPageHeadline is string && data.landingPageHeadline.size() <= 256)) &&
         (!('featuredProducts' in data) || (data.featuredProducts is list && data.featuredProducts.size() <= 50)) &&
-        (!('preferredCategories' in data) || (data.preferredCategories is list && data.preferredCategories.size() <= 10));
+        (!('preferredCategories' in data) || (data.preferredCategories is list && data.preferredCategories.size() <= 10)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64)) &&
+        (!('deletedAt' in data) || data.deletedAt == null || (data.deletedAt is string && data.deletedAt.size() <= 64));
     }
 
     function isValidProduct(data) {
@@ -271,7 +297,12 @@ service cloud.firestore {
         data.department is string && data.department.size() > 0 && data.department.size() <= 128 &&
         data.message is string && data.message.size() > 0 && data.message.size() <= 4096 &&
         data.status in ['NEW', 'IN_PROGRESS', 'RESOLVED'] &&
-        data.createdAt is string && data.createdAt.size() <= 64;
+        data.createdAt is string && data.createdAt.size() <= 64 &&
+        (!('phone' in data) || (data.phone is string && data.phone.size() <= 64)) &&
+        (!('orderNumber' in data) || (data.orderNumber is string && data.orderNumber.size() <= 64)) &&
+        (!('source' in data) || data.source in ['contact_page', 'about_page', 'programs_page', 'portal']) &&
+        (!('userId' in data) || (data.userId is string && data.userId.size() <= 128)) &&
+        (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 64));
     }
 
     function isValidAnalyticsEvent(data) {
@@ -279,7 +310,11 @@ service cloud.firestore {
         data.keys().hasOnly(['id', 'eventType', 'path', 'label', 'partnerSlug', 'userId', 'value', 'timestamp']) &&
         data.eventType in ['page_view', 'product_view', 'partner_visit', 'add_to_cart', 'checkout_completed', 'search'] &&
         data.path is string && data.path.size() > 0 && data.path.size() <= 256 &&
-        data.timestamp is string && data.timestamp.size() <= 64;
+        data.timestamp is string && data.timestamp.size() <= 64 &&
+        (!('label' in data) || (data.label is string && data.label.size() <= 256)) &&
+        (!('partnerSlug' in data) || (data.partnerSlug is string && data.partnerSlug.size() <= 128)) &&
+        (!('userId' in data) || (data.userId is string && data.userId.size() <= 128)) &&
+        (!('value' in data) || data.value is number);
     }
 
     // --- Collection Rules ---
@@ -289,12 +324,12 @@ service cloud.firestore {
       allow get: if true;
     }
 
-    // Users collection (PII isolated to owner or Admin)
+    // Users collection (PII isolated to owner or Admin; only Full Admin can create/modify/delete other users)
     match /users/{userId} {
-      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
-      allow list: if isBootstrappedAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
+      allow get: if isValidId(userId) && (isOwner(userId) || isSalesOrFullAdmin());
+      allow list: if isSalesOrFullAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
       allow create: if isVerifiedUser() && isValidId(userId) && isValidUser(incoming()) && (
-        isAdmin() || (
+        isFullAdmin() || (
           isOwner(userId) &&
           incoming().uid == request.auth.uid &&
           (
@@ -306,32 +341,37 @@ service cloud.firestore {
       allow update: if isVerifiedUser() && isValidId(userId) && isValidUser(incoming()) &&
         incoming().uid == existing().uid &&
         incoming().createdAt == existing().createdAt && (
-        isAdmin() || (
+        isFullAdmin() || (
           isOwner(userId) &&
           incoming().role == existing().role &&
           incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'businessName', 'phone', 'avatarUrl', 'updatedAt'])
         )
       );
-      allow delete: if isValidId(userId) && isAdmin();
+      allow delete: if isValidId(userId) && isFullAdmin();
     }
 
-    // Partners collection
+    // Partners collection (Public application intake + Admin & Sales Admin management)
     match /partners/{partnerId} {
       allow get: if isValidId(partnerId) && (
         existing().status == 'APPROVED' ||
-        isAdmin() ||
+        isSalesOrFullAdmin() ||
         (isSignedIn() && existing().ownerUid == request.auth.uid)
       );
       allow list: if existing().status == 'APPROVED' ||
-        isBootstrappedAdmin() ||
+        isSalesOrFullAdmin() ||
         (isSignedIn() && existing().ownerUid == request.auth.uid);
-      allow create: if isVerifiedUser() && isValidId(partnerId) && isValidPartner(incoming()) && (
-        isAdmin() || (incoming().ownerUid == request.auth.uid && incoming().status == 'NEW')
+      allow create: if isValidId(partnerId) && isValidPartner(incoming()) && (
+        isSalesOrFullAdmin() || (
+          incoming().status == 'NEW' &&
+          (!('ownerUid' in incoming()) || (isVerifiedUser() && incoming().ownerUid == request.auth.uid)) &&
+          (!('commissionRate' in incoming()) || incoming().commissionRate == 0.25) &&
+          (!('memberDiscountRate' in incoming()) || incoming().memberDiscountRate == 0.15)
+        )
       );
       allow update: if isVerifiedUser() && isValidId(partnerId) && isValidPartner(incoming()) &&
         incoming().partnerId == existing().partnerId &&
         incoming().createdAt == existing().createdAt && (
-        isAdmin() || (
+        isSalesOrFullAdmin() || (
           existing().ownerUid == request.auth.uid &&
           incoming().status == existing().status &&
           incoming().commissionRate == existing().commissionRate &&
@@ -339,35 +379,35 @@ service cloud.firestore {
           incoming().diff(existing()).affectedKeys().hasOnly(['name', 'businessName', 'contactPerson', 'phone', 'description', 'logoUrl', 'website', 'address', 'location', 'preferredCategories', 'updatedAt'])
         )
       );
-      allow delete: if isValidId(partnerId) && isAdmin();
+      allow delete: if isValidId(partnerId) && isSalesOrFullAdmin();
     }
 
-    // Products catalog (Public storefront read, Admin write)
+    // Products catalog (Public storefront read, Full Admin write)
     match /products/{productId} {
       allow get: if isValidId(productId);
       allow list: if true;
-      allow create: if isValidId(productId) && isAdmin() && isValidProduct(incoming());
-      allow update: if isValidId(productId) && isAdmin() && isValidProduct(incoming());
-      allow delete: if isValidId(productId) && isAdmin();
+      allow create: if isValidId(productId) && isFullAdmin() && isValidProduct(incoming());
+      allow update: if isValidId(productId) && isFullAdmin() && isValidProduct(incoming());
+      allow delete: if isValidId(productId) && isFullAdmin();
     }
 
-    // Wellness Programs (Public storefront read, Admin write)
+    // Wellness Programs (Public storefront read, Full Admin write)
     match /wellness_programs/{programId} {
       allow get: if isValidId(programId);
       allow list: if true;
-      allow create: if isValidId(programId) && isAdmin() && isValidProgram(incoming());
-      allow update: if isValidId(programId) && isAdmin() && isValidProgram(incoming());
-      allow delete: if isValidId(programId) && isAdmin();
+      allow create: if isValidId(programId) && isFullAdmin() && isValidProgram(incoming());
+      allow update: if isValidId(programId) && isFullAdmin() && isValidProgram(incoming());
+      allow delete: if isValidId(programId) && isFullAdmin();
     }
 
-    // Orders (Customer own orders, Partner attributed orders, Admin all)
+    // Orders (Customer own orders, Partner attributed orders, Sales/Full Admin all)
     match /orders/{orderId} {
       allow get: if isValidId(orderId) && (
-        isAdmin() ||
+        isSalesOrFullAdmin() ||
         (isSignedIn() && (existing().customerUid == request.auth.uid || existing().customerEmail == request.auth.token.email)) ||
         (isSignedIn() && existing().partnerOwnerUid == request.auth.uid)
       );
-      allow list: if isBootstrappedAdmin() || (
+      allow list: if isSalesOrFullAdmin() || (
         isSignedIn() && (
           existing().customerUid == request.auth.uid ||
           existing().customerEmail == request.auth.token.email ||
@@ -375,12 +415,12 @@ service cloud.firestore {
         )
       );
       allow create: if isVerifiedUser() && isValidId(orderId) && isValidOrder(incoming()) && (
-        isAdmin() || (incoming().customerUid == request.auth.uid && incoming().status == 'PENDING')
+        isSalesOrFullAdmin() || (incoming().customerUid == request.auth.uid && incoming().status == 'PENDING')
       );
       allow update: if isVerifiedUser() && isValidId(orderId) && isValidOrder(incoming()) &&
         incoming().orderNumber == existing().orderNumber &&
         incoming().createdAt == existing().createdAt && (
-        isAdmin() || (
+        isSalesOrFullAdmin() || (
           existing().status != 'COMPLETED' &&
           existing().status != 'CANCELLED' &&
           existing().customerUid == request.auth.uid &&
@@ -388,77 +428,85 @@ service cloud.firestore {
           incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
         )
       );
-      allow delete: if isValidId(orderId) && isAdmin();
+      allow delete: if isValidId(orderId) && isSalesOrFullAdmin();
     }
 
     // Partner Earnings Ledger
     match /partner_earnings/{earningId} {
       allow get: if isValidId(earningId) && (
-        isAdmin() || (isSignedIn() && existing().partnerOwnerUid == request.auth.uid)
+        isSalesOrFullAdmin() || (isSignedIn() && existing().partnerOwnerUid == request.auth.uid)
       );
-      allow list: if isBootstrappedAdmin() || (
+      allow list: if isSalesOrFullAdmin() || (
         isSignedIn() && existing().partnerOwnerUid == request.auth.uid
       );
       allow create: if isVerifiedUser() && isValidId(earningId) && isValidPartnerEarning(incoming()) && (
-        isAdmin() || (
+        isSalesOrFullAdmin() || (
           incoming().status == 'PENDING' &&
           exists(/databases/$(database)/documents/orders/$(incoming().orderId))
         )
       );
-      allow update: if isVerifiedUser() && isValidId(earningId) && isAdmin() && isValidPartnerEarning(incoming()) &&
+      allow update: if isVerifiedUser() && isValidId(earningId) && isValidPartnerEarning(incoming()) &&
         incoming().partnerId == existing().partnerId &&
-        incoming().orderId == existing().orderId;
-      allow delete: if isValidId(earningId) && isAdmin();
+        incoming().orderId == existing().orderId && (
+        isSalesOrFullAdmin() || (
+          existing().status == 'PENDING' &&
+          incoming().status == 'CANCELLED' &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+          exists(/databases/$(database)/documents/orders/$(existing().orderId)) &&
+          get(/databases/$(database)/documents/orders/$(existing().orderId)).data.customerUid == request.auth.uid
+        )
+      );
+      allow delete: if isValidId(earningId) && isSalesOrFullAdmin();
     }
 
-    // Educational Articles, FAQs, Testimonials, CMS Pages & Media Assets
+    // Educational Articles, FAQs, Testimonials, CMS Pages & Media Assets (Full Admin write)
     match /educational_articles/{articleId} {
       allow get: if isValidId(articleId);
       allow list: if true;
-      allow create: if isValidId(articleId) && isAdmin() && isValidArticle(incoming());
-      allow update: if isValidId(articleId) && isAdmin() && isValidArticle(incoming());
-      allow delete: if isValidId(articleId) && isAdmin();
+      allow create: if isValidId(articleId) && isFullAdmin() && isValidArticle(incoming());
+      allow update: if isValidId(articleId) && isFullAdmin() && isValidArticle(incoming());
+      allow delete: if isValidId(articleId) && isFullAdmin();
     }
 
     match /faqs/{faqId} {
       allow get: if isValidId(faqId);
       allow list: if true;
-      allow create: if isValidId(faqId) && isAdmin() && isValidFaq(incoming());
-      allow update: if isValidId(faqId) && isAdmin() && isValidFaq(incoming());
-      allow delete: if isValidId(faqId) && isAdmin();
+      allow create: if isValidId(faqId) && isFullAdmin() && isValidFaq(incoming());
+      allow update: if isValidId(faqId) && isFullAdmin() && isValidFaq(incoming());
+      allow delete: if isValidId(faqId) && isFullAdmin();
     }
 
     match /testimonials/{testimonialId} {
       allow get: if isValidId(testimonialId);
       allow list: if true;
-      allow create: if isValidId(testimonialId) && isAdmin() && isValidTestimonial(incoming());
-      allow update: if isValidId(testimonialId) && isAdmin() && isValidTestimonial(incoming());
-      allow delete: if isValidId(testimonialId) && isAdmin();
+      allow create: if isValidId(testimonialId) && isFullAdmin() && isValidTestimonial(incoming());
+      allow update: if isValidId(testimonialId) && isFullAdmin() && isValidTestimonial(incoming());
+      allow delete: if isValidId(testimonialId) && isFullAdmin();
     }
 
     match /cms_pages/{pageId} {
       allow get: if isValidId(pageId);
       allow list: if true;
-      allow create: if isValidId(pageId) && isAdmin() && isValidCmsPage(incoming());
-      allow update: if isValidId(pageId) && isAdmin() && isValidCmsPage(incoming());
-      allow delete: if isValidId(pageId) && isAdmin();
+      allow create: if isValidId(pageId) && isFullAdmin() && isValidCmsPage(incoming());
+      allow update: if isValidId(pageId) && isFullAdmin() && isValidCmsPage(incoming());
+      allow delete: if isValidId(pageId) && isFullAdmin();
     }
 
     match /media_assets/{assetId} {
       allow get: if isValidId(assetId);
       allow list: if true;
-      allow create: if isValidId(assetId) && isAdmin() && isValidMediaAsset(incoming());
-      allow update: if isValidId(assetId) && isAdmin() && isValidMediaAsset(incoming());
-      allow delete: if isValidId(assetId) && isAdmin();
+      allow create: if isValidId(assetId) && isFullAdmin() && isValidMediaAsset(incoming());
+      allow update: if isValidId(assetId) && isFullAdmin() && isValidMediaAsset(incoming());
+      allow delete: if isValidId(assetId) && isFullAdmin();
     }
 
     // Notifications Ledger (Admin or Recipient read; Verified user/Admin create)
     match /notifications/{notificationId} {
       allow get: if isValidId(notificationId) && (
-        isAdmin() ||
+        isSalesOrFullAdmin() ||
         (isSignedIn() && (existing().recipientUid == request.auth.uid || existing().recipientEmail == request.auth.token.email))
       );
-      allow list: if isBootstrappedAdmin() || (
+      allow list: if isSalesOrFullAdmin() || (
         isSignedIn() && (
           existing().recipientUid == request.auth.uid ||
           existing().recipientEmail == request.auth.token.email
@@ -466,36 +514,40 @@ service cloud.firestore {
       );
       allow create: if isVerifiedUser() && isValidId(notificationId) && isValidNotification(incoming());
       allow update: if isVerifiedUser() && isValidId(notificationId) && isValidNotification(incoming()) && (
-        isAdmin() || (
+        isSalesOrFullAdmin() || (
           (existing().recipientUid == request.auth.uid || existing().recipientEmail == request.auth.token.email) &&
           incoming().diff(existing()).affectedKeys().hasOnly(['read'])
         )
       );
-      allow delete: if isValidId(notificationId) && isAdmin();
+      allow delete: if isValidId(notificationId) && isSalesOrFullAdmin();
     }
 
     // Audit Logs (Admin readable, append-only)
     match /audit_logs/{logId} {
-      allow get: if isValidId(logId) && isAdmin();
-      allow list: if isAdmin();
+      allow get: if isValidId(logId) && isSalesOrFullAdmin();
+      allow list: if isSalesOrFullAdmin();
       allow create: if isVerifiedUser() && isValidId(logId) && isValidAuditLog(incoming());
       allow update, delete: if false;
     }
 
-    // Support & Partnership Inquiries
+    // Support & Partnership Inquiries (Public submission intake)
     match /inquiries/{inquiryId} {
-      allow get: if isValidId(inquiryId) && (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
-      allow list: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
-      allow create: if isVerifiedUser() && isValidId(inquiryId) && isValidInquiry(incoming()) && incoming().status == 'NEW';
-      allow update: if isValidId(inquiryId) && isAdmin() && isValidInquiry(incoming());
-      allow delete: if isValidId(inquiryId) && isAdmin();
+      allow get: if isValidId(inquiryId) && (isSalesOrFullAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
+      allow list: if isSalesOrFullAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      allow create: if isValidId(inquiryId) && isValidInquiry(incoming()) && incoming().status == 'NEW' && (
+        !('userId' in incoming()) || (isSignedIn() && incoming().userId == request.auth.uid)
+      );
+      allow update: if isValidId(inquiryId) && isSalesOrFullAdmin() && isValidInquiry(incoming());
+      allow delete: if isValidId(inquiryId) && isSalesOrFullAdmin();
     }
 
-    // Analytics Events (Append-only for authenticated telemetry, Admin readable)
+    // Analytics Events (Append-only public conversion telemetry, Admin readable)
     match /analytics_events/{eventId} {
-      allow get: if isValidId(eventId) && isAdmin();
-      allow list: if isAdmin();
-      allow create: if isVerifiedUser() && isValidId(eventId) && isValidAnalyticsEvent(incoming());
+      allow get: if isValidId(eventId) && isSalesOrFullAdmin();
+      allow list: if isSalesOrFullAdmin();
+      allow create: if isValidId(eventId) && isValidAnalyticsEvent(incoming()) && (
+        !('userId' in incoming()) || (isSignedIn() && incoming().userId == request.auth.uid)
+      );
       allow update, delete: if false;
     }
   }

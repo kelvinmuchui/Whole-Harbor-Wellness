@@ -374,9 +374,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
                   <span className="material-symbols-outlined text-[16px] text-[#c5a059]">credit_card</span>
                   2. Payment
                 </h3>
-                <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 text-xs text-amber-900">
-                  Demo checkout only: submitting records an unpaid order as pending. No card is collected
-                  and no payment is processed. Stripe checkout is not connected yet.
+                <div className="bg-[#f6f4ee] p-4 rounded-xl border border-[#dfd7c7] text-xs text-[#0c2340]">
+                  Order Request &amp; Pending Invoice: submitting records your order as Pending Fulfillment and queues it for clinical review, invoice confirmation, and cold-chain dispatch scheduling.
                 </div>
               </div>
 
@@ -460,7 +459,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, n
                 ) : (
                   <>
                     <span className="material-symbols-outlined text-[18px]">verified_user</span>
-                    <span>Submit Demo Order - No Charge (${finalTotal.toFixed(2)})</span>
+                    <span>Submit Order Request (${finalTotal.toFixed(2)})</span>
                   </>
                 )}
               </button>

@@ -9,7 +9,7 @@ export const analyticsService = {
   trackPageView(path: string, param?: string) {
     safeTrack({
       eventType: 'page_view',
-      path: param ? `#/${path}/${param}` : `#/${path}`,
+      path: param ? `/${path}/${param}` : `/${path}`,
       label: path
     });
   },
@@ -17,7 +17,7 @@ export const analyticsService = {
   trackProductView(slug: string, name: string) {
     safeTrack({
       eventType: 'product_view',
-      path: `#/product/${slug}`,
+      path: `/product/${slug}`,
       label: name
     });
   },
@@ -25,7 +25,7 @@ export const analyticsService = {
   trackPartnerVisit(slug: string, partnerName: string, source?: string) {
     safeTrack({
       eventType: 'partner_visit',
-      path: `#/partner/${slug}`,
+      path: `/partner/${slug}`,
       partnerSlug: slug,
       label: source ? `${partnerName} (${source})` : partnerName
     });
@@ -34,7 +34,7 @@ export const analyticsService = {
   trackAddToCart(productName: string, value: number, partnerSlug?: string) {
     safeTrack({
       eventType: 'add_to_cart',
-      path: window.location.hash || '#/shop',
+      path: window.location.pathname || '/shop',
       label: productName,
       partnerSlug,
       value
@@ -44,7 +44,7 @@ export const analyticsService = {
   trackCheckoutCompleted(orderNumber: string, value: number, partnerSlug?: string) {
     safeTrack({
       eventType: 'checkout_completed',
-      path: '#/customer-portal',
+      path: '/customer-portal',
       label: orderNumber,
       partnerSlug,
       value

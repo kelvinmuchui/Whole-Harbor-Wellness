@@ -40,11 +40,8 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ navigate }) => {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)+/g, '');
 
-      const count = await dbService.getPartners().then((p) => p.length);
-      const partnerId = `WH-P-${String(count + 1).padStart(6, '0')}`;
-
       const partnerData: Omit<Partner, 'id'> = {
-        partnerId,
+        partnerId: '',
         name: businessName,
         slug,
         contactPerson,
@@ -255,12 +252,12 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ navigate }) => {
             </div>
             <div className="space-y-2 pt-2">
               <div className="bg-white p-2.5 rounded-xl border border-[#dfd7c7] font-mono text-[11px] text-[#0c2340] break-all">
-                {window.location.origin}/#/shop
+                {window.location.origin}/shop
               </div>
               <button
                 type="button"
                 onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/#/shop`);
+                  navigator.clipboard.writeText(`${window.location.origin}/shop`);
                   setCopiedChannel('direct');
                   setTimeout(() => setCopiedChannel(null), 2500);
                 }}

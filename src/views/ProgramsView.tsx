@@ -10,6 +10,9 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ navigate }) => {
   const [programs, setPrograms] = useState<WellnessProgram[]>([]);
   const [selectedProgram, setSelectedProgram] = useState<WellnessProgram | null>(null);
   const [enrollSubmitted, setEnrollSubmitted] = useState(false);
+  const [submittingEnroll, setSubmittingEnroll] = useState(false);
+  const [enrollError, setEnrollError] = useState<string | null>(null);
+  const [confirmedEmail, setConfirmedEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -44,9 +47,38 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ navigate }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedProgram]);
 
-  const handleEnrollSubmit = (e: React.FormEvent) => {
+  const handleEnrollSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setEnrollSubmitted(true);
+    if (!selectedProgram || submittingEnroll) return;
+    setSubmittingEnroll(true);
+    setEnrollError(null);
+    try {
+      const submittedEmail = email.trim();
+      await dbService.createInquiry({
+        name: fullName.trim(),
+        email: submittedEmail,
+        phone: phone.trim(),
+        department: 'Clinical Programs',
+        message: `Program Onboarding Request: ${selectedProgram.name} ($${selectedProgram.priceMonthly}/mo)${
+          notes.trim() ? ` — Notes: ${notes.trim()}` : ''
+        }`,
+        source: 'programs_page'
+      });
+      setConfirmedEmail(submittedEmail);
+      setFullName('');
+      setEmail('');
+      setPhone('');
+      setNotes('');
+      setEnrollSubmitted(true);
+    } catch (err) {
+      setEnrollError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to submit consultation request right now. Please try again.'
+      );
+    } finally {
+      setSubmittingEnroll(false);
+    }
   };
 
   return (
@@ -89,6 +121,7 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ navigate }) => {
                   <img
                     src={prog.imageUrl}
                     alt={prog.name}
+                    loading="lazy"
                     className="w-full h-full object-cover"
                   />
                 </div>
@@ -196,7 +229,7 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ navigate }) => {
                   Intake Request Received
                 </h3>
                 <p className="text-xs text-[#5a6b7c] max-w-sm mx-auto leading-relaxed">
-                  Our clinical care coordinator has reserved your onboarding slot for the <strong>{selectedProgram.name}</strong>. A medical questionnaire has been dispatched to {email}.
+                  Our clinical care coordinator has reserved your onboarding slot for the <strong>{selectedProgram.name}</strong>. A medical questionnaire has been dispatched to {confirmedEmail}.
                 </p>
                 <button
                   type="button"
@@ -252,6 +285,11 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ navigate }) => {
                       className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
                     />
                   </div>
+                  {enrollError && (
+                    <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs">
+                      {enrollError}
+                    </div>
+                  )}
                 </form>
 
                 {/* Pinned Footer with Cancel */}
@@ -259,6 +297,7 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ navigate }) => {
                   <button
                     type="button"
                     onClick={() => setSelectedProgram(null)}
+                    disabled={submittingEnroll}
                     className="sm:w-32 py-3 px-4 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340] hover:border-[#0c2340] text-xs font-semibold transition-colors cursor-pointer"
                   >
                     Cancel
@@ -266,9 +305,10 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ navigate }) => {
                   <button
                     type="submit"
                     form="whw-program-enroll-form"
-                    className="flex-1 py-3 px-4 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] transition-colors cursor-pointer"
+                    disabled={submittingEnroll}
+                    className="flex-1 py-3 px-4 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] disabled:opacity-50 transition-colors cursor-pointer"
                   >
-                    Submit Consultation Request
+                    {submittingEnroll ? 'Submitting Request...' : 'Submit Consultation Request'}
                   </button>
                 </div>
               </>

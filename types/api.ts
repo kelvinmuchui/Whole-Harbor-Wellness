@@ -36,7 +36,7 @@ export interface ContactInquiry {
   orderNumber?: string;
   department: string;
   message: string;
-  source: 'contact_page' | 'about_page' | 'portal';
+  source: 'contact_page' | 'about_page' | 'programs_page' | 'portal';
   status: 'NEW' | 'IN_PROGRESS' | 'RESOLVED';
   userId?: string;
   createdAt: string;

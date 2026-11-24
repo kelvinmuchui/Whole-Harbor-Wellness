@@ -7,17 +7,95 @@ interface CustomerPortalViewProps {
   navigate: (path: string, param?: string) => void;
 }
 
+interface SavedProtocolStack {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+}
+
+const DEFAULT_SAVED_PROTOCOLS: SavedProtocolStack[] = [
+  {
+    id: 'prot-mito',
+    title: 'Mitochondrial Longevity Duo',
+    description: 'MOTS-C Activator + NAD+ Cellular Solution',
+    category: 'cellular'
+  },
+  {
+    id: 'prot-rec',
+    title: 'Tissue Recovery Protocol',
+    description: 'BPC-157 + TB-500 Recovery Matrix',
+    category: 'recovery'
+  }
+];
+
 export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate }) => {
-  const { currentUser, role, isAdmin, changePassword } = useAuth();
+  const { currentUser, role, isAdmin, changePassword, updateCurrentUserProfile } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'protocols'>('orders');
+  const [confirmCancelOrderId, setConfirmCancelOrderId] = useState<string | null>(null);
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
+  const [orderActionNotice, setOrderActionNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const [profileName, setProfileName] = useState(currentUser?.displayName || '');
+  const [profilePhone, setProfilePhone] = useState(currentUser?.phone || '');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileStatus, setProfileStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const protocolStorageKey = `whw_saved_protocols_${currentUser?.uid || 'guest'}`;
+  const [savedProtocols, setSavedProtocols] = useState<SavedProtocolStack[]>(() => {
+    try {
+      const raw = localStorage.getItem(`whw_saved_protocols_${currentUser?.uid || 'guest'}`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed as SavedProtocolStack[];
+      }
+    } catch {
+      // ignore
+    }
+    return DEFAULT_SAVED_PROTOCOLS;
+  });
+  const [newProtocolTitle, setNewProtocolTitle] = useState('');
+  const [newProtocolDesc, setNewProtocolDesc] = useState('');
+  const [newProtocolCategory, setNewProtocolCategory] = useState('cellular');
+
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [pwdStatus, setPwdStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [savingPwd, setSavingPwd] = useState(false);
+
+  useEffect(() => {
+    setProfileName(currentUser?.displayName || '');
+    setProfilePhone(currentUser?.phone || '');
+  }, [currentUser?.displayName, currentUser?.phone]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(protocolStorageKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setSavedProtocols(parsed as SavedProtocolStack[]);
+          return;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    setSavedProtocols(DEFAULT_SAVED_PROTOCOLS);
+  }, [protocolStorageKey]);
+
+  const persistProtocols = (next: SavedProtocolStack[]) => {
+    setSavedProtocols(next);
+    try {
+      localStorage.setItem(protocolStorageKey, JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -123,6 +201,18 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate
       {/* Orders Tab Content */}
       {activeTab === 'orders' && (
         <div className="space-y-6">
+          {orderActionNotice && (
+            <div
+              role="status"
+              className={`rounded-xl border p-3.5 text-xs ${
+                orderActionNotice.type === 'success'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                  : 'border-red-200 bg-red-50 text-red-800'
+              }`}
+            >
+              {orderActionNotice.text}
+            </div>
+          )}
           {ordersError ? (
             <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
               {ordersError}
@@ -208,6 +298,7 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate
                           <img
                             src={it.imageUrl}
                             alt={it.productName}
+                            loading="lazy"
                             className="w-12 h-12 rounded-xl object-cover bg-[#f6f4ee] border border-[#dfd7c7]"
                           />
                           <div>
@@ -227,17 +318,75 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate
                     ))}
                   </div>
 
-                  {/* Shipping Destination */}
-                  <div className="pt-3 border-t border-[#dfd7c7]/60 flex items-center justify-between text-xs text-[#5a6b7c]">
+                  {/* Shipping Destination & Order Actions */}
+                  <div className="pt-3 border-t border-[#dfd7c7]/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-[#5a6b7c]">
                     <span>
                       Shipping to: {ord.shippingAddress.addressLine1}, {ord.shippingAddress.city}, {ord.shippingAddress.state} {ord.shippingAddress.postalCode}
                     </span>
-                    <button
-                      onClick={() => navigate('shop')}
-                      className="text-[#c5a059] font-semibold hover:underline cursor-pointer"
-                    >
-                      Re-Order Protocol
-                    </button>
+                    <div className="flex flex-wrap items-center gap-3">
+                      {ord.status === 'PENDING' && (
+                        confirmCancelOrderId === ord.id ? (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              disabled={cancellingOrderId === ord.id}
+                              onClick={async () => {
+                                setCancellingOrderId(ord.id);
+                                setOrderActionNotice(null);
+                                try {
+                                  await dbService.updateOrderStatus(ord.id, 'CANCELLED');
+                                  setOrders((prev) =>
+                                    prev.map((o) =>
+                                      o.id === ord.id ? { ...o, status: 'CANCELLED' } : o
+                                    )
+                                  );
+                                  setOrderActionNotice({
+                                    type: 'success',
+                                    text: `Order ${ord.orderNumber} has been cancelled.`
+                                  });
+                                } catch (err) {
+                                  setOrderActionNotice({
+                                    type: 'error',
+                                    text:
+                                      err instanceof Error
+                                        ? err.message
+                                        : 'Unable to cancel this order right now.'
+                                  });
+                                } finally {
+                                  setCancellingOrderId(null);
+                                  setConfirmCancelOrderId(null);
+                                }
+                              }}
+                              className="px-3 py-1 rounded-lg bg-red-600 text-white text-[11px] font-semibold hover:bg-red-700 disabled:opacity-50 cursor-pointer"
+                            >
+                              {cancellingOrderId === ord.id ? 'Cancelling...' : 'Confirm Cancel'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmCancelOrderId(null)}
+                              className="px-2.5 py-1 rounded-lg border border-[#dfd7c7] text-[#5a6b7c] text-[11px] font-semibold hover:bg-[#f6f4ee] cursor-pointer"
+                            >
+                              Keep Order
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmCancelOrderId(ord.id)}
+                            className="text-red-600 font-semibold hover:underline cursor-pointer"
+                          >
+                            Cancel Order
+                          </button>
+                        )
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => navigate('shop')}
+                        className="text-[#c5a059] font-semibold hover:underline cursor-pointer"
+                      >
+                        Re-Order Protocol
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -248,30 +397,156 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate
 
       {/* Protocols Tab */}
       {activeTab === 'protocols' && (
-        <div className="bg-white border border-[#dfd7c7] rounded-3xl p-8 space-y-4">
-          <h3 className="font-serif text-xl font-bold text-[#0c2340]">Saved Protocol Stacks</h3>
-          <p className="text-xs text-[#5a6b7c]">
-            Bookmark your recurring monthly peptide regiments or wellness routines.
-          </p>
-          <div className="pt-4 border-t border-[#dfd7c7]/50 flex items-center justify-between text-xs">
-            <div>
-              <span className="font-semibold text-sm text-[#0c2340] block">Mitochondrial Longevity Duo</span>
-              <span className="text-[#5a6b7c]">MOTS-C Activator + NAD+ Cellular Solution</span>
-            </div>
-            <button
-              onClick={() => navigate('shop', 'cellular')}
-              className="px-4 py-2 rounded-xl bg-[#c5a059] text-white font-semibold cursor-pointer"
-            >
-              Order Protocol
-            </button>
+        <div className="bg-white border border-[#dfd7c7] rounded-3xl p-6 sm:p-8 space-y-6">
+          <div>
+            <h3 className="font-serif text-xl font-bold text-[#0c2340]">Saved Protocol Stacks</h3>
+            <p className="text-xs text-[#5a6b7c] mt-0.5">
+              Bookmark and organize your recurring monthly peptide regimens or wellness routines.
+            </p>
           </div>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!newProtocolTitle.trim()) return;
+              const next: SavedProtocolStack[] = [
+                ...savedProtocols,
+                {
+                  id: `prot-${Date.now()}`,
+                  title: newProtocolTitle.trim(),
+                  description: newProtocolDesc.trim() || 'Custom wellness regimen bookmark',
+                  category: newProtocolCategory
+                }
+              ];
+              persistProtocols(next);
+              setNewProtocolTitle('');
+              setNewProtocolDesc('');
+            }}
+            className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-[#f6f4ee] border border-[#dfd7c7] rounded-2xl p-4 text-xs"
+          >
+            <input
+              type="text"
+              required
+              placeholder="Protocol name (e.g. Morning Cellular)"
+              value={newProtocolTitle}
+              onChange={(e) => setNewProtocolTitle(e.target.value)}
+              className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+            />
+            <input
+              type="text"
+              placeholder="Formulations included"
+              value={newProtocolDesc}
+              onChange={(e) => setNewProtocolDesc(e.target.value)}
+              className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+            />
+            <select
+              value={newProtocolCategory}
+              onChange={(e) => setNewProtocolCategory(e.target.value)}
+              className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340] cursor-pointer"
+            >
+              <option value="cellular">Cellular Optimization</option>
+              <option value="metabolic">Metabolic Support</option>
+              <option value="recovery">Tissue Recovery</option>
+              <option value="longevity">Longevity &amp; Vitality</option>
+              <option value="stacks">Synergy Multi-Kits</option>
+            </select>
+            <button
+              type="submit"
+              className="px-4 py-2 rounded-lg bg-[#0c2340] text-white font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer"
+            >
+              + Save Protocol
+            </button>
+          </form>
+
+          {savedProtocols.length === 0 ? (
+            <p className="text-xs text-[#5a6b7c] py-4 text-center">
+              No saved protocol stacks yet. Use the form above to bookmark a recurring protocol.
+            </p>
+          ) : (
+            <div className="divide-y divide-[#dfd7c7]/50">
+              {savedProtocols.map((prot, idx) => (
+                <div key={prot.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div>
+                    <span className="font-semibold text-sm text-[#0c2340] block">{prot.title}</span>
+                    <span className="text-[#5a6b7c]">{prot.description}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={idx === 0}
+                      onClick={() => {
+                        if (idx === 0) return;
+                        const copy = [...savedProtocols];
+                        [copy[idx - 1], copy[idx]] = [copy[idx], copy[idx - 1]];
+                        persistProtocols(copy);
+                      }}
+                      aria-label="Move protocol up"
+                      className="px-2.5 py-1.5 rounded-lg border border-[#dfd7c7] text-[#5a6b7c] hover:text-[#0c2340] disabled:opacity-40 cursor-pointer"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      disabled={idx === savedProtocols.length - 1}
+                      onClick={() => {
+                        if (idx === savedProtocols.length - 1) return;
+                        const copy = [...savedProtocols];
+                        [copy[idx + 1], copy[idx]] = [copy[idx], copy[idx + 1]];
+                        persistProtocols(copy);
+                      }}
+                      aria-label="Move protocol down"
+                      className="px-2.5 py-1.5 rounded-lg border border-[#dfd7c7] text-[#5a6b7c] hover:text-[#0c2340] disabled:opacity-40 cursor-pointer"
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => persistProtocols(savedProtocols.filter((p) => p.id !== prot.id))}
+                      className="px-3 py-1.5 rounded-lg border border-[#dfd7c7] text-red-600 hover:bg-red-50 font-semibold cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate('shop', prot.category)}
+                      className="px-4 py-2 rounded-xl bg-[#c5a059] text-white font-semibold hover:bg-[#0c2340] transition-colors cursor-pointer"
+                    >
+                      Order Protocol
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {/* Profile & Security Tab */}
       {activeTab === 'profile' && (
         <div className="space-y-6">
-          <div className="bg-white border border-[#dfd7c7] rounded-3xl p-6 sm:p-8 space-y-6 text-xs">
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!profileName.trim()) return;
+              setSavingProfile(true);
+              setProfileStatus(null);
+              try {
+                await updateCurrentUserProfile({
+                  displayName: profileName.trim(),
+                  phone: profilePhone.trim()
+                });
+                setProfileStatus({ type: 'success', text: 'Your profile details have been updated.' });
+              } catch (err) {
+                setProfileStatus({
+                  type: 'error',
+                  text: err instanceof Error ? err.message : 'Unable to save profile details.'
+                });
+              } finally {
+                setSavingProfile(false);
+              }
+            }}
+            className="bg-white border border-[#dfd7c7] rounded-3xl p-6 sm:p-8 space-y-6 text-xs"
+          >
             <div className="flex items-center justify-between pb-4 border-b border-[#dfd7c7]/60">
               <div>
                 <h3 className="font-serif text-xl font-bold text-[#0c2340]">
@@ -284,14 +559,27 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate
               </span>
             </div>
 
+            {profileStatus && (
+              <div
+                className={`p-3 rounded-xl border text-xs ${
+                  profileStatus.type === 'success'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    : 'bg-red-50 border-red-200 text-red-700'
+                }`}
+              >
+                {profileStatus.text}
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-[#5a6b7c] block mb-1 font-medium">Full Legal Name</label>
                 <input
                   type="text"
-                  disabled
-                  value={currentUser?.displayName || 'Clinical Member'}
-                  className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340]"
+                  required
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
                 />
               </div>
               <div>
@@ -300,7 +588,17 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate
                   type="email"
                   disabled
                   value={currentUser?.email || 'member@wholeharbor.com'}
-                  className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340]"
+                  className="w-full px-3 py-2 rounded-lg bg-[#f6f4ee] border border-[#dfd7c7] text-[#5a6b7c]"
+                />
+              </div>
+              <div>
+                <label className="text-[#5a6b7c] block mb-1 font-medium">Phone Number</label>
+                <input
+                  type="tel"
+                  placeholder="+1 (555) 000-0000"
+                  value={profilePhone}
+                  onChange={(e) => setProfilePhone(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340] focus:outline-[#c5a059]"
                 />
               </div>
               {currentUser?.businessName && (
@@ -310,11 +608,11 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate
                     type="text"
                     disabled
                     value={currentUser.businessName}
-                    className="w-full px-3 py-2 rounded-lg bg-[#fffdfb] border border-[#dfd7c7] text-[#0c2340]"
+                    className="w-full px-3 py-2 rounded-lg bg-[#f6f4ee] border border-[#dfd7c7] text-[#5a6b7c]"
                   />
                 </div>
               )}
-              <div>
+              <div className={currentUser?.businessName ? 'sm:col-span-2' : ''}>
                 <label className="text-[#5a6b7c] block mb-1 font-medium">Wholesale 10-Vial Kit Status</label>
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#f6f4ee] border border-[#dfd7c7]">
                   <span className={`w-2 h-2 rounded-full ${
@@ -331,7 +629,17 @@ export const CustomerPortalView: React.FC<CustomerPortalViewProps> = ({ navigate
                 </div>
               </div>
             </div>
-          </div>
+
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={savingProfile}
+                className="px-5 py-2.5 rounded-xl bg-[#0c2340] text-white font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {savingProfile ? 'Saving...' : 'Save Profile Details'}
+              </button>
+            </div>
+          </form>
 
           {/* Clinical Process & Security Standards (Per PDF: Appointments/Clinical Process & Security) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

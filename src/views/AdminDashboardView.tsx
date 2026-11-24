@@ -813,7 +813,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
         : slugBase || `partner-${Date.now().toString().slice(-4)}`;
 
       const createdPartner = await dbService.createPartner({
-        partnerId: `WH-P-${String(partners.length + 1).padStart(6, '0')}`,
+        partnerId: '',
         name: newPartnerName.trim(),
         businessName: newPartnerName.trim(),
         slug: uniqueSlug,
@@ -864,16 +864,35 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   };
 
   const handleUpdateOrderStatus = async (orderId: string, status: OrderStatus) => {
-    await dbService.updateOrderStatus(orderId, status);
-    if (inspectingOrder?.id === orderId) {
-      setInspectingOrder((prev) => (prev ? { ...prev, status } : null));
+    try {
+      await dbService.updateOrderStatus(orderId, status);
+      if (inspectingOrder?.id === orderId) {
+        setInspectingOrder((prev) => (prev ? { ...prev, status } : null));
+      }
+      await reloadData();
+      setAdminSaveNotice({ kind: 'success', message: `Order status updated to ${status}.` });
+    } catch (err) {
+      setAdminSaveNotice({
+        kind: 'error',
+        message: err instanceof Error ? err.message : 'Unable to update order status.'
+      });
     }
-    await reloadData();
   };
 
-  const handleUpdateEarningStatus = async (earningId: string, status: 'PENDING' | 'APPROVED' | 'PAID') => {
-    await dbService.updatePartnerEarningStatus(earningId, status);
-    await reloadData();
+  const handleUpdateEarningStatus = async (
+    earningId: string,
+    status: 'PENDING' | 'APPROVED' | 'PAID' | 'CANCELLED'
+  ) => {
+    try {
+      await dbService.updatePartnerEarningStatus(earningId, status);
+      await reloadData();
+      setAdminSaveNotice({ kind: 'success', message: `Earning status updated to ${status}.` });
+    } catch (err) {
+      setAdminSaveNotice({
+        kind: 'error',
+        message: err instanceof Error ? err.message : 'Unable to update earning status.'
+      });
+    }
   };
 
   const handleUpdateUserRole = async (
@@ -881,8 +900,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
     role: UserRole,
     wholesaleApprovalStatus?: UserProfile['wholesaleApprovalStatus']
   ) => {
-    await dbService.updateUserRole(uid, role, wholesaleApprovalStatus);
-    await reloadData();
+    if (!permissions.canManageUsers) {
+      setAdminSaveNotice({ kind: 'error', message: 'Read-only access: only Administrators can update user roles.' });
+      return;
+    }
+    try {
+      await dbService.updateUserRole(uid, role, wholesaleApprovalStatus);
+      await reloadData();
+      setAdminSaveNotice({ kind: 'success', message: `User role updated to ${role}.` });
+    } catch (err) {
+      setAdminSaveNotice({
+        kind: 'error',
+        message: err instanceof Error ? err.message : 'Unable to update user role.'
+      });
+    }
   };
 
   const handleUpdateUserStatus = async (
@@ -891,13 +922,33 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
     partnerId?: string,
     partnerSlug?: string
   ) => {
-    await dbService.updateUserStatus(uid, status, partnerId, partnerSlug);
-    await reloadData();
+    if (!permissions.canManageUsers) {
+      setAdminSaveNotice({ kind: 'error', message: 'Read-only access: only Administrators can update account status.' });
+      return;
+    }
+    try {
+      await dbService.updateUserStatus(uid, status, partnerId, partnerSlug);
+      await reloadData();
+      setAdminSaveNotice({ kind: 'success', message: `User status updated to ${status}.` });
+    } catch (err) {
+      setAdminSaveNotice({
+        kind: 'error',
+        message: err instanceof Error ? err.message : 'Unable to update user status.'
+      });
+    }
   };
 
   const handleUpdateInquiryStatus = async (id: string, status: ContactInquiry['status']) => {
-    await dbService.updateInquiryStatus(id, status);
-    await reloadData();
+    try {
+      await dbService.updateInquiryStatus(id, status);
+      await reloadData();
+      setAdminSaveNotice({ kind: 'success', message: `Inquiry marked as ${status}.` });
+    } catch (err) {
+      setAdminSaveNotice({
+        kind: 'error',
+        message: err instanceof Error ? err.message : 'Unable to update inquiry status.'
+      });
+    }
   };
 
   const openAddPartnerModal = () => {
@@ -1083,8 +1134,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
 
   const handleQuickProductStatus = async (product: Product, newStatus: ProductStatus) => {
     if (!permissions.canManageCatalog) return;
-    await dbService.updateProduct(product.id, { status: newStatus });
-    await reloadData();
+    try {
+      await dbService.updateProduct(product.id, { status: newStatus });
+      await reloadData();
+      setAdminSaveNotice({ kind: 'success', message: `${product.name} marked as ${newStatus}.` });
+    } catch (err) {
+      setAdminSaveNotice({
+        kind: 'error',
+        message: err instanceof Error ? err.message : 'Unable to update product status.'
+      });
+    }
   };
 
   const handleCopyText = (id: string, value: string) => {
@@ -1098,18 +1157,25 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!permissions.canManageUsers) return;
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-    await dbService.createAuditLog({
-      userId: currentUser?.uid,
-      userRole: 'ADMIN',
-      action: 'SECURITY_EVENT',
-      resource: 'Session',
-      resourceId: 'platform-settings',
-      metadata: { scope: 'PlatformSettings', ...settings }
-    });
-    setSettingsSavedNotice(true);
-    setTimeout(() => setSettingsSavedNotice(false), 3000);
-    await reloadData();
+    try {
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+      await dbService.createAuditLog({
+        userId: currentUser?.uid,
+        userRole: 'ADMIN',
+        action: 'SECURITY_EVENT',
+        resource: 'Session',
+        resourceId: 'platform-settings',
+        metadata: { scope: 'PlatformSettings', ...settings }
+      });
+      setSettingsSavedNotice(true);
+      setTimeout(() => setSettingsSavedNotice(false), 3000);
+      await reloadData();
+    } catch (err) {
+      setAdminSaveNotice({
+        kind: 'error',
+        message: err instanceof Error ? err.message : 'Unable to save platform settings.'
+      });
+    }
   };
 
   const adminFirstName = currentUser?.displayName ? currentUser.displayName.split(' ')[0] : 'Admin';
@@ -1886,7 +1952,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#dfd7c7]/50">
-                        {partners.slice(0, 4).map((p) => {
+                        {[...partners]
+                          .sort((a, b) => {
+                            const aPending = PENDING_PARTNER_STATUSES.includes(a.status) ? 1 : 0;
+                            const bPending = PENDING_PARTNER_STATUSES.includes(b.status) ? 1 : 0;
+                            if (aPending !== bPending) return bPending - aPending;
+                            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                          })
+                          .slice(0, 4)
+                          .map((p) => {
                           const statusBadge =
                             p.status === 'APPROVED'
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
@@ -3514,11 +3588,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                         onClick={async () => {
                           const prevFaq = faqs[idx - 1];
                           if (!prevFaq) return;
-                          await Promise.all([
-                            dbService.updateFaq(fq.id, { orderIndex: idx }),
-                            dbService.updateFaq(prevFaq.id, { orderIndex: idx + 1 })
-                          ]);
-                          await reloadData();
+                          try {
+                            await Promise.all([
+                              dbService.updateFaq(fq.id, { orderIndex: idx }),
+                              dbService.updateFaq(prevFaq.id, { orderIndex: idx + 1 })
+                            ]);
+                            await reloadData();
+                          } catch (err) {
+                            setAdminSaveNotice({
+                              kind: 'error',
+                              message: err instanceof Error ? err.message : 'Unable to reorder FAQ.'
+                            });
+                          }
                         }}
                         className="p-1.5 rounded-lg border border-[#dfd7c7] text-[#0c2340] hover:border-[#c5a059] disabled:opacity-30 cursor-pointer"
                       >
@@ -3531,11 +3612,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                         onClick={async () => {
                           const nextFaq = faqs[idx + 1];
                           if (!nextFaq) return;
-                          await Promise.all([
-                            dbService.updateFaq(fq.id, { orderIndex: idx + 2 }),
-                            dbService.updateFaq(nextFaq.id, { orderIndex: idx + 1 })
-                          ]);
-                          await reloadData();
+                          try {
+                            await Promise.all([
+                              dbService.updateFaq(fq.id, { orderIndex: idx + 2 }),
+                              dbService.updateFaq(nextFaq.id, { orderIndex: idx + 1 })
+                            ]);
+                            await reloadData();
+                          } catch (err) {
+                            setAdminSaveNotice({
+                              kind: 'error',
+                              message: err instanceof Error ? err.message : 'Unable to reorder FAQ.'
+                            });
+                          }
                         }}
                         className="p-1.5 rounded-lg border border-[#dfd7c7] text-[#0c2340] hover:border-[#c5a059] disabled:opacity-30 cursor-pointer"
                       >
@@ -3544,10 +3632,17 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                       <button
                         type="button"
                         onClick={async () => {
-                          await dbService.updateFaq(fq.id, {
-                            status: (fq.status || 'PUBLISHED') === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
-                          });
-                          await reloadData();
+                          try {
+                            await dbService.updateFaq(fq.id, {
+                              status: (fq.status || 'PUBLISHED') === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
+                            });
+                            await reloadData();
+                          } catch (err) {
+                            setAdminSaveNotice({
+                              kind: 'error',
+                              message: err instanceof Error ? err.message : 'Unable to update FAQ status.'
+                            });
+                          }
                         }}
                         className="text-[#c5a059] font-semibold hover:underline cursor-pointer px-1"
                       >
@@ -4136,11 +4231,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                                     setAdminSaveNotice({ kind: 'error', message: 'Provide a valid replacement URL.' });
                                     return;
                                   }
-                                  await dbService.updateMediaAsset(asset.id, { url: replacingMediaUrl.trim() });
-                                  setReplacingMediaId(null);
-                                  setReplacingMediaUrl('');
-                                  await reloadData();
-                                  setAdminSaveNotice({ kind: 'success', message: `Replaced URL for "${asset.title}".` });
+                                  try {
+                                    await dbService.updateMediaAsset(asset.id, { url: replacingMediaUrl.trim() });
+                                    setReplacingMediaId(null);
+                                    setReplacingMediaUrl('');
+                                    await reloadData();
+                                    setAdminSaveNotice({ kind: 'success', message: `Replaced URL for "${asset.title}".` });
+                                  } catch (err) {
+                                    setAdminSaveNotice({
+                                      kind: 'error',
+                                      message: err instanceof Error ? err.message : 'Unable to update media asset URL.'
+                                    });
+                                  }
                                 }}
                                 className="flex-1 py-1 rounded bg-[#0c2340] text-white text-[10px] font-semibold cursor-pointer"
                               >
@@ -4431,11 +4533,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                             <button
                               type="button"
                               onClick={async () => {
-                                await dbService.upsertCmsPage({
-                                  ...pg,
-                                  status: pg.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
-                                });
-                                await reloadData();
+                                try {
+                                  const nextStatus = pg.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
+                                  await dbService.upsertCmsPage({
+                                    ...pg,
+                                    status: nextStatus
+                                  });
+                                  await reloadData();
+                                  setAdminSaveNotice({ kind: 'success', message: `${pg.title} set to ${nextStatus}.` });
+                                } catch (err) {
+                                  setAdminSaveNotice({
+                                    kind: 'error',
+                                    message: err instanceof Error ? err.message : 'Unable to update page status.'
+                                  });
+                                }
                               }}
                               className="text-[#0c2340] font-semibold hover:text-[#c5a059] cursor-pointer"
                             >
@@ -4452,8 +4563,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                               <button
                                 type="button"
                                 onClick={async () => {
-                                  await dbService.deleteCmsPage(pg.id);
-                                  await reloadData();
+                                  try {
+                                    await dbService.deleteCmsPage(pg.id);
+                                    await reloadData();
+                                    setAdminSaveNotice({ kind: 'success', message: `Deleted "${pg.title}".` });
+                                  } catch (err) {
+                                    setAdminSaveNotice({
+                                      kind: 'error',
+                                      message: err instanceof Error ? err.message : 'Unable to delete page.'
+                                    });
+                                  }
                                 }}
                                 className="text-red-700 font-semibold hover:underline cursor-pointer"
                               >

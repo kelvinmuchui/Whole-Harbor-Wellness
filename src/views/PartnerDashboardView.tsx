@@ -204,6 +204,7 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
   const [wholesaleShippingNotes, setWholesaleShippingNotes] = useState('');
   const [submittingWholesale, setSubmittingWholesale] = useState(false);
   const [wholesaleOrderSuccess, setWholesaleOrderSuccess] = useState<string | null>(null);
+  const [wholesaleOrderError, setWholesaleOrderError] = useState<string | null>(null);
 
   const searchRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -228,8 +229,12 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
     syncProfileForm(selectedPartner);
     if (selectedPartner) {
       const [allOrders, allEarnings, notifList] = await Promise.all([
-        dbService.getOrders('partner'),
-        dbService.getPartnerEarnings(selectedPartner.id),
+        dbService.getOrders(isAdmin ? 'admin' : 'partner'),
+        dbService.getPartnerEarnings([
+          selectedPartner.id,
+          selectedPartner.partnerId,
+          selectedPartner.slug
+        ]),
         dbService.getNotifications(selectedPartner.partnerId).catch(() => [])
       ]);
       const partnerOrders = allOrders.filter(
@@ -325,8 +330,8 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
       try {
         const [allOrders, allEarnings, productsList, programsList, articlesList, notifList] =
           await Promise.all([
-            dbService.getOrders('partner'),
-            dbService.getPartnerEarnings(partner.id),
+            dbService.getOrders(isAdmin ? 'admin' : 'partner'),
+            dbService.getPartnerEarnings([partner.id, partner.partnerId, partner.slug]),
             dbService.getProducts(),
             dbService.getPrograms(),
             dbService.getArticles(),
@@ -1457,7 +1462,9 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                           {totalOrders.toLocaleString()}
                         </div>
                         <div className="text-[11px] font-medium text-[#4b6b58] tabular-nums">
-                          ↑ {totalOrders > 0 ? '+12.5%' : '0.0%'} referral activity
+                          {totalOrders > 0
+                            ? `${Math.round((completedOrders / totalOrders) * 100)}% completion rate`
+                            : 'No referral orders yet'}
                         </div>
                       </div>
                       <KpiSparkBars values={[24, 38, 32, 52, 61, 74, 88]} tone="navy" />
@@ -1529,7 +1536,9 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                           ${grossSales.toLocaleString('en-US', { maximumFractionDigits: 0 })}
                         </div>
                         <div className="text-[11px] font-medium text-[#4b6b58] tabular-nums">
-                          ↑ +15.2% community volume
+                          {grossSales > 0
+                            ? `$${totalEarnings.toLocaleString('en-US', { maximumFractionDigits: 0 })} commission earned`
+                            : 'Awaiting first sale'}
                         </div>
                       </div>
                       <KpiSparkBars values={[32, 46, 54, 62, 74, 84, 96]} tone="navy" />
@@ -2092,13 +2101,13 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                       Standard direct storefront link without partner commission attribution.
                     </p>
                     <div className="bg-white p-2.5 rounded-xl border border-[#dfd7c7] font-mono text-[11px] text-[#0c2340] select-all break-all">
-                      {window.location.origin}/#/shop
+                      {window.location.origin}/shop
                     </div>
                     <button
                       type="button"
                       onClick={() => {
                         if (navigator.clipboard) {
-                          navigator.clipboard.writeText(`${window.location.origin}/#/shop`).catch(() => {});
+                          navigator.clipboard.writeText(`${window.location.origin}/shop`).catch(() => {});
                         }
                         setCopiedDirectLink(true);
                         setTimeout(() => setCopiedDirectLink(false), 2500);
@@ -2448,11 +2457,18 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                             </div>
                           </div>
 
+                          {wholesaleOrderError && (
+                            <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs">
+                              {wholesaleOrderError}
+                            </div>
+                          )}
+
                           <button
                             type="button"
                             disabled={submittingWholesale}
                             onClick={async () => {
                               setSubmittingWholesale(true);
+                              setWholesaleOrderError(null);
                               try {
                                 const subtotal = wholesaleCart.reduce(
                                   (acc, i) => acc + i.kitPrice * i.kitsCount,
@@ -2503,11 +2519,17 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                                 setWholesaleCart([]);
                                 setWholesaleShippingNotes('');
                                 await loadPartnerDetails(partner);
+                              } catch (err) {
+                                setWholesaleOrderError(
+                                  err instanceof Error
+                                    ? err.message
+                                    : 'Unable to submit wholesale order right now. Please try again.'
+                                );
                               } finally {
                                 setSubmittingWholesale(false);
                               }
                             }}
-                            className="w-full py-3 rounded-xl bg-[#0c2340] text-white text-xs font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer"
+                            className="w-full py-3 rounded-xl bg-[#0c2340] text-white text-xs font-semibold hover:bg-[#c5a059] disabled:opacity-50 transition-colors cursor-pointer"
                           >
                             {submittingWholesale ? 'Submitting Wholesale Order...' : 'Submit Wholesale 10-Vial Order'}
                           </button>

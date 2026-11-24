@@ -219,9 +219,24 @@ function mergeRecordsById<T>(primary: T[], secondary: T[]): T[] {
   return Array.from(map.values());
 }
 
+const PUBLIC_WRITE_COLLECTIONS: ReadonlySet<CollectionName> = new Set([
+  'inquiries',
+  'partners',
+  'analytics_events'
+]);
+
+let activeSessionRole: UserRole | null = null;
+export function setActiveSessionRole(role: UserRole | null): void {
+  activeSessionRole = role;
+}
+
 function isFirebaseAdminSession(): boolean {
-  const email = auth.currentUser?.email?.toLowerCase();
-  if (!auth.currentUser?.emailVerified || !email) return false;
+  if (!auth.currentUser?.emailVerified) return false;
+  if (activeSessionRole === 'ADMIN' || activeSessionRole === 'SALES_ADMIN') {
+    return true;
+  }
+  const email = auth.currentUser.email?.toLowerCase();
+  if (!email) return false;
   return (
     email === 'muchuimalcolm423@gmail.com' ||
     email === 'muchuikelvin423@gmail.com' ||
@@ -527,7 +542,9 @@ async function syncFirestoreWrite(
   payload: Record<string, unknown>,
   operation: 'set' | 'update'
 ): Promise<void> {
-  if (!auth.currentUser || !(await ensureFirestoreReachable())) return;
+  const canWriteAnonymously =
+    operation === 'set' && PUBLIC_WRITE_COLLECTIONS.has(collectionName);
+  if ((!auth.currentUser && !canWriteAnonymously) || !(await ensureFirestoreReachable())) return;
   try {
     const ref = doc(db, collectionName, id);
     if (operation === 'set') {
@@ -657,6 +674,7 @@ async function updateRecord<U extends object>(
     throw new Error(`Cannot update missing ${collectionName} record "${id}".`);
   }
 
+  const cleanUpdates = cloneJson(updates) as Record<string, unknown>;
   const merged = cloneJson({ ...existing, ...updates, id });
   if (index >= 0) {
     items[index] = merged;
@@ -665,7 +683,7 @@ async function updateRecord<U extends object>(
   }
   writeLocalCollection(collectionName, items);
   notifyCollectionListeners(collectionName);
-  await syncFirestoreWrite(collectionName, id, merged, 'set');
+  await syncFirestoreWrite(collectionName, id, cleanUpdates, 'update');
 }
 
 async function deleteRecord(collectionName: CollectionName, id: string): Promise<void> {
@@ -762,6 +780,16 @@ export async function upsertUserProfile(user: UserProfile): Promise<UserProfile>
     updatedAt: new Date().toISOString()
   };
   return upsertRecord('users', cleanUser.uid, cleanUser);
+}
+
+export async function updateUserProfileFields(
+  uid: string,
+  updates: Partial<UserProfile>
+): Promise<void> {
+  await updateRecord('users', uid, {
+    ...updates,
+    updatedAt: new Date().toISOString()
+  });
 }
 
 export async function updateUserRole(
@@ -1006,6 +1034,33 @@ export async function getPartnerById(partnerId: string): Promise<Partner | null>
   );
 }
 
+function getNextPartnerNumber(allPartners: Partner[]): string {
+  let maxNum = 0;
+  for (const partner of allPartners) {
+    const match = /^WH-P-(\d+)$/i.exec(partner.partnerId || '');
+    if (match) {
+      const parsed = Number.parseInt(match[1], 10);
+      if (!Number.isNaN(parsed) && parsed > maxNum) {
+        maxNum = parsed;
+      }
+    }
+  }
+  const next = maxNum > 0 ? maxNum + 1 : allPartners.length + 1;
+  return String(next).padStart(6, '0');
+}
+
+function getUniquePartnerSlug(baseInput: string, fallbackNum: string, allPartners: Partner[]): string {
+  const baseSlug =
+    baseInput.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') ||
+    `partner-${fallbackNum}`;
+  let slug = baseSlug;
+  let suffix = 1;
+  while (allPartners.some((partner) => partner.slug === slug)) {
+    slug = `${baseSlug}-${suffix++}`;
+  }
+  return slug;
+}
+
 export async function registerPartner(data: {
   name: string;
   businessName?: string;
@@ -1019,22 +1074,17 @@ export async function registerPartner(data: {
   ownerUid?: string;
 }): Promise<Partner> {
   const allPartners = await getPartners(true);
-  const ownerUid = data.ownerUid || auth.currentUser?.uid;
+  const ownerUid =
+    data.ownerUid ||
+    (auth.currentUser?.emailVerified ? auth.currentUser.uid : undefined);
   const existingApplication = ownerUid
     ? allPartners.find((partner) => partner.ownerUid === ownerUid)
     : undefined;
   if (existingApplication) return existingApplication;
 
-  const nextNumber = String(allPartners.length + 1).padStart(6, '0');
+  const nextNumber = getNextPartnerNumber(allPartners);
   const partnerId = `WH-P-${nextNumber}`;
-  const baseSlug =
-    data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') ||
-    `partner-${nextNumber}`;
-  let slug = baseSlug;
-  let suffix = 1;
-  while (allPartners.some((partner) => partner.slug === slug)) {
-    slug = `${baseSlug}-${suffix++}`;
-  }
+  const slug = getUniquePartnerSlug(data.name, nextNumber, allPartners);
 
   const partner: Partner = {
     ...data,
@@ -1230,22 +1280,53 @@ export async function updateOrderStatus(
   orderId: string,
   status: OrderStatus
 ): Promise<void> {
+  const existing = await getRecord<Order>('orders', orderId);
+  const updatedAt = new Date().toISOString();
+  const isAdminSession = isFirebaseAdminSession();
+  const shouldCancelCommission = status === 'CANCELLED' || status === 'REFUNDED';
+
   await updateRecord('orders', orderId, {
     status,
-    updatedAt: new Date().toISOString()
+    updatedAt,
+    ...(isAdminSession && shouldCancelCommission ? { commissionStatus: 'CANCELLED' as const } : {})
   });
+
+  if (shouldCancelCommission) {
+    try {
+      const earnings = await getCollection<PartnerEarning>('partner_earnings');
+      const matchingEarnings = earnings.filter(
+        (e) =>
+          (e.orderId === orderId ||
+            (existing?.orderNumber && e.orderNumber === existing.orderNumber)) &&
+          e.status !== 'CANCELLED' &&
+          e.status !== 'PAID'
+      );
+      for (const earning of matchingEarnings) {
+        await updateRecord('partner_earnings', earning.id, {
+          status: 'CANCELLED',
+          updatedAt
+        }).catch(() => {});
+      }
+    } catch {
+      // Ignore if earnings collection is not readable in current session
+    }
+  }
 }
 
 export async function getPartnerEarnings(
-  partnerId?: string
+  partnerIdentifier?: string | string[]
 ): Promise<PartnerEarning[]> {
   const earnings = await getCollection<PartnerEarning>('partner_earnings');
-  return partnerId
-    ? earnings.filter(
-        (earning) =>
-          earning.partnerId === partnerId || earning.partnerSlug === partnerId
-      )
-    : earnings;
+  if (!partnerIdentifier) return earnings;
+  const identifiers = (
+    Array.isArray(partnerIdentifier) ? partnerIdentifier : [partnerIdentifier]
+  ).filter(Boolean);
+  if (identifiers.length === 0) return earnings;
+  return earnings.filter(
+    (earning) =>
+      identifiers.includes(earning.partnerId) ||
+      identifiers.includes(earning.partnerSlug)
+  );
 }
 
 export async function getEarningsByPartner(
@@ -1256,7 +1337,7 @@ export async function getEarningsByPartner(
 
 export async function updateEarningStatus(
   earningId: string,
-  status: 'PENDING' | 'APPROVED' | 'PAID'
+  status: 'PENDING' | 'APPROVED' | 'PAID' | 'CANCELLED'
 ): Promise<void> {
   await updateRecord('partner_earnings', earningId, {
     status,
@@ -1625,16 +1706,29 @@ export async function createPartner(
   partner: Omit<Partner, 'id'>
 ): Promise<Partner> {
   const allPartners = await getPartners(true);
-  const nextNumber = String(allPartners.length + 1).padStart(6, '0');
+  const nextNumber = getNextPartnerNumber(allPartners);
+  const resolvedPartnerId =
+    partner.partnerId && !allPartners.some((p) => p.partnerId === partner.partnerId)
+      ? partner.partnerId
+      : `WH-P-${nextNumber}`;
+  const resolvedSlug = getUniquePartnerSlug(
+    partner.slug || partner.name,
+    nextNumber,
+    allPartners
+  );
+  const resolvedOwnerUid =
+    partner.ownerUid ||
+    (auth.currentUser?.emailVerified &&
+    auth.currentUser.email?.toLowerCase() === partner.email.toLowerCase()
+      ? auth.currentUser.uid
+      : undefined);
+
   const newPartner: Partner = {
     ...partner,
     id: makeId('partner'),
-    partnerId: partner.partnerId || `WH-P-${nextNumber}`,
-    ownerUid:
-      partner.ownerUid ||
-      (auth.currentUser?.email?.toLowerCase() === partner.email.toLowerCase()
-        ? auth.currentUser.uid
-        : undefined),
+    partnerId: resolvedPartnerId,
+    slug: resolvedSlug,
+    ...(resolvedOwnerUid ? { ownerUid: resolvedOwnerUid } : {}),
     status: partner.status || 'NEW'
   };
   const created = await insertRecord('partners', newPartner);
@@ -1725,9 +1819,11 @@ export const updatePartnerEarningStatus = updateEarningStatus;
 
 export const dbService = {
   seedInitialDatabase,
+  setActiveSessionRole,
   getUsers,
   getUserByUid,
   upsertUserProfile,
+  updateUserProfileFields,
   updateUserRole,
   updateUserStatus,
   getProducts,

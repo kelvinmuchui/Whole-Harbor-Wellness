@@ -53,7 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           return (
             <a
               key={tab.id}
-              href={`#${tab.path}`}
+              href={`/${tab.path}`}
               className={
                 ecosystemActive
                   ? 'active font-bold text-[#c5a059]'

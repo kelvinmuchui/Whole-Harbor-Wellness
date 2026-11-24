@@ -11,7 +11,7 @@ import {
   reauthenticateWithCredential
 } from 'firebase/auth';
 import { auth, googleAuthProvider } from '../lib/firebase.ts';
-import { dbService, INITIAL_USERS } from '../services/dbService.ts';
+import { dbService, INITIAL_USERS, setActiveSessionRole } from '../services/dbService.ts';
 import { notificationService } from '../services/notificationService.ts';
 import { UserProfile, UserRole, PermissionMatrix } from '../types/index.ts';
 import { demoModeEnabled, TEST_VARS } from '../lib/testVariables.ts';
@@ -154,6 +154,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authLoading, setAuthLoading] = useState<boolean>(true);
 
   useEffect(() => {
+    setActiveSessionRole(currentUser?.role ?? null);
     if (currentUser) {
       localStorage.setItem('wh_current_user', JSON.stringify(currentUser));
     } else {
@@ -239,6 +240,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await dbService.upsertUserProfile(resolvedProfile);
         }
 
+        setActiveSessionRole(resolvedProfile.role);
         setCurrentUser(resolvedProfile);
       } catch (err) {
         console.error('Failed to sync Firebase auth user profile:', err);
@@ -580,12 +582,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateCurrentUserProfile = async (updates: Partial<UserProfile>): Promise<void> => {
     if (!currentUser) return;
+    const updatedAt = new Date().toISOString();
     const updated: UserProfile = {
       ...currentUser,
       ...updates,
-      updatedAt: new Date().toISOString()
+      updatedAt
     };
-    await dbService.upsertUserProfile(updated);
+    await dbService.updateUserProfileFields(currentUser.uid, {
+      ...updates,
+      updatedAt
+    });
     setCurrentUser(updated);
     if (updates.mfaEnabled !== undefined && updates.mfaEnabled !== currentUser.mfaEnabled) {
       await notificationService
@@ -603,6 +609,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    setActiveSessionRole(null);
     if (auth.currentUser) {
       await signOut(auth).catch(() => {});
     }

@@ -59,17 +59,23 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, navig
 
   const trimmed = query.trim().toLowerCase();
 
+  const activeProducts = products.filter(
+    (p) => !['DISABLED', 'DRAFT', 'ARCHIVED'].includes(p.status)
+  );
+  const activePrograms = programs.filter((p) => p.status === 'ACTIVE');
+  const publishedArticles = articles.filter((a) => a.status === 'PUBLISHED');
+
   const matchingProducts = trimmed
-    ? products.filter(
+    ? activeProducts.filter(
         (p) =>
           p.name.toLowerCase().includes(trimmed) ||
           p.categoryLabel.toLowerCase().includes(trimmed) ||
           p.description.toLowerCase().includes(trimmed)
       )
-    : products.slice(0, 4);
+    : activeProducts.slice(0, 4);
 
   const matchingPrograms = trimmed
-    ? programs.filter(
+    ? activePrograms.filter(
         (p) =>
           p.name.toLowerCase().includes(trimmed) ||
           p.category.toLowerCase().includes(trimmed) ||
@@ -78,7 +84,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, navig
     : [];
 
   const matchingArticles = trimmed
-    ? articles.filter(
+    ? publishedArticles.filter(
         (a) =>
           a.title.toLowerCase().includes(trimmed) ||
           a.summary.toLowerCase().includes(trimmed) ||
@@ -151,6 +157,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, navig
                     <img
                       src={p.imageUrl}
                       alt={p.name}
+                      loading="lazy"
                       className="w-12 h-12 rounded-lg object-cover bg-white border border-[#dfd7c7] shrink-0"
                     />
                     <div className="flex-1 min-w-0">
@@ -223,7 +230,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({ isOpen, onClose, navig
                     key={art.id}
                     onClick={() => {
                       onClose();
-                      navigate('learn');
+                      navigate('article-detail', art.slug);
                     }}
                     className="p-2.5 rounded-xl hover:bg-[#f6f4ee] transition-colors cursor-pointer group"
                   >

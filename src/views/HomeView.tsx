@@ -72,17 +72,22 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
     }
   };
 
+  const visibleProducts = useMemo(
+    () => products.filter((p) => !['DISABLED', 'DRAFT', 'ARCHIVED'].includes(p.status)),
+    [products]
+  );
+
   const filteredCatalog = useMemo(() => {
-    return products.filter(p => {
-      if (p.status === 'DISABLED') return false;
+    return visibleProducts.filter((p) => {
       const matchesCat = selectedCategory === 'all' || p.category === selectedCategory;
-      const matchesSearch = !searchQuery || 
+      const matchesSearch =
+        !searchQuery ||
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.categoryLabel.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.shortDescription.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCat && matchesSearch;
     });
-  }, [products, selectedCategory, searchQuery]);
+  }, [visibleProducts, selectedCategory, searchQuery]);
 
   const featuredProducts = products
     .filter((product) => product.featured && product.status === 'ACTIVE')
@@ -191,7 +196,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
           }}
           className="cursor-pointer"
         >
-          View all {products.length} options →
+          View all {visibleProducts.length} options →
         </a>
       </section>
 
@@ -203,7 +208,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
             return (
               <article className="product-card" key={product.id}>
                 <div className="product-image">
-                  <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                  <img src={product.imageUrl} alt={product.name} loading="lazy" className="w-full h-full object-cover" />
                   <span>{product.categoryLabel}</span>
                 </div>
                 <div className="product-info">
@@ -539,6 +544,30 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
         </div>
       </section>
 
+      {/* Partner Opportunity CTA Card (SRS 6.1) */}
+      <section className="bg-[#0c2340] text-white rounded-3xl p-8 sm:p-10 border border-[#c5a059]/40 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="space-y-2 max-w-2xl">
+          <span className="text-xs uppercase font-bold tracking-widest text-[#c5a059] block">
+            Whole Harbor Partner Ecosystem
+          </span>
+          <h2 className="font-serif text-2xl sm:text-3xl font-bold text-white">
+            Bring Whole Harbor Wellness to Your Studio, Clinic, or Community
+          </h2>
+          <p className="text-xs sm:text-sm text-[#dfd7c7] leading-relaxed">
+            Receive a dedicated co-branded landing page, 15% member privilege pricing, transparent 25% commission tracking, and wholesale 10-vial clinic kit access.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={() => navigate('partners')}
+            className="px-6 py-3 rounded-xl bg-[#c5a059] text-white text-xs font-semibold uppercase tracking-wider hover:bg-white hover:text-[#0c2340] transition-colors cursor-pointer"
+          >
+            Become a Partner →
+          </button>
+        </div>
+      </section>
+
 
 
       {/* 11. Interactive Frequently Asked Questions (FAQ) Accordion on Homepage */}
@@ -646,6 +675,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
                     <img
                       src={t.imageUrl}
                       alt={t.name}
+                      loading="lazy"
                       className="w-9 h-9 rounded-full object-cover border border-[#dfd7c7] shrink-0"
                     />
                   )}
@@ -697,6 +727,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
               <img
                 src="/images/learn/welcome.png"
                 alt="About Whole Harbor Wellness"
+                loading="lazy"
               />
               <span>🌿</span>
             </div>
@@ -713,6 +744,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
               <img
                 src="/images/learn/ordering.png"
                 alt="Tablet, checklist and package showing the ordering process"
+                loading="lazy"
               />
               <span>♧</span>
             </div>
@@ -729,6 +761,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
               <img
                 src="/images/learn/shipping.png"
                 alt="Insulated wellness delivery package prepared with care"
+                loading="lazy"
               />
               <span>▱</span>
             </div>
@@ -745,6 +778,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
               <img
                 src="/images/learn/mixing.png"
                 alt="Clean safety-first peptide preparation supplies"
+                loading="lazy"
               />
               <span>◇</span>
             </div>
@@ -761,6 +795,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
               <img
                 src="/images/learn/storage.png"
                 alt="Labeled vial storage box on the center shelf of a refrigerator"
+                loading="lazy"
               />
               <span>❧</span>
             </div>
@@ -777,6 +812,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
               <img
                 src="/images/learn/faq.png"
                 alt="Tablet conversation and question notebook representing customer support"
+                loading="lazy"
               />
               <span>?</span>
             </div>
@@ -793,6 +829,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
               <img
                 src="/images/learn/about.png"
                 alt="Wellness team hands arranging educational and quality-care materials"
+                loading="lazy"
               />
               <span>✦</span>
             </div>
@@ -809,6 +846,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
               <img
                 src="/images/learn/directory.png"
                 alt="Organized peptide reference cards with molecular diagrams"
+                loading="lazy"
               />
               <span>⌕</span>
             </div>

@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
-Disallow: /#/admin
-Disallow: /#/partner-portal
-Disallow: /#/customer-portal
+Disallow: /admin
+Disallow: /partner-portal
+Disallow: /customer-portal
 
 Sitemap: /sitemap.xml

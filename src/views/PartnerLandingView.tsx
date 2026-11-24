@@ -3,6 +3,7 @@ import { dbService } from '../services/dbService.ts';
 import { analyticsService } from '../services/analyticsService.ts';
 import { Partner, Product, WellnessProgram } from '../types/index.ts';
 import { useCart } from '../context/CartContext.tsx';
+import { isSafeMediaOrLinkUrl } from '../lib/mediaUtils.ts';
 
 interface PartnerLandingViewProps {
   slug: string;
@@ -42,14 +43,16 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
             dbService.getProducts(),
             dbService.getPrograms()
           ]);
-          const activeProds = allProds.filter((p) => p.status !== 'DISABLED');
+          const activeProds = allProds.filter(
+            (p) => !['DISABLED', 'DRAFT', 'ARCHIVED'].includes(p.status)
+          );
           const preferredCats = found.preferredCategories || [];
           const categoryMatched =
             preferredCats.length > 0
               ? activeProds.filter((p) => preferredCats.includes(p.category))
               : [];
           setProducts((categoryMatched.length > 0 ? categoryMatched : activeProds).slice(0, 4));
-          setPrograms(allProgs.slice(0, 2));
+          setPrograms(allProgs.filter((p) => p.status === 'ACTIVE').slice(0, 2));
         }
       } catch (err) {
         console.error('Failed to load partner page', err);
@@ -70,7 +73,9 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
           dbService.getPrograms()
         ]);
         if (!active) return;
-        const activeProducts = allProducts.filter((product) => product.status !== 'DISABLED');
+        const activeProducts = allProducts.filter(
+          (product) => !['DISABLED', 'DRAFT', 'ARCHIVED'].includes(product.status)
+        );
         const preferredCategories = partner.preferredCategories || [];
         const matchingProducts =
           preferredCategories.length > 0
@@ -79,7 +84,7 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
         setProducts(
           (matchingProducts.length > 0 ? matchingProducts : activeProducts).slice(0, 4)
         );
-        setPrograms(allPrograms.slice(0, 2));
+        setPrograms(allPrograms.filter((p) => p.status === 'ACTIVE').slice(0, 2));
       } catch (error) {
         console.error('Failed to refresh partner storefront catalog', error);
       }
@@ -226,11 +231,11 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
                     <span>{partner.address}</span>
                   </span>
                 )}
-                {partner.website && (
+                {partner.website && isSafeMediaOrLinkUrl(partner.website) && (
                   <a
                     href={partner.website}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-[#c5a059] hover:underline"
                   >
                     <span className="material-symbols-outlined text-[16px]">language</span>
@@ -297,6 +302,7 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
                 <img
                   src={prod.imageUrl}
                   alt={prod.name}
+                  loading="lazy"
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-[#c5a059] text-white text-[10px] font-bold uppercase">

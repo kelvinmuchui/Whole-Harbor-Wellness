@@ -109,9 +109,13 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
     }, 1500);
   };
 
+  const visibleProducts = useMemo(
+    () => products.filter((p) => !['DISABLED', 'DRAFT', 'ARCHIVED'].includes(p.status)),
+    [products]
+  );
+
   const filteredCatalog = useMemo(() => {
-    return products.filter((p) => {
-      if (p.status === 'DISABLED') return false;
+    return visibleProducts.filter((p) => {
       const matchesCat = selectedCategory === 'all' || p.category === selectedCategory;
       const matchesSearch =
         !searchQuery ||
@@ -120,7 +124,7 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
         p.shortDescription.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCat && matchesSearch;
     });
-  }, [products, selectedCategory, searchQuery]);
+  }, [visibleProducts, selectedCategory, searchQuery]);
 
   const featuredProducts = products.filter((product) => product.featured && product.status === 'ACTIVE').slice(0, 3);
   const featuredStacks = products.filter(
@@ -233,7 +237,7 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
           }}
           className="cursor-pointer"
         >
-          View all {products.length} options →
+          View all {visibleProducts.length} options →
         </a>
       </section>
 
@@ -245,7 +249,7 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
             return (
               <article className="product-card" key={product.id}>
                 <div className="product-image">
-                  <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                  <img src={product.imageUrl} alt={product.name} loading="lazy" className="w-full h-full object-cover" />
                   <span>{product.categoryLabel}</span>
                 </div>
                 <div className="product-info">
@@ -364,6 +368,7 @@ export const ShopView: React.FC<ShopViewProps> = ({ initialCategory, navigate })
                     <img
                       src={prod.imageUrl}
                       alt={prod.name}
+                      loading="lazy"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   </div>
