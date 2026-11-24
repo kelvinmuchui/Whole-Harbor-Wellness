@@ -1,64 +1,93 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { dbService } from '../services/dbService.ts';
+import type { CmsPageContent } from '../types/index.ts';
 
 interface ApproachViewProps {
   navigate: (path: string, param?: string) => void;
 }
 
 export const ApproachView: React.FC<ApproachViewProps> = ({ navigate }) => {
+  const [cmsPage, setCmsPage] = useState<CmsPageContent | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const loadApproach = async () => {
+      try {
+        const page = await dbService.getCmsPageBySlug('our-approach');
+        if (active && page && page.status === 'PUBLISHED') {
+          setCmsPage(page);
+        } else if (active) {
+          setCmsPage(null);
+        }
+      } catch (err) {
+        console.error('Failed to load approach CMS content', err);
+      }
+    };
+    void loadApproach();
+    const unsub = dbService.subscribeToCollections(['cms_pages'], () => {
+      void loadApproach();
+    });
+    return () => {
+      active = false;
+      unsub();
+    };
+  }, []);
+
+  const pillars =
+    cmsPage?.sections && cmsPage.sections.length >= 3
+      ? cmsPage.sections.slice(0, 3)
+      : [
+          {
+            badge: 'biotech',
+            title: '1. Verified Synthesis',
+            body: 'Synthesized in compliant cGMP cleanroom facilities utilizing solid-phase peptide synthesis (SPPS) and certified counter-ion exchange.'
+          },
+          {
+            badge: 'verified',
+            title: '2. Dual Analytical Assay',
+            body: 'Every batch undergoes High-Performance Liquid Chromatography (HPLC) and Mass Spectrometry (MS) to guarantee >99.2% single main-peak purity.'
+          },
+          {
+            badge: 'ac_unit',
+            title: '3. Active Cold-Chain',
+            body: 'Biological peptides undergo thermal denaturation when exposed to ambient transit heat. We ship strictly via insulated, cold-packed overnight couriers.'
+          }
+        ];
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
       
       {/* Header */}
       <div className="text-center max-w-3xl mx-auto space-y-4">
         <span className="text-xs uppercase font-bold tracking-widest text-[#5a6b7c]">
-          Methodology &amp; Standards
+          {cmsPage?.subtitle || 'Methodology & Standards'}
         </span>
         <h1 className="font-serif text-3xl sm:text-5xl text-[#0c2340] font-bold">
-          The Whole Harbor Clinical Standard
+          {cmsPage?.title || 'The Whole Harbor Clinical Standard'}
         </h1>
         <p className="text-xs sm:text-sm text-[#5a6b7c] leading-relaxed">
-          Peptide synthesis and hormone precursor distribution require rigorous analytical chemistry. 
-          We eliminate the safety hazards common to unregulated research chemical vendors.
+          {cmsPage?.body ||
+            'Peptide synthesis and hormone precursor distribution require rigorous analytical chemistry. We eliminate the safety hazards common to unregulated research chemical vendors.'}
         </p>
       </div>
 
       {/* 3 Pillars Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-[#f6f4ee] border border-[#dfd7c7] p-6 rounded-3xl space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-[#c5a059] text-white flex items-center justify-center">
-            <span className="material-symbols-outlined text-[24px]">biotech</span>
+        {pillars.map((pillar, idx) => (
+          <div key={idx} className="bg-[#f6f4ee] border border-[#dfd7c7] p-6 rounded-3xl space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-[#c5a059] text-white flex items-center justify-center">
+              <span className="material-symbols-outlined text-[24px]">
+                {pillar.badge || (idx === 0 ? 'biotech' : idx === 1 ? 'verified' : 'ac_unit')}
+              </span>
+            </div>
+            <h3 className="font-serif text-lg font-bold text-[#0c2340]">
+              {pillar.title}
+            </h3>
+            <p className="text-xs text-[#5a6b7c] leading-relaxed">
+              {pillar.body}
+            </p>
           </div>
-          <h3 className="font-serif text-lg font-bold text-[#0c2340]">
-            1. Verified Synthesis
-          </h3>
-          <p className="text-xs text-[#5a6b7c] leading-relaxed">
-            Synthesized in compliant cGMP cleanroom facilities utilizing solid-phase peptide synthesis (SPPS) and certified counter-ion exchange.
-          </p>
-        </div>
-
-        <div className="bg-[#f6f4ee] border border-[#dfd7c7] p-6 rounded-3xl space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-[#c5a059] text-white flex items-center justify-center">
-            <span className="material-symbols-outlined text-[24px]">verified</span>
-          </div>
-          <h3 className="font-serif text-lg font-bold text-[#0c2340]">
-            2. Dual Analytical Assay
-          </h3>
-          <p className="text-xs text-[#5a6b7c] leading-relaxed">
-            Every batch undergoes High-Performance Liquid Chromatography (HPLC) and Mass Spectrometry (MS) to guarantee &gt;99.2% single main-peak purity.
-          </p>
-        </div>
-
-        <div className="bg-[#f6f4ee] border border-[#dfd7c7] p-6 rounded-3xl space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-[#c5a059] text-white flex items-center justify-center">
-            <span className="material-symbols-outlined text-[24px]">ac_unit</span>
-          </div>
-          <h3 className="font-serif text-lg font-bold text-[#0c2340]">
-            3. Active Cold-Chain
-          </h3>
-          <p className="text-xs text-[#5a6b7c] leading-relaxed">
-            Biological peptides undergo thermal denaturation when exposed to ambient transit heat. We ship strictly via insulated, cold-packed overnight couriers.
-          </p>
-        </div>
+        ))}
       </div>
 
       {/* Comparison Table */}

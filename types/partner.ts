@@ -42,6 +42,8 @@ export interface Partner {
   ownerUid?: string;
   featuredProducts?: string[];
   preferredCategories?: ('metabolic' | 'cellular' | 'recovery' | 'longevity' | 'stacks')[];
+  landingPageVisible?: boolean;
+  landingPageHeadline?: string;
   createdAt: string;
   updatedAt?: string;
   deletedAt?: string | null;

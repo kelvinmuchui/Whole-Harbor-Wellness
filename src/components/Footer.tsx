@@ -147,11 +147,42 @@ export const Footer: React.FC<FooterProps> = ({ navigate }) => {
         {/* Bottom Bar */}
         <div className="pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-[#5a6b7c]">
           <p>© {new Date().getFullYear()} Whole Harbor Wellness, Inc. All rights reserved.</p>
-          <div className="flex items-center gap-6">
-            <span className="cursor-pointer hover:text-[#dfd7c7]">Privacy Policy</span>
-            <span className="cursor-pointer hover:text-[#dfd7c7]">Terms of Service</span>
-            <span className="cursor-pointer hover:text-[#dfd7c7]">CoA Verification</span>
-            <span className="cursor-pointer hover:text-[#dfd7c7]">Cold-Chain Protocol</span>
+          <div className="flex flex-wrap items-center gap-6">
+            <button
+              type="button"
+              onClick={() => navigate('privacy')}
+              className="cursor-pointer hover:text-[#dfd7c7] transition-colors"
+            >
+              Privacy Policy
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('terms')}
+              className="cursor-pointer hover:text-[#dfd7c7] transition-colors"
+            >
+              Terms of Service
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('coa-verification')}
+              className="cursor-pointer hover:text-[#dfd7c7] transition-colors"
+            >
+              CoA Verification
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('cold-chain')}
+              className="cursor-pointer hover:text-[#dfd7c7] transition-colors"
+            >
+              Cold-Chain Protocol
+            </button>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new CustomEvent('whw-open-cookie-settings'))}
+              className="cursor-pointer hover:text-[#dfd7c7] transition-colors"
+            >
+              Cookie Preferences
+            </button>
           </div>
         </div>
       </div>

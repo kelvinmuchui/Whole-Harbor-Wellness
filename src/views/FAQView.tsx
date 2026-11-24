@@ -17,7 +17,10 @@ export const FAQView: React.FC<FAQViewProps> = ({ navigate }) => {
     const loadFaqs = async () => {
       try {
         const data = await dbService.getFaqs();
-        if (active) setFaqs(data);
+        const published = data
+          .filter((f) => f.status !== 'DRAFT')
+          .sort((a, b) => (a.orderIndex ?? 999) - (b.orderIndex ?? 999));
+        if (active) setFaqs(published);
       } catch (error) {
         console.error('Failed to load FAQs', error);
       }

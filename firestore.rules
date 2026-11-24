@@ -34,6 +34,7 @@ service cloud.firestore {
     function isBootstrappedAdmin() {
       return isVerifiedUser() && (
         request.auth.token.email == 'muchuimalcolm423@gmail.com' ||
+        request.auth.token.email == 'muchuikelvin423@gmail.com' ||
         request.auth.token.email == 'admin@wholeharborwellness.com'
       );
     }
@@ -78,7 +79,8 @@ service cloud.firestore {
           'populationServed', 'memberBaseSize', 'currentWellnessServices', 'whyPartner',
           'marketingStrategy', 'promotionPlan', 'agreedToTerms', 'agreedAt', 'adminNotes',
           'status', 'commissionRate', 'memberDiscountRate', 'ownerUid', 'featuredProducts',
-          'preferredCategories', 'createdAt', 'updatedAt', 'deletedAt'
+          'preferredCategories', 'landingPageVisible', 'landingPageHeadline',
+          'createdAt', 'updatedAt', 'deletedAt'
         ]) &&
         data.partnerId is string && data.partnerId.size() > 0 && data.partnerId.size() <= 64 &&
         data.name is string && data.name.size() > 0 && data.name.size() <= 256 &&
@@ -90,7 +92,9 @@ service cloud.firestore {
         (!('memberDiscountRate' in data) || (data.memberDiscountRate is number && data.memberDiscountRate >= 0 && data.memberDiscountRate <= 1)) &&
         (!('ownerUid' in data) || (data.ownerUid is string && data.ownerUid.size() <= 128)) &&
         (!('description' in data) || (data.description is string && data.description.size() <= 2048)) &&
-        (!('logoUrl' in data) || (data.logoUrl is string && data.logoUrl.size() <= 1048576)) &&
+        (!('logoUrl' in data) || (data.logoUrl is string && data.logoUrl.size() <= 524288)) &&
+        (!('landingPageVisible' in data) || data.landingPageVisible is bool) &&
+        (!('landingPageHeadline' in data) || (data.landingPageHeadline is string && data.landingPageHeadline.size() <= 256)) &&
         (!('featuredProducts' in data) || (data.featuredProducts is list && data.featuredProducts.size() <= 50)) &&
         (!('preferredCategories' in data) || (data.preferredCategories is list && data.preferredCategories.size() <= 10));
     }
@@ -153,33 +157,102 @@ service cloud.firestore {
 
     function isValidProgram(data) {
       return data.keys().hasAll(['name', 'slug', 'priceMonthly', 'status', 'createdAt']) &&
+        data.keys().hasOnly([
+          'id', 'name', 'slug', 'duration', 'category', 'tag', 'shortDescription',
+          'fullDescription', 'priceMonthly', 'imageUrl', 'eligibility', 'ctaLabel',
+          'ctaLink', 'publishedAt', 'features', 'status', 'featured', 'createdAt', 'updatedAt'
+        ]) &&
         data.name is string && data.name.size() > 0 && data.name.size() <= 256 &&
         data.slug is string && data.slug.size() > 0 && data.slug.size() <= 128 &&
         data.priceMonthly is number && data.priceMonthly >= 0 &&
         data.status in ['ACTIVE', 'DRAFT', 'ARCHIVED'] &&
-        data.createdAt is string && data.createdAt.size() <= 64;
+        data.createdAt is string && data.createdAt.size() <= 64 &&
+        (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 524288)) &&
+        (!('eligibility' in data) || (data.eligibility is string && data.eligibility.size() <= 1024)) &&
+        (!('ctaLabel' in data) || (data.ctaLabel is string && data.ctaLabel.size() <= 128)) &&
+        (!('ctaLink' in data) || (data.ctaLink is string && data.ctaLink.size() <= 512));
     }
 
     function isValidArticle(data) {
       return data.keys().hasAll(['title', 'slug', 'category', 'status', 'createdAt']) &&
+        data.keys().hasOnly([
+          'id', 'title', 'slug', 'category', 'readTime', 'summary', 'content',
+          'imageUrl', 'author', 'tags', 'seoTitle', 'seoDescription', 'publishedAt',
+          'status', 'createdAt', 'updatedAt'
+        ]) &&
         data.title is string && data.title.size() > 0 && data.title.size() <= 256 &&
         data.slug is string && data.slug.size() > 0 && data.slug.size() <= 128 &&
         data.category is string && data.category.size() <= 64 &&
         data.status in ['PUBLISHED', 'DRAFT', 'ARCHIVED'] &&
-        data.createdAt is string && data.createdAt.size() <= 64;
+        data.createdAt is string && data.createdAt.size() <= 64 &&
+        (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 524288)) &&
+        (!('tags' in data) || (data.tags is list && data.tags.size() <= 15)) &&
+        (!('seoTitle' in data) || (data.seoTitle is string && data.seoTitle.size() <= 256)) &&
+        (!('seoDescription' in data) || (data.seoDescription is string && data.seoDescription.size() <= 512));
     }
 
     function isValidFaq(data) {
       return data.keys().hasAll(['question', 'answer']) &&
+        data.keys().hasOnly(['id', 'question', 'answer', 'category', 'orderIndex', 'status', 'createdAt', 'updatedAt']) &&
         data.question is string && data.question.size() > 0 && data.question.size() <= 512 &&
-        data.answer is string && data.answer.size() > 0 && data.answer.size() <= 4096;
+        data.answer is string && data.answer.size() > 0 && data.answer.size() <= 4096 &&
+        (!('status' in data) || data.status in ['PUBLISHED', 'DRAFT']);
     }
 
     function isValidTestimonial(data) {
       return data.keys().hasAll(['name', 'quote', 'rating']) &&
+        data.keys().hasOnly([
+          'id', 'name', 'role', 'organization', 'quote', 'rating',
+          'imageUrl', 'category', 'consentConfirmed', 'status',
+          'verified', 'featured', 'createdAt', 'updatedAt'
+        ]) &&
         data.name is string && data.name.size() > 0 && data.name.size() <= 128 &&
         data.quote is string && data.quote.size() > 0 && data.quote.size() <= 2048 &&
-        data.rating is number && data.rating >= 1 && data.rating <= 5;
+        data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+        (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 524288)) &&
+        (!('category' in data) || (data.category is string && data.category.size() <= 64)) &&
+        (!('consentConfirmed' in data) || data.consentConfirmed is bool) &&
+        (!('status' in data) || data.status in ['PUBLISHED', 'DRAFT']);
+    }
+
+    function isValidCmsPage(data) {
+      return data.keys().hasAll(['slug', 'title', 'category', 'body', 'status', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly([
+          'id', 'slug', 'title', 'subtitle', 'category', 'body', 'ctaLabel', 'ctaPath',
+          'seoTitle', 'seoDescription', 'sections', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        data.slug is string && data.slug.size() > 0 && data.slug.size() <= 128 &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 256 &&
+        data.category in ['Legal & Compliance', 'Storefront & Approach', 'Promotions', 'Custom Page'] &&
+        data.body is string && data.body.size() <= 32768 &&
+        data.status in ['PUBLISHED', 'DRAFT'] &&
+        data.createdAt is string && data.createdAt.size() <= 64 &&
+        data.updatedAt is string && data.updatedAt.size() <= 64 &&
+        (!('sections' in data) || (data.sections is list && data.sections.size() <= 20));
+    }
+
+    function isValidMediaAsset(data) {
+      return data.keys().hasAll(['title', 'url', 'category', 'createdAt']) &&
+        data.keys().hasOnly(['id', 'title', 'url', 'category', 'mimeType', 'isBuiltIn', 'createdAt', 'updatedAt']) &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 128 &&
+        data.url is string && data.url.size() > 0 && data.url.size() <= 655360 &&
+        data.category in ['Brand & Hero', 'Products', 'Learn Studio', 'Uploaded'] &&
+        data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll(['eventType', 'recipientEmail', 'subject', 'body', 'channel', 'deliveryStatus', 'createdAt']) &&
+        data.keys().hasOnly([
+          'id', 'eventType', 'recipientEmail', 'recipientName', 'recipientUid',
+          'partnerId', 'subject', 'body', 'channel', 'deliveryStatus', 'read', 'createdAt'
+        ]) &&
+        data.eventType in ['PARTNER_APPLICATION_RECEIVED', 'PARTNER_APPLICATION_APPROVED', 'PARTNER_STATUS_UPDATED', 'PARTNER_ACCOUNT_CREATED', 'ACCOUNT_SECURITY_UPDATED'] &&
+        data.recipientEmail is string && data.recipientEmail.size() > 0 && data.recipientEmail.size() <= 256 &&
+        data.subject is string && data.subject.size() > 0 && data.subject.size() <= 256 &&
+        data.body is string && data.body.size() > 0 && data.body.size() <= 2048 &&
+        data.channel in ['EMAIL_WEBHOOK', 'IN_APP_LEDGER'] &&
+        data.deliveryStatus in ['SENT', 'LOGGED', 'FAILED'] &&
+        data.createdAt is string && data.createdAt.size() <= 64;
     }
 
     function isValidAuditLog(data) {
@@ -338,7 +411,7 @@ service cloud.firestore {
       allow delete: if isValidId(earningId) && isAdmin();
     }
 
-    // Educational Articles, FAQs & Testimonials
+    // Educational Articles, FAQs, Testimonials, CMS Pages & Media Assets
     match /educational_articles/{articleId} {
       allow get: if isValidId(articleId);
       allow list: if true;
@@ -361,6 +434,44 @@ service cloud.firestore {
       allow create: if isValidId(testimonialId) && isAdmin() && isValidTestimonial(incoming());
       allow update: if isValidId(testimonialId) && isAdmin() && isValidTestimonial(incoming());
       allow delete: if isValidId(testimonialId) && isAdmin();
+    }
+
+    match /cms_pages/{pageId} {
+      allow get: if isValidId(pageId);
+      allow list: if true;
+      allow create: if isValidId(pageId) && isAdmin() && isValidCmsPage(incoming());
+      allow update: if isValidId(pageId) && isAdmin() && isValidCmsPage(incoming());
+      allow delete: if isValidId(pageId) && isAdmin();
+    }
+
+    match /media_assets/{assetId} {
+      allow get: if isValidId(assetId);
+      allow list: if true;
+      allow create: if isValidId(assetId) && isAdmin() && isValidMediaAsset(incoming());
+      allow update: if isValidId(assetId) && isAdmin() && isValidMediaAsset(incoming());
+      allow delete: if isValidId(assetId) && isAdmin();
+    }
+
+    // Notifications Ledger (Admin or Recipient read; Verified user/Admin create)
+    match /notifications/{notificationId} {
+      allow get: if isValidId(notificationId) && (
+        isAdmin() ||
+        (isSignedIn() && (existing().recipientUid == request.auth.uid || existing().recipientEmail == request.auth.token.email))
+      );
+      allow list: if isBootstrappedAdmin() || (
+        isSignedIn() && (
+          existing().recipientUid == request.auth.uid ||
+          existing().recipientEmail == request.auth.token.email
+        )
+      );
+      allow create: if isVerifiedUser() && isValidId(notificationId) && isValidNotification(incoming());
+      allow update: if isVerifiedUser() && isValidId(notificationId) && isValidNotification(incoming()) && (
+        isAdmin() || (
+          (existing().recipientUid == request.auth.uid || existing().recipientEmail == request.auth.token.email) &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['read'])
+        )
+      );
+      allow delete: if isValidId(notificationId) && isAdmin();
     }
 
     // Audit Logs (Admin readable, append-only)

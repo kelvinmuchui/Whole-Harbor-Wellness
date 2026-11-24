@@ -65,6 +65,11 @@ export interface WellnessProgram {
   shortDescription: string;
   fullDescription: string;
   priceMonthly: number;
+  imageUrl?: string;
+  eligibility?: string;
+  ctaLabel?: string;
+  ctaLink?: string;
+  publishedAt?: string;
   features: string[];
   status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED';
   featured: boolean;
@@ -82,6 +87,10 @@ export interface EducationalArticle {
   content: string;
   imageUrl: string;
   author: string;
+  tags?: string[];
+  seoTitle?: string;
+  seoDescription?: string;
+  publishedAt?: string;
   status: 'PUBLISHED' | 'DRAFT' | 'ARCHIVED';
   createdAt: string;
   updatedAt?: string;
@@ -93,7 +102,9 @@ export interface FAQ {
   answer: string;
   category: string;
   orderIndex: number;
+  status?: 'PUBLISHED' | 'DRAFT';
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Testimonial {
@@ -103,7 +114,46 @@ export interface Testimonial {
   organization: string;
   quote: string;
   rating: number;
+  imageUrl?: string;
+  category?: string;
+  consentConfirmed?: boolean;
+  status?: 'PUBLISHED' | 'DRAFT';
   verified: boolean;
   featured: boolean;
   createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CmsPageSection {
+  title: string;
+  body: string;
+  badge?: string;
+}
+
+export interface CmsPageContent {
+  id: string;
+  slug: string; // e.g. 'privacy', 'terms', 'coa-verification', 'cold-chain', 'our-approach', 'storefront-promo'
+  title: string;
+  subtitle?: string;
+  category: 'Legal & Compliance' | 'Storefront & Approach' | 'Promotions' | 'Custom Page';
+  body: string;
+  ctaLabel?: string;
+  ctaPath?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  sections?: CmsPageSection[];
+  status: 'PUBLISHED' | 'DRAFT';
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface MediaAsset {
+  id: string;
+  title: string;
+  url: string;
+  category: 'Brand & Hero' | 'Products' | 'Learn Studio' | 'Uploaded';
+  mimeType?: string;
+  isBuiltIn?: boolean;
+  createdAt: string;
+  updatedAt?: string;
 }

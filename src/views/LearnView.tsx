@@ -1,5 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useCart } from '../context/CartContext.tsx';
+import { dbService } from '../services/dbService.ts';
+import type { EducationalArticle } from '../types/index.ts';
 
 interface LearnViewProps {
   initialTab?: string;
@@ -37,6 +39,29 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
 
   // Selected guide for in-depth reader modal
   const [activeGuide, setActiveGuide] = useState<GuideTopic | null>(null);
+  const [publishedArticles, setPublishedArticles] = useState<EducationalArticle[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    const loadArticles = async () => {
+      try {
+        const list = await dbService.getArticles();
+        if (active) {
+          setPublishedArticles(list.filter((art) => art.status === 'PUBLISHED'));
+        }
+      } catch (err) {
+        console.error('Failed to load published articles', err);
+      }
+    };
+    void loadArticles();
+    const unsub = dbService.subscribeToCollections(['educational_articles'], () => {
+      void loadArticles();
+    });
+    return () => {
+      active = false;
+      unsub();
+    };
+  }, []);
 
   React.useEffect(() => {
     if (!activeGuide) return;
@@ -764,6 +789,62 @@ export const LearnView: React.FC<LearnViewProps> = ({ initialTab, navigate }) =>
                   ))}
                 </div>
               </div>
+
+              {publishedArticles.length > 0 && (
+                <div className="pt-6 space-y-4">
+                  <div className="flex items-end justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold tracking-widest text-[#c5a059]">
+                        PUBLISHED RESEARCH BRIEFINGS
+                      </span>
+                      <h3 className="font-serif text-2xl sm:text-3xl font-bold text-[#0c2340] mt-1">
+                        Clinical Articles &amp; Protocols
+                      </h3>
+                    </div>
+                    <span className="text-xs text-[#5a6b7c]">
+                      {publishedArticles.length} Published
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {publishedArticles.map((art) => (
+                      <div
+                        key={art.id}
+                        onClick={() => navigate('article-detail', art.slug)}
+                        className="bg-white rounded-2xl border border-[#dfd7c7] overflow-hidden shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between group"
+                      >
+                        {art.imageUrl && (
+                          <div className="h-36 bg-[#f6f4ee] overflow-hidden border-b border-[#dfd7c7]">
+                            <img
+                              src={art.imageUrl}
+                              alt={art.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          </div>
+                        )}
+                        <div className="p-5 flex-1 flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[#c5a059] mb-2">
+                              <span>{art.category}</span>
+                              <span className="text-[#5a6b7c] font-semibold">{art.readTime}</span>
+                            </div>
+                            <h4 className="font-serif text-lg font-bold text-[#0c2340] mb-1.5 group-hover:text-[#c5a059] transition-colors">
+                              {art.title}
+                            </h4>
+                            <p className="text-xs text-[#5a6b7c] leading-relaxed line-clamp-3">
+                              {art.summary}
+                            </p>
+                          </div>
+                          <div className="pt-4 mt-4 border-t border-[#dfd7c7]/60 flex items-center justify-between text-xs text-[#c5a059] font-bold">
+                            <span>Read Full Article</span>
+                            <span className="group-hover:translate-x-1 transition-transform">→</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
             </div>
           )}

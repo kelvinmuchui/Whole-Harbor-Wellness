@@ -85,14 +85,34 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [items]);
 
   useEffect(() => {
-    if (activeReferral) {
-      localStorage.setItem('wh_active_referral', JSON.stringify(activeReferral));
-      // Also set standard cookie for cross-session attribution window
-      document.cookie = `wh_partner_ref=${encodeURIComponent(activeReferral.partnerSlug)}; max-age=${30 * 86400}; path=/; SameSite=Lax`;
-    } else {
-      localStorage.removeItem('wh_active_referral');
-      document.cookie = 'wh_partner_ref=; max-age=0; path=/;';
-    }
+    const syncReferralCookie = () => {
+      let allowsAttributionCookie = true;
+      try {
+        const rawConsent = localStorage.getItem('whw_cookie_consent_v1');
+        if (rawConsent) {
+          const parsed = JSON.parse(rawConsent) as { mode?: 'all' | 'essential' };
+          allowsAttributionCookie = parsed.mode !== 'essential';
+        }
+      } catch {
+        allowsAttributionCookie = true;
+      }
+
+      if (activeReferral) {
+        localStorage.setItem('wh_active_referral', JSON.stringify(activeReferral));
+        if (allowsAttributionCookie) {
+          document.cookie = `wh_partner_ref=${encodeURIComponent(activeReferral.partnerSlug)}; max-age=${30 * 86400}; path=/; SameSite=Lax`;
+        } else {
+          document.cookie = 'wh_partner_ref=; max-age=0; path=/;';
+        }
+      } else {
+        localStorage.removeItem('wh_active_referral');
+        document.cookie = 'wh_partner_ref=; max-age=0; path=/;';
+      }
+    };
+
+    syncReferralCookie();
+    window.addEventListener('whw-cookie-consent-changed', syncReferralCookie);
+    return () => window.removeEventListener('whw-cookie-consent-changed', syncReferralCookie);
   }, [activeReferral]);
 
   const showToast = (msg: string) => {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { dbService } from '../services/dbService.ts';
-import { Product, WellnessProgram, Testimonial, FAQ } from '../types/index.ts';
+import { Product, WellnessProgram, Testimonial, FAQ, CmsPageContent } from '../types/index.ts';
 import { useCart } from '../context/CartContext.tsx';
 
 interface HomeViewProps {
@@ -12,6 +12,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
   const [programs, setPrograms] = useState<WellnessProgram[]>([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [faqs, setFaqs] = useState<FAQ[]>([]);
+  const [promoCms, setPromoCms] = useState<CmsPageContent | null>(null);
   const [activeFaqId, setActiveFaqId] = useState<string | null>('faq-1');
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -25,17 +26,23 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
     let active = true;
     const load = async () => {
       try {
-        const [prods, progs, tests, faqData] = await Promise.all([
+        const [prods, progs, tests, faqData, promo] = await Promise.all([
           dbService.getProducts(),
           dbService.getPrograms(),
           dbService.getTestimonials(),
-          dbService.getFaqs()
+          dbService.getFaqs(),
+          dbService.getCmsPageBySlug('storefront-promo')
         ]);
         if (active) {
           setProducts(prods);
-          setPrograms(progs);
-          setTestimonials(tests);
-          setFaqs(faqData);
+          setPrograms(progs.filter((p) => p.status === 'ACTIVE'));
+          setTestimonials(tests.filter((t) => t.status !== 'DRAFT'));
+          setFaqs(
+            faqData
+              .filter((f) => f.status !== 'DRAFT')
+              .sort((a, b) => (a.orderIndex ?? 999) - (b.orderIndex ?? 999))
+          );
+          setPromoCms(promo && promo.status === 'PUBLISHED' ? promo : null);
           setLoadError(null);
         }
       } catch (err) {
@@ -47,7 +54,7 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
     };
     void load();
     const unsubscribe = dbService.subscribeToCollections(
-      ['products', 'wellness_programs', 'testimonials', 'faqs'],
+      ['products', 'wellness_programs', 'testimonials', 'faqs', 'cms_pages'],
       () => {
         void load();
       }
@@ -238,6 +245,26 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
           <span>6+ KITS</span>
         </div>
       </section>
+
+      {promoCms && (
+        <section className="bg-[#f6f4ee] border border-[#dfd7c7] rounded-2xl px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold text-[#0c2340]">{promoCms.title}</p>
+            {promoCms.body && (
+              <p className="text-[11px] text-[#5a6b7c] mt-0.5">{promoCms.body}</p>
+            )}
+          </div>
+          {promoCms.ctaLabel && (
+            <button
+              type="button"
+              onClick={() => navigate((promoCms.ctaPath || 'shop').replace(/^#?\//, ''))}
+              className="px-4 py-2 rounded-xl bg-[#0c2340] text-white text-xs font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer shrink-0 self-start sm:self-auto"
+            >
+              {promoCms.ctaLabel}
+            </button>
+          )}
+        </section>
+      )}
 
       {/* 6. Full Catalog Section */}
       <section className="catalog-section" id="catalog">
@@ -614,11 +641,25 @@ export const HomeView: React.FC<HomeViewProps> = ({ navigate }) => {
                     “{t.quote}”
                   </p>
                 </div>
-                <div className="pt-3 border-t border-[#dfd7c7]/50">
-                  <span className="font-serif font-bold text-sm text-[#0c2340] block">{t.name}</span>
-                  <span className="text-[11px] text-[#5a6b7c]">
-                    {t.role}{t.organization ? ` · ${t.organization}` : ''}
-                  </span>
+                <div className="pt-3 border-t border-[#dfd7c7]/50 flex items-center gap-3">
+                  {t.imageUrl && (
+                    <img
+                      src={t.imageUrl}
+                      alt={t.name}
+                      className="w-9 h-9 rounded-full object-cover border border-[#dfd7c7] shrink-0"
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <span className="font-serif font-bold text-sm text-[#0c2340] block truncate">{t.name}</span>
+                    <span className="text-[11px] text-[#5a6b7c] block truncate">
+                      {t.role}{t.organization ? ` · ${t.organization}` : ''}
+                    </span>
+                    {t.category && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#c5a059]">
+                        {t.category}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </article>
             ))}

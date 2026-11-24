@@ -284,12 +284,12 @@ export const PartnersView: React.FC<PartnersViewProps> = ({ navigate }) => {
             </div>
             <div className="space-y-2 pt-2">
               <div className="bg-[#f6f4ee] p-2.5 rounded-xl border border-[#dfd7c7] font-mono text-[11px] text-[#c5a059] font-bold break-all">
-                {window.location.origin}/#/partner/your-organization
+                {window.location.origin}/partner/your-organization
               </div>
               <button
                 type="button"
                 onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/#/partner/apex-wellness`);
+                  navigator.clipboard.writeText(`${window.location.origin}/partner/apex-wellness`);
                   setCopiedChannel('partner');
                   setTimeout(() => setCopiedChannel(null), 2500);
                 }}

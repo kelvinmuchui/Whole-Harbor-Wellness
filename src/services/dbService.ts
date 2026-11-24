@@ -19,8 +19,10 @@ import {
 } from '../lib/firebase.ts';
 import {
   INITIAL_ARTICLES,
+  INITIAL_CMS_PAGES,
   INITIAL_EARNINGS,
   INITIAL_FAQS,
+  INITIAL_MEDIA_ASSETS,
   INITIAL_ORDERS,
   INITIAL_PARTNERS,
   INITIAL_PROGRAMS,
@@ -33,9 +35,13 @@ import { WHW_PRODUCTS } from '../lib/whwCatalog.ts';
 import type {
   AnalyticsEvent,
   AuditLogEntry,
+  CmsPageContent,
   ContactInquiry,
   EducationalArticle,
   FAQ,
+  MediaAsset,
+  NotificationEventType,
+  NotificationRecord,
   Order,
   OrderStatus,
   Partner,
@@ -58,6 +64,9 @@ export type CollectionName =
   | 'educational_articles'
   | 'faqs'
   | 'testimonials'
+  | 'cms_pages'
+  | 'media_assets'
+  | 'notifications'
   | 'inquiries'
   | 'analytics_events'
   | 'audit_logs';
@@ -76,7 +85,9 @@ const PUBLIC_COLLECTIONS: ReadonlySet<CollectionName> = new Set([
   'wellness_programs',
   'educational_articles',
   'faqs',
-  'testimonials'
+  'testimonials',
+  'cms_pages',
+  'media_assets'
 ]);
 
 const collectionListeners = new Map<CollectionName, Set<() => void>>();
@@ -108,6 +119,11 @@ function getSeedData(collectionName: CollectionName): unknown[] {
       return INITIAL_FAQS;
     case 'testimonials':
       return INITIAL_TESTIMONIALS;
+    case 'cms_pages':
+      return INITIAL_CMS_PAGES;
+    case 'media_assets':
+      return INITIAL_MEDIA_ASSETS;
+    case 'notifications':
     case 'inquiries':
     case 'analytics_events':
     case 'audit_logs':
@@ -208,6 +224,7 @@ function isFirebaseAdminSession(): boolean {
   if (!auth.currentUser?.emailVerified || !email) return false;
   return (
     email === 'muchuimalcolm423@gmail.com' ||
+    email === 'muchuikelvin423@gmail.com' ||
     email === 'admin@wholeharborwellness.com' ||
     email === TEST_VARS.auth.adminEmail.toLowerCase()
   );
@@ -405,6 +422,25 @@ async function getCollection<T>(collectionName: CollectionName): Promise<T[]> {
       );
       const remote = snap.docs.map(
         (d) => ({ ...(d.data() as Record<string, unknown>), id: d.id } as T)
+      );
+      return demoModeEnabled ? mergeRecordsById(remote, localItems) : remote;
+    }
+
+    if (collectionName === 'notifications') {
+      const email = auth.currentUser.email;
+      const [uidSnap, emailSnap] = await Promise.all([
+        getDocs(query(collection(db, 'notifications'), where('recipientUid', '==', auth.currentUser.uid))).catch(
+          () => null
+        ),
+        email
+          ? getDocs(query(collection(db, 'notifications'), where('recipientEmail', '==', email))).catch(
+              () => null
+            )
+          : Promise.resolve(null)
+      ]);
+      const remote = mergeRecordsById(
+        uidSnap?.docs.map((d) => ({ ...(d.data() as Record<string, unknown>), id: d.id } as T)) ?? [],
+        emailSnap?.docs.map((d) => ({ ...(d.data() as Record<string, unknown>), id: d.id } as T)) ?? []
       );
       return demoModeEnabled ? mergeRecordsById(remote, localItems) : remote;
     }
@@ -701,7 +737,9 @@ export async function seedInitialDatabase(): Promise<void> {
       'wellness_programs',
       'educational_articles',
       'faqs',
-      'testimonials'
+      'testimonials',
+      'cms_pages',
+      'media_assets'
     ] as CollectionName[]
   ).forEach((name) => {
     readLocalCollection(name);
@@ -731,6 +769,7 @@ export async function updateUserRole(
   role: UserRole,
   wholesaleApprovalStatus?: UserProfile['wholesaleApprovalStatus']
 ): Promise<void> {
+  const existing = await getUserByUid(uid);
   const updates: Partial<UserProfile> = {
     role,
     updatedAt: new Date().toISOString(),
@@ -745,6 +784,16 @@ export async function updateUserRole(
     resourceId: uid,
     metadata: { role, wholesaleApprovalStatus }
   }).catch(() => {});
+  if (existing?.email) {
+    await dispatchNotificationRecord({
+      eventType: 'ACCOUNT_SECURITY_UPDATED',
+      recipientEmail: existing.email,
+      recipientName: existing.displayName,
+      recipientUid: existing.uid,
+      subject: 'Account Access & Role Updated – Whole Harbor Wellness',
+      body: `Your Whole Harbor Wellness account role has been updated to ${role}.`
+    }).catch(() => {});
+  }
 }
 
 export async function updateUserStatus(
@@ -753,6 +802,7 @@ export async function updateUserStatus(
   partnerId?: string,
   partnerSlug?: string
 ): Promise<void> {
+  const existing = await getUserByUid(uid);
   const updates: Partial<UserProfile> = {
     status,
     updatedAt: new Date().toISOString(),
@@ -768,6 +818,17 @@ export async function updateUserStatus(
     resourceId: uid,
     metadata: { status, partnerId, partnerSlug }
   }).catch(() => {});
+  if (existing?.email) {
+    await dispatchNotificationRecord({
+      eventType: 'ACCOUNT_SECURITY_UPDATED',
+      recipientEmail: existing.email,
+      recipientName: existing.displayName,
+      recipientUid: existing.uid,
+      partnerId: partnerId || existing.partnerId,
+      subject: 'Account Status Updated – Whole Harbor Wellness',
+      body: `Your account status has been updated to ${status}.`
+    }).catch(() => {});
+  }
 }
 
 export async function getProducts(): Promise<Product[]> {
@@ -865,7 +926,16 @@ export async function createProgram(
   program: Omit<WellnessProgram, 'id'>
 ): Promise<WellnessProgram> {
   const newProgram: WellnessProgram = { ...program, id: makeId('prog') };
-  return insertRecord('wellness_programs', newProgram);
+  const created = await insertRecord('wellness_programs', newProgram);
+  await createAuditLog({
+    userId: auth.currentUser?.uid,
+    userRole: 'ADMIN',
+    action: 'CMS_UPDATED',
+    resource: 'CMS',
+    resourceId: created.id,
+    metadata: { entity: 'WellnessProgram', action: 'CREATE', name: created.name }
+  }).catch(() => {});
+  return created;
 }
 
 export async function updateProgram(
@@ -876,10 +946,26 @@ export async function updateProgram(
     ...updates,
     updatedAt: new Date().toISOString()
   });
+  await createAuditLog({
+    userId: auth.currentUser?.uid,
+    userRole: 'ADMIN',
+    action: 'CMS_UPDATED',
+    resource: 'CMS',
+    resourceId: id,
+    metadata: { entity: 'WellnessProgram', action: 'UPDATE', changedFields: Object.keys(updates) }
+  }).catch(() => {});
 }
 
 export async function deleteProgram(id: string): Promise<void> {
   await deleteRecord('wellness_programs', id);
+  await createAuditLog({
+    userId: auth.currentUser?.uid,
+    userRole: 'ADMIN',
+    action: 'CMS_UPDATED',
+    resource: 'CMS',
+    resourceId: id,
+    metadata: { entity: 'WellnessProgram', action: 'DELETE' }
+  }).catch(() => {});
 }
 
 export async function getPartners(includeUnapproved = false): Promise<Partner[]> {
@@ -970,6 +1056,15 @@ export async function registerPartner(data: {
     resourceId: created.id,
     metadata: { partnerId, name: partner.name, status: partner.status }
   }).catch(() => {});
+  await dispatchNotificationRecord({
+    eventType: 'PARTNER_APPLICATION_RECEIVED',
+    recipientEmail: created.email,
+    recipientName: created.contactPerson || created.name,
+    recipientUid: created.ownerUid,
+    partnerId: created.partnerId,
+    subject: `Partner Application Received (${created.partnerId}) – Whole Harbor Wellness`,
+    body: `Thank you for applying to the Whole Harbor Wellness Partner Ecosystem for ${created.name}. Our clinical partnerships team will review your application and respond shortly.`
+  }).catch(() => {});
   return created;
 }
 
@@ -1023,6 +1118,23 @@ export async function updatePartnerStatus(
       ...(adminNotes ? { adminNotes } : {})
     }
   }).catch(() => {});
+
+  if (existing?.email) {
+    const isApproved = status === 'APPROVED';
+    await dispatchNotificationRecord({
+      eventType: isApproved ? 'PARTNER_APPLICATION_APPROVED' : 'PARTNER_STATUS_UPDATED',
+      recipientEmail: existing.email,
+      recipientName: existing.contactPerson || existing.name,
+      recipientUid: existing.ownerUid,
+      partnerId: existing.partnerId,
+      subject: isApproved
+        ? `Partner Portal Approved (${existing.partnerId}) – Whole Harbor Wellness`
+        : `Partner Application Update (${existing.partnerId}): ${status}`,
+      body: isApproved
+        ? `Congratulations! Your partner storefront (/partner/${existing.slug}) and wholesale kit access for ${existing.name} are now active.`
+        : `Your partner status for ${existing.name} is now ${status}.${adminNotes ? ` Note: ${adminNotes}` : ''}`
+    }).catch(() => {});
+  }
 }
 
 export async function updatePartner(
@@ -1165,10 +1277,19 @@ export async function getArticles(): Promise<EducationalArticle[]> {
 export async function createArticle(
   article: Omit<EducationalArticle, 'id'>
 ): Promise<EducationalArticle> {
-  return insertRecord('educational_articles', {
+  const created = await insertRecord('educational_articles', {
     ...article,
     id: makeId('art')
   });
+  await createAuditLog({
+    userId: auth.currentUser?.uid,
+    userRole: 'ADMIN',
+    action: 'CMS_UPDATED',
+    resource: 'CMS',
+    resourceId: created.id,
+    metadata: { entity: 'EducationalArticle', action: 'CREATE', title: created.title }
+  }).catch(() => {});
+  return created;
 }
 
 export async function updateArticle(
@@ -1179,10 +1300,26 @@ export async function updateArticle(
     ...updates,
     updatedAt: new Date().toISOString()
   });
+  await createAuditLog({
+    userId: auth.currentUser?.uid,
+    userRole: 'ADMIN',
+    action: 'CMS_UPDATED',
+    resource: 'CMS',
+    resourceId: id,
+    metadata: { entity: 'EducationalArticle', action: 'UPDATE', changedFields: Object.keys(updates) }
+  }).catch(() => {});
 }
 
 export async function deleteArticle(id: string): Promise<void> {
   await deleteRecord('educational_articles', id);
+  await createAuditLog({
+    userId: auth.currentUser?.uid,
+    userRole: 'ADMIN',
+    action: 'CMS_UPDATED',
+    resource: 'CMS',
+    resourceId: id,
+    metadata: { entity: 'EducationalArticle', action: 'DELETE' }
+  }).catch(() => {});
 }
 
 export async function getFAQs(): Promise<FAQ[]> {
@@ -1190,15 +1327,49 @@ export async function getFAQs(): Promise<FAQ[]> {
 }
 
 export async function createFaq(faq: Omit<FAQ, 'id'>): Promise<FAQ> {
-  return insertRecord('faqs', { ...faq, id: makeId('faq') });
+  const now = new Date().toISOString();
+  const created = await insertRecord<FAQ>('faqs', {
+    status: 'PUBLISHED' as const,
+    createdAt: now,
+    ...faq,
+    id: makeId('faq')
+  });
+  await createAuditLog({
+    userId: auth.currentUser?.uid,
+    userRole: 'ADMIN',
+    action: 'CMS_UPDATED',
+    resource: 'CMS',
+    resourceId: created.id,
+    metadata: { entity: 'FAQ', action: 'CREATE', question: created.question }
+  }).catch(() => {});
+  return created;
 }
 
 export async function updateFaq(id: string, updates: Partial<FAQ>): Promise<void> {
-  await updateRecord('faqs', id, updates);
+  await updateRecord('faqs', id, {
+    ...updates,
+    updatedAt: new Date().toISOString()
+  });
+  await createAuditLog({
+    userId: auth.currentUser?.uid,
+    userRole: 'ADMIN',
+    action: 'CMS_UPDATED',
+    resource: 'CMS',
+    resourceId: id,
+    metadata: { entity: 'FAQ', action: 'UPDATE', changedFields: Object.keys(updates) }
+  }).catch(() => {});
 }
 
 export async function deleteFaq(id: string): Promise<void> {
   await deleteRecord('faqs', id);
+  await createAuditLog({
+    userId: auth.currentUser?.uid,
+    userRole: 'ADMIN',
+    action: 'CMS_UPDATED',
+    resource: 'CMS',
+    resourceId: id,
+    metadata: { entity: 'FAQ', action: 'DELETE' }
+  }).catch(() => {});
 }
 
 export async function getTestimonials(): Promise<Testimonial[]> {
@@ -1208,21 +1379,246 @@ export async function getTestimonials(): Promise<Testimonial[]> {
 export async function createTestimonial(
   testimonial: Omit<Testimonial, 'id'>
 ): Promise<Testimonial> {
-  return insertRecord('testimonials', {
+  const now = new Date().toISOString();
+  const created = await insertRecord<Testimonial>('testimonials', {
+    status: 'PUBLISHED' as const,
+    createdAt: now,
     ...testimonial,
     id: makeId('testimonial')
   });
+  await createAuditLog({
+    userId: auth.currentUser?.uid,
+    userRole: 'ADMIN',
+    action: 'CMS_UPDATED',
+    resource: 'CMS',
+    resourceId: created.id,
+    metadata: { entity: 'Testimonial', action: 'CREATE', name: created.name }
+  }).catch(() => {});
+  return created;
 }
 
 export async function updateTestimonial(
   id: string,
   updates: Partial<Testimonial>
 ): Promise<void> {
-  await updateRecord('testimonials', id, updates);
+  await updateRecord('testimonials', id, {
+    ...updates,
+    updatedAt: new Date().toISOString()
+  });
+  await createAuditLog({
+    userId: auth.currentUser?.uid,
+    userRole: 'ADMIN',
+    action: 'CMS_UPDATED',
+    resource: 'CMS',
+    resourceId: id,
+    metadata: { entity: 'Testimonial', action: 'UPDATE', changedFields: Object.keys(updates) }
+  }).catch(() => {});
 }
 
 export async function deleteTestimonial(id: string): Promise<void> {
   await deleteRecord('testimonials', id);
+  await createAuditLog({
+    userId: auth.currentUser?.uid,
+    userRole: 'ADMIN',
+    action: 'CMS_UPDATED',
+    resource: 'CMS',
+    resourceId: id,
+    metadata: { entity: 'Testimonial', action: 'DELETE' }
+  }).catch(() => {});
+}
+
+export async function getCmsPages(): Promise<CmsPageContent[]> {
+  return getCollection<CmsPageContent>('cms_pages');
+}
+
+export async function getCmsPageBySlug(slug: string): Promise<CmsPageContent | null> {
+  const normalized = slug.trim().toLowerCase();
+  const pages = await getCmsPages();
+  return (
+    pages.find((page) => page.slug.toLowerCase() === normalized) ||
+    INITIAL_CMS_PAGES.find((page) => page.slug.toLowerCase() === normalized) ||
+    null
+  );
+}
+
+export async function upsertCmsPage(
+  page: Omit<CmsPageContent, 'id' | 'createdAt' | 'updatedAt'> & {
+    id?: string;
+    createdAt?: string;
+  }
+): Promise<CmsPageContent> {
+  const now = new Date().toISOString();
+  const id = page.id || makeId('cms');
+  const record: CmsPageContent = {
+    ...page,
+    id,
+    createdAt: page.createdAt || now,
+    updatedAt: now
+  };
+  const saved = await upsertRecord('cms_pages', id, record);
+  await createAuditLog({
+    userId: auth.currentUser?.uid,
+    userRole: 'ADMIN',
+    action: 'CMS_UPDATED',
+    resource: 'CMS',
+    resourceId: saved.id,
+    metadata: { entity: 'CmsPage', slug: saved.slug, status: saved.status }
+  }).catch(() => {});
+  return saved;
+}
+
+export async function deleteCmsPage(id: string): Promise<void> {
+  await deleteRecord('cms_pages', id);
+  await createAuditLog({
+    userId: auth.currentUser?.uid,
+    userRole: 'ADMIN',
+    action: 'CMS_UPDATED',
+    resource: 'CMS',
+    resourceId: id,
+    metadata: { entity: 'CmsPage', action: 'DELETE' }
+  }).catch(() => {});
+}
+
+export async function getMediaAssets(): Promise<MediaAsset[]> {
+  return getCollection<MediaAsset>('media_assets');
+}
+
+export async function createMediaAsset(
+  asset: Omit<MediaAsset, 'id' | 'createdAt'>
+): Promise<MediaAsset> {
+  const now = new Date().toISOString();
+  const created = await insertRecord('media_assets', {
+    ...asset,
+    id: makeId('media'),
+    createdAt: now,
+    updatedAt: now
+  });
+  await createAuditLog({
+    userId: auth.currentUser?.uid,
+    userRole: 'ADMIN',
+    action: 'CMS_UPDATED',
+    resource: 'CMS',
+    resourceId: created.id,
+    metadata: { entity: 'MediaAsset', action: 'CREATE', title: created.title }
+  }).catch(() => {});
+  return created;
+}
+
+export async function updateMediaAsset(
+  id: string,
+  updates: Partial<MediaAsset>
+): Promise<void> {
+  await updateRecord('media_assets', id, {
+    ...updates,
+    updatedAt: new Date().toISOString()
+  });
+  await createAuditLog({
+    userId: auth.currentUser?.uid,
+    userRole: 'ADMIN',
+    action: 'CMS_UPDATED',
+    resource: 'CMS',
+    resourceId: id,
+    metadata: { entity: 'MediaAsset', action: 'UPDATE', changedFields: Object.keys(updates) }
+  }).catch(() => {});
+}
+
+export async function deleteMediaAsset(id: string): Promise<void> {
+  await deleteRecord('media_assets', id);
+  await createAuditLog({
+    userId: auth.currentUser?.uid,
+    userRole: 'ADMIN',
+    action: 'CMS_UPDATED',
+    resource: 'CMS',
+    resourceId: id,
+    metadata: { entity: 'MediaAsset', action: 'DELETE' }
+  }).catch(() => {});
+}
+
+export async function getNotifications(partnerId?: string): Promise<NotificationRecord[]> {
+  const all = newestFirst(await getCollection<NotificationRecord>('notifications'));
+  if (!partnerId) return all;
+  return all.filter((item) => item.partnerId === partnerId);
+}
+
+export async function createNotification(
+  payload: Omit<NotificationRecord, 'id' | 'createdAt'>
+): Promise<NotificationRecord> {
+  const record: NotificationRecord = {
+    ...payload,
+    id: makeId('notif'),
+    read: payload.read ?? false,
+    createdAt: new Date().toISOString()
+  };
+  return insertRecord('notifications', record);
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  await updateRecord('notifications', id, { read: true });
+}
+
+export async function dispatchNotificationRecord(params: {
+  eventType: NotificationEventType;
+  recipientEmail: string;
+  recipientName?: string;
+  recipientUid?: string;
+  partnerId?: string;
+  subject: string;
+  body: string;
+}): Promise<NotificationRecord> {
+  const webhookUrl = import.meta.env.VITE_NOTIFICATION_WEBHOOK_URL?.trim();
+  let channel: NotificationRecord['channel'] = 'IN_APP_LEDGER';
+  let deliveryStatus: NotificationRecord['deliveryStatus'] = 'LOGGED';
+
+  if (webhookUrl && /^https?:\/\//i.test(webhookUrl)) {
+    channel = 'EMAIL_WEBHOOK';
+    try {
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType: params.eventType,
+          to: params.recipientEmail,
+          recipientName: params.recipientName,
+          partnerId: params.partnerId,
+          subject: params.subject,
+          body: params.body,
+          timestamp: new Date().toISOString()
+        })
+      });
+      deliveryStatus = response.ok ? 'SENT' : 'FAILED';
+    } catch {
+      deliveryStatus = 'FAILED';
+    }
+  }
+
+  const saved = await createNotification({
+    eventType: params.eventType,
+    recipientEmail: params.recipientEmail,
+    ...(params.recipientName ? { recipientName: params.recipientName } : {}),
+    ...(params.recipientUid ? { recipientUid: params.recipientUid } : {}),
+    ...(params.partnerId ? { partnerId: params.partnerId } : {}),
+    subject: params.subject,
+    body: params.body,
+    channel,
+    deliveryStatus,
+    read: false
+  });
+
+  await createAuditLog({
+    userId: auth.currentUser?.uid,
+    userRole: isFirebaseAdminSession() ? 'ADMIN' : 'SYSTEM',
+    action: 'NOTIFICATION_DISPATCHED',
+    resource: 'Notification',
+    resourceId: saved.id,
+    metadata: {
+      eventType: saved.eventType,
+      recipientEmail: saved.recipientEmail,
+      channel: saved.channel,
+      deliveryStatus: saved.deliveryStatus
+    }
+  }).catch(() => {});
+
+  return saved;
 }
 
 export async function createPartner(
@@ -1253,6 +1649,15 @@ export async function createPartner(
       name: created.name,
       status: created.status
     }
+  }).catch(() => {});
+  await dispatchNotificationRecord({
+    eventType: 'PARTNER_APPLICATION_RECEIVED',
+    recipientEmail: created.email,
+    recipientName: created.contactPerson || created.name,
+    recipientUid: created.ownerUid,
+    partnerId: created.partnerId,
+    subject: `Partner Application Received (${created.partnerId}) – Whole Harbor Wellness`,
+    body: `Your clinic or studio partner record for ${created.name} has been created and queued for review.`
   }).catch(() => {});
   return created;
 }
@@ -1366,6 +1771,18 @@ export const dbService = {
   createTestimonial,
   updateTestimonial,
   deleteTestimonial,
+  getCmsPages,
+  getCmsPageBySlug,
+  upsertCmsPage,
+  deleteCmsPage,
+  getMediaAssets,
+  createMediaAsset,
+  updateMediaAsset,
+  deleteMediaAsset,
+  getNotifications,
+  createNotification,
+  markNotificationRead,
+  dispatchNotificationRecord,
   createAuditLog,
   getAuditLogs,
   createInquiry,

@@ -22,7 +22,7 @@ export const AboutView: React.FC<AboutViewProps> = ({ initialSection, navigate }
     const loadTestimonials = async () => {
       try {
         const data = await dbService.getTestimonials();
-        if (active) setTestimonials(data);
+        if (active) setTestimonials(data.filter((t) => t.status !== 'DRAFT'));
       } catch (error) {
         console.error('Failed to load testimonials', error);
       }
@@ -232,11 +232,25 @@ export const AboutView: React.FC<AboutViewProps> = ({ initialSection, navigate }
                     “{t.quote}”
                   </p>
                 </div>
-                <div className="pt-3 border-t border-[#dfd7c7]/50">
-                  <span className="font-serif font-bold text-sm text-[#0c2340] block">{t.name}</span>
-                  <span className="text-[11px] text-[#5a6b7c]">
-                    {t.role}{t.organization ? ` · ${t.organization}` : ''}
-                  </span>
+                <div className="pt-3 border-t border-[#dfd7c7]/50 flex items-center gap-3">
+                  {t.imageUrl && (
+                    <img
+                      src={t.imageUrl}
+                      alt={t.name}
+                      className="w-9 h-9 rounded-full object-cover border border-[#dfd7c7] shrink-0"
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <span className="font-serif font-bold text-sm text-[#0c2340] block truncate">{t.name}</span>
+                    <span className="text-[11px] text-[#5a6b7c] block truncate">
+                      {t.role}{t.organization ? ` · ${t.organization}` : ''}
+                    </span>
+                    {t.category && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#c5a059]">
+                        {t.category}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </article>
             ))}

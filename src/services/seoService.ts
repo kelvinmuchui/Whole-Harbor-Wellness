@@ -67,6 +67,36 @@ const ROUTE_SEO: Record<string, SeoMeta> = {
     title: 'Contact Support & Care Team – Whole Harbor Wellness',
     description:
       'Connect with Whole Harbor Wellness for product education, cold-chain tracking, CoA lab requests, or partner onboarding.'
+  },
+  privacy: {
+    title: 'Privacy Policy – Whole Harbor Wellness',
+    description:
+      'Review how Whole Harbor Wellness safeguards client and partner data, session state, and optional attribution cookies.'
+  },
+  terms: {
+    title: 'Terms of Service – Whole Harbor Wellness',
+    description:
+      'Read Whole Harbor Wellness platform terms, wholesale ordering policies, and cold-chain fulfillment disclosures.'
+  },
+  'coa-verification': {
+    title: 'CoA Batch Verification – Whole Harbor Wellness',
+    description:
+      'Learn how Whole Harbor Wellness verifies lot-level HPLC purity, sterility, and third-party Certificates of Analysis.'
+  },
+  'cold-chain': {
+    title: 'Cold-Chain Protocol – Whole Harbor Wellness',
+    description:
+      'Explore Whole Harbor Wellness 2°C–8°C thermal-validated packaging and expedited cold-chain shipping standards.'
+  },
+  'article-detail': {
+    title: 'Clinical Research Brief – Whole Harbor Wellness',
+    description:
+      'Read peer-informed peptide protocols, handling instructions, and clinical wellness briefings.'
+  },
+  'cms-page': {
+    title: 'Information & Guidelines – Whole Harbor Wellness',
+    description:
+      'Clinical resources, compliance disclosures, and partner guidelines from Whole Harbor Wellness.'
   }
 };
 
@@ -118,9 +148,13 @@ export function updatePageSeo(path: string, param?: string) {
     const cleanPartner = param.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     title = `${cleanPartner} × Whole Harbor Wellness`;
     description = `Access exclusive member pricing and physician-informed peptide wellness formulations curated for ${cleanPartner}.`;
+  } else if ((path === 'article-detail' || path === 'cms-page') && param) {
+    const cleanTitle = param.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    title = `${cleanTitle} – Whole Harbor Wellness`;
+    description = `${cleanTitle} clinical reference and platform documentation from Whole Harbor Wellness.`;
   }
 
-  const canonicalUrl = `${window.location.origin}${window.location.pathname}${window.location.hash}`;
+  const canonicalUrl = `${window.location.origin}${window.location.pathname}`;
 
   document.title = title;
   upsertMeta('meta[name="description"]', 'name', 'description', description);

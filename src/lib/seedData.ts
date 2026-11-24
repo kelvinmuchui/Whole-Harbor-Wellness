@@ -6,7 +6,9 @@ import {
   FAQ, 
   Testimonial, 
   Order, 
-  PartnerEarning 
+  PartnerEarning,
+  CmsPageContent,
+  MediaAsset
 } from '../types/index.ts';
 
 export const INITIAL_PRODUCTS: Product[] = [
@@ -1058,6 +1060,194 @@ export const INITIAL_TESTIMONIALS: Testimonial[] = [
     quote: 'The MOTS-c and NAD+ protocol took my afternoon brain fog down to zero. The reconstitution guide on the platform made administering it completely intuitive.',
     rating: 5,
     verified: true,
-    featured: true
+    featured: true,
+    status: 'PUBLISHED',
+    consentConfirmed: true,
+    category: 'Longevity'
   }
+];
+
+export const INITIAL_CMS_PAGES: CmsPageContent[] = [
+  {
+    id: 'cms-privacy',
+    slug: 'privacy',
+    title: 'Privacy Policy',
+    subtitle: 'How Whole Harbor Wellness collects, protects, and limits personal, referral, and wellness inquiry information.',
+    category: 'Legal & Compliance',
+    status: 'PUBLISHED',
+    seoTitle: 'Privacy Policy – Whole Harbor Wellness',
+    seoDescription: 'Review Whole Harbor Wellness data stewardship, 30-day partner attribution cookies, encrypted authentication, and privacy controls.',
+    body: 'Whole Harbor Wellness respects the confidentiality of every member, clinic practitioner, and website visitor. We collect only the information required to fulfill orders, verify partner channel attribution, respond to clinical or support inquiries, and secure user accounts.',
+    sections: [
+      {
+        title: '1. Information We Collect',
+        body: 'Account registration details (name, email, role, clinic affiliation), order shipping addresses, and support inquiry messages submitted voluntarily through our forms. We never sell personal data to third-party brokers.'
+      },
+      {
+        title: '2. Attribution Cookies & Local Preferences',
+        body: 'When you arrive via an authorized partner storefront link, we store a 30-day referral attribution cookie (wh_partner_ref) and local cart preference so your member discount applies consistently across visits. You may adjust cookie preferences at any time via Privacy Settings.'
+      },
+      {
+        title: '3. Security & Role-Isolated Storage',
+        body: 'Protected user profiles, order records, and partner ledgers are enforced via authenticated access controls so members only view their own orders and partners only view orders attributed to their clinic.'
+      },
+      {
+        title: '4. Your Data Rights',
+        body: 'You may request access, correction, or deletion of your account profile or inquiry records at any time by contacting support@wholeharborwellness.com.'
+      }
+    ],
+    createdAt: '2026-01-15T00:00:00Z',
+    updatedAt: '2026-01-15T00:00:00Z'
+  },
+  {
+    id: 'cms-terms',
+    slug: 'terms',
+    title: 'Terms of Service',
+    subtitle: 'Terms governing use of the Whole Harbor Wellness storefront, partner ecosystem, and educational materials.',
+    category: 'Legal & Compliance',
+    status: 'PUBLISHED',
+    seoTitle: 'Terms of Service – Whole Harbor Wellness',
+    seoDescription: 'Terms and conditions for Whole Harbor Wellness retail orders, partner storefront channels, wholesale 10-vial kits, and clinical disclosures.',
+    body: 'By accessing or placing an order through Whole Harbor Wellness, you agree to these Terms of Service, our Privacy Policy, and applicable cold-chain shipping and compliance disclosures.',
+    sections: [
+      {
+        title: '1. Educational & Wellness Disclaimer',
+        body: 'All guides, mixing calculators, and product specifications are provided for informational and practitioner-support purposes and do not replace individualized advice from a licensed physician or pharmacist.'
+      },
+      {
+        title: '2. Ordering, Pricing & Wholesale Eligibility',
+        body: 'Retail individual vials are available directly through our catalog. Wholesale 10-vial kit pricing and co-branded partner storefronts are reserved for verified, admin-approved Partner accounts.'
+      },
+      {
+        title: '3. Partner Program Governance',
+        body: 'Partners receive a unique URL, approved marketing toolkit, and transparent commission reporting on eligible completed orders. Whole Harbor Wellness reserves the right to pause or suspend partner privileges for policy violations.'
+      },
+      {
+        title: '4. Cold-Chain Delivery Guarantee',
+        body: 'Qualifying cold-chain shipments are covered against verified carrier loss or thermal transit failure when delivered to an accurate recipient address.'
+      }
+    ],
+    createdAt: '2026-01-15T00:00:00Z',
+    updatedAt: '2026-01-15T00:00:00Z'
+  },
+  {
+    id: 'cms-coa',
+    slug: 'coa-verification',
+    title: 'Certificate of Analysis (CoA) Verification',
+    subtitle: 'Independent analytical HPLC and Mass Spectrometry verification standards for every production lot.',
+    category: 'Legal & Compliance',
+    status: 'PUBLISHED',
+    seoTitle: 'CoA Verification Standards – Whole Harbor Wellness',
+    seoDescription: 'Learn how Whole Harbor Wellness verifies >99.2% peptide purity, counter-ion exchange, and batch lot traceability via HPLC and MS.',
+    body: 'Every lyophilized formulation distributed by Whole Harbor Wellness undergoes independent third-party analytical testing prior to lot release. Each product dossier lists its active batch lot number and measured HPLC purity.',
+    sections: [
+      {
+        title: '1. HPLC Single-Peak Purity (>99.2%)',
+        body: 'High-Performance Liquid Chromatography isolates the target amino acid sequence and verifies >99.2% chromatographic purity with minimal synthesis byproducts.'
+      },
+      {
+        title: '2. Mass Spectrometry Identity Confirmation',
+        body: 'Molecular weight verification confirms exact sequence integrity for every batch prior to lyophilization and sealing.'
+      },
+      {
+        title: '3. Counter-Ion Exchange & Endotoxin Screening',
+        body: 'Batches undergo certified counter-ion exchange and Limulus Amebocyte Lysate (LAL) screening (<0.01 EU/mg) to uphold clinical tolerability standards.'
+      }
+    ],
+    createdAt: '2026-01-15T00:00:00Z',
+    updatedAt: '2026-01-15T00:00:00Z'
+  },
+  {
+    id: 'cms-cold-chain',
+    slug: 'cold-chain',
+    title: 'Cold-Chain Protocol & Storage Standards',
+    subtitle: 'Temperature-buffered dispatch and 2°C–8°C refrigeration protocols preserving molecular stability.',
+    category: 'Legal & Compliance',
+    status: 'PUBLISHED',
+    seoTitle: 'Cold-Chain Protocol – Whole Harbor Wellness',
+    seoDescription: 'Explore Whole Harbor Wellness insulated bio-thermo shipping, phase-change cold packs, and post-reconstitution 2°C–8°C storage.',
+    body: 'Peptide bonds are sensitive to sustained thermal excursions. Whole Harbor Wellness enforces unbroken cold-chain handling from cleanroom storage through insulated priority courier transit.',
+    sections: [
+      {
+        title: '1. Insulated Bio-Thermo Fulfillment',
+        body: 'Orders ship in thermal-buffered packaging paired with calibrated phase-change cooling packs designed to stabilize transit temperatures.'
+      },
+      {
+        title: '2. Priority Courier Dispatch',
+        body: 'Shipments depart Monday through Thursday via priority express air so vials never sit in unconditioned weekend sorting hubs.'
+      },
+      {
+        title: '3. Storage Upon Arrival',
+        body: 'Store reconstituted solutions refrigerated at 2°C–8°C (36°F–46°F) protected from light. Unmixed lyophilized vials should remain cool, dry, and refrigerated.'
+      }
+    ],
+    createdAt: '2026-01-15T00:00:00Z',
+    updatedAt: '2026-01-15T00:00:00Z'
+  },
+  {
+    id: 'cms-approach',
+    slug: 'our-approach',
+    title: 'The Whole Harbor Clinical Standard',
+    subtitle: 'Methodology & Standards',
+    category: 'Storefront & Approach',
+    status: 'PUBLISHED',
+    seoTitle: 'Clinical Approach & Standards – Whole Harbor Wellness',
+    seoDescription: 'Learn how Whole Harbor Wellness ensures >99.2% HPLC purity, sterile synthesis, and 2°C–8°C cold-chain integrity.',
+    body: 'Peptide synthesis and hormone precursor distribution require rigorous analytical chemistry. We eliminate the safety hazards common to unregulated research chemical vendors.',
+    ctaLabel: 'Explore Catalog',
+    ctaPath: 'shop',
+    sections: [
+      {
+        badge: 'biotech',
+        title: '1. Verified Synthesis',
+        body: 'Synthesized in compliant cGMP cleanroom facilities utilizing solid-phase peptide synthesis (SPPS) and certified counter-ion exchange.'
+      },
+      {
+        badge: 'verified',
+        title: '2. Dual Analytical Assay',
+        body: 'Every batch undergoes High-Performance Liquid Chromatography (HPLC) and Mass Spectrometry (MS) to guarantee >99.2% single main-peak purity.'
+      },
+      {
+        badge: 'ac_unit',
+        title: '3. Active Cold-Chain',
+        body: 'Biological peptides undergo thermal denaturation when exposed to ambient transit heat. We ship strictly via insulated, cold-packed overnight couriers.'
+      }
+    ],
+    createdAt: '2026-01-15T00:00:00Z',
+    updatedAt: '2026-01-15T00:00:00Z'
+  },
+  {
+    id: 'cms-promo',
+    slug: 'storefront-promo',
+    title: 'Complimentary Cold-Chain Priority Shipping on Orders $300+',
+    subtitle: 'Active Storefront Promotion',
+    category: 'Promotions',
+    status: 'PUBLISHED',
+    body: 'Volume tier savings up to 15% automatically combine with verified partner referral benefits at checkout.',
+    ctaLabel: 'Shop Formulations',
+    ctaPath: 'shop',
+    createdAt: '2026-01-15T00:00:00Z',
+    updatedAt: '2026-01-15T00:00:00Z'
+  }
+];
+
+export const INITIAL_MEDIA_ASSETS: MediaAsset[] = [
+  { id: 'm-logo', title: 'Whole Harbor Wellness Primary Crest', category: 'Brand & Hero', url: '/images/whw-logo.png', isBuiltIn: true, createdAt: '2026-01-15T00:00:00Z' },
+  { id: 'm-logo-tr', title: 'Whole Harbor Crest (Transparent)', category: 'Brand & Hero', url: '/images/whw-logo-transparent.png', isBuiltIn: true, createdAt: '2026-01-15T00:00:00Z' },
+  { id: 'm-hero', title: 'Editorial Sanctuary Hero Banner', category: 'Brand & Hero', url: '/images/editorial-hero.png', isBuiltIn: true, createdAt: '2026-01-15T00:00:00Z' },
+  { id: 'm-feat-1', title: 'Featured Semaglutide Vial', category: 'Products', url: '/images/featured-semaglutide.png', isBuiltIn: true, createdAt: '2026-01-15T00:00:00Z' },
+  { id: 'm-feat-2', title: 'Featured BPC-157 Clean Vial', category: 'Products', url: '/images/featured-bpc157-clean.png', isBuiltIn: true, createdAt: '2026-01-15T00:00:00Z' },
+  { id: 'm-feat-3', title: 'Featured MOTS-c Vial', category: 'Products', url: '/images/featured-motsc.png', isBuiltIn: true, createdAt: '2026-01-15T00:00:00Z' },
+  { id: 'm-p-tirz', title: 'Tirzepatide Product Card', category: 'Products', url: '/images/products/tirzepatide.jpg', isBuiltIn: true, createdAt: '2026-01-15T00:00:00Z' },
+  { id: 'm-p-reta', title: 'Retatrutide Product Card', category: 'Products', url: '/images/products/retatrutide.jpg', isBuiltIn: true, createdAt: '2026-01-15T00:00:00Z' },
+  { id: 'm-p-glow', title: 'GLOW 70 Matrix Card', category: 'Products', url: '/images/products/glow-70.jpg', isBuiltIn: true, createdAt: '2026-01-15T00:00:00Z' },
+  { id: 'm-p-klow', title: 'KLOW 80 Matrix Card', category: 'Products', url: '/images/products/klow-80.jpg', isBuiltIn: true, createdAt: '2026-01-15T00:00:00Z' },
+  { id: 'm-p-wolv', title: 'Wolverine Blend Card', category: 'Products', url: '/images/products/wolverine-blend.jpg', isBuiltIn: true, createdAt: '2026-01-15T00:00:00Z' },
+  { id: 'm-p-tesa', title: 'Tesamorelin Card', category: 'Products', url: '/images/products/tesamorelin.jpg', isBuiltIn: true, createdAt: '2026-01-15T00:00:00Z' },
+  { id: 'm-p-lipo', title: 'Lipo Mino Mix Card', category: 'Products', url: '/images/products/lipo-mino-mix.jpg', isBuiltIn: true, createdAt: '2026-01-15T00:00:00Z' },
+  { id: 'm-p-shred', title: 'Super Shred Card', category: 'Products', url: '/images/products/super-shred.jpg', isBuiltIn: true, createdAt: '2026-01-15T00:00:00Z' },
+  { id: 'm-l-welcome', title: 'Learn Studio Welcome Cover', category: 'Learn Studio', url: '/images/learn/welcome.png', isBuiltIn: true, createdAt: '2026-01-15T00:00:00Z' },
+  { id: 'm-l-mixing', title: 'Reconstitution & Mixing Guide', category: 'Learn Studio', url: '/images/learn/mixing.png', isBuiltIn: true, createdAt: '2026-01-15T00:00:00Z' },
+  { id: 'm-l-storage', title: 'Cold-Chain Storage Standards', category: 'Learn Studio', url: '/images/learn/storage.png', isBuiltIn: true, createdAt: '2026-01-15T00:00:00Z' },
+  { id: 'm-l-shipping', title: 'Insulated Fulfillment Guide', category: 'Learn Studio', url: '/images/learn/shipping.png', isBuiltIn: true, createdAt: '2026-01-15T00:00:00Z' }
 ];

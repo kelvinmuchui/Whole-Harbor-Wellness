@@ -20,7 +20,7 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ navigate }) => {
     const loadPrograms = async () => {
       try {
         const data = await dbService.getPrograms();
-        if (active) setPrograms(data);
+        if (active) setPrograms(data.filter((p) => p.status === 'ACTIVE'));
       } catch (error) {
         console.error('Failed to load wellness programs', error);
       }
@@ -84,6 +84,16 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ navigate }) => {
                 </span>
               </div>
 
+              {prog.imageUrl && (
+                <div className="h-44 rounded-2xl overflow-hidden border border-[#dfd7c7] bg-white">
+                  <img
+                    src={prog.imageUrl}
+                    alt={prog.name}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+
               <div>
                 <h3 className="font-serif text-2xl font-bold text-[#0c2340]">
                   {prog.name}
@@ -91,6 +101,12 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ navigate }) => {
                 <p className="text-xs text-[#5a6b7c] mt-2 leading-relaxed">
                   {prog.fullDescription || prog.shortDescription}
                 </p>
+                {prog.eligibility && (
+                  <p className="text-[11px] font-medium text-[#0c2340] bg-white/80 border border-[#dfd7c7] rounded-xl px-3 py-2 mt-3">
+                    <span className="font-bold text-[#c5a059] uppercase tracking-wider mr-1.5">Eligibility:</span>
+                    {prog.eligibility}
+                  </p>
+                )}
               </div>
 
               {/* Inclusions */}
@@ -118,12 +134,17 @@ export const ProgramsView: React.FC<ProgramsViewProps> = ({ navigate }) => {
 
               <button
                 onClick={() => {
+                  const link = prog.ctaLink?.trim();
+                  if (link && link.startsWith('/')) {
+                    navigate(link.replace(/^#?\//, ''));
+                    return;
+                  }
                   setSelectedProgram(prog);
                   setEnrollSubmitted(false);
                 }}
                 className="px-6 py-3 rounded-xl bg-[#c5a059] text-[#fffdfb] text-xs font-semibold uppercase tracking-wider hover:bg-[#0c2340] transition-colors cursor-pointer shadow-sm"
               >
-                Enroll in Track
+                {prog.ctaLabel || 'Enroll in Track'}
               </button>
             </div>
           </div>

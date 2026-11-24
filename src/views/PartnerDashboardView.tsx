@@ -39,6 +39,7 @@ import {
   Minus
 } from 'lucide-react';
 import { dbService } from '../services/dbService.ts';
+import { compressImageFile, isSafeMediaOrLinkUrl } from '../lib/mediaUtils.ts';
 import {
   Partner,
   Order,
@@ -47,7 +48,8 @@ import {
   ProductStrength,
   ProductCategoryType,
   WellnessProgram,
-  EducationalArticle
+  EducationalArticle,
+  NotificationRecord
 } from '../types/index.ts';
 import { useAuth } from '../context/AuthContext.tsx';
 import { KpiSparkBars, PartnerPerformanceChart } from '../components/AdminCharts.tsx';
@@ -137,7 +139,8 @@ const formatRelativeTime = (isoDate: string): string => {
 };
 
 export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navigate }) => {
-  const { currentUser, isAdmin, logout } = useAuth();
+  const { currentUser, isAdmin, logout, permissions } = useAuth();
+  const canViewFinancials = isAdmin || permissions.canViewPartnerSales;
   const [allPartners, setAllPartners] = useState<Partner[]>([]);
   const [partner, setPartner] = useState<Partner | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -145,6 +148,7 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
   const [products, setProducts] = useState<Product[]>([]);
   const [programs, setPrograms] = useState<WellnessProgram[]>([]);
   const [articles, setArticles] = useState<EducationalArticle[]>([]);
+  const [persistentNotifications, setPersistentNotifications] = useState<NotificationRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Navigation & Shell Controls
@@ -155,11 +159,15 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
   const [globalSearchFocused, setGlobalSearchFocused] = useState(false);
 
-  // Filters & Charts
+  // Filters, Sorting, Pagination & Charts
   const [dateFilter, setDateFilter] = useState<'current_month' | 'prev_month' | 'ytd' | 'all'>('all');
   const [chartMonths, setChartMonths] = useState<6 | 12>(6);
   const [orderStatusFilter, setOrderStatusFilter] = useState<string>('ALL');
   const [ordersSearchQuery, setOrdersSearchQuery] = useState('');
+  const [orderSortField, setOrderSortField] = useState<'date' | 'customer' | 'status' | 'revenue' | 'commission'>('date');
+  const [orderSortDir, setOrderSortDir] = useState<'asc' | 'desc'>('desc');
+  const [ordersPage, setOrdersPage] = useState<number>(1);
+  const [ordersPageSize, setOrdersPageSize] = useState<10 | 25 | 50>(10);
 
   // Clipboard & QR
   const [copiedLink, setCopiedLink] = useState(false);
@@ -219,9 +227,10 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
     setPartner(selectedPartner);
     syncProfileForm(selectedPartner);
     if (selectedPartner) {
-      const [allOrders, allEarnings] = await Promise.all([
+      const [allOrders, allEarnings, notifList] = await Promise.all([
         dbService.getOrders('partner'),
-        dbService.getPartnerEarnings(selectedPartner.id)
+        dbService.getPartnerEarnings(selectedPartner.id),
+        dbService.getNotifications(selectedPartner.partnerId).catch(() => [])
       ]);
       const partnerOrders = allOrders.filter(
         (o) =>
@@ -231,6 +240,7 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
       );
       setOrders(partnerOrders);
       setEarnings(allEarnings);
+      setPersistentNotifications(notifList);
 
       try {
         const storedSettings = localStorage.getItem(`whw_partner_settings_v1_${selectedPartner.id}`);
@@ -254,6 +264,7 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
     } else {
       setOrders([]);
       setEarnings([]);
+      setPersistentNotifications([]);
     }
   };
 
@@ -312,13 +323,14 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
     let active = true;
     const refreshLiveData = async () => {
       try {
-        const [allOrders, allEarnings, productsList, programsList, articlesList] =
+        const [allOrders, allEarnings, productsList, programsList, articlesList, notifList] =
           await Promise.all([
             dbService.getOrders('partner'),
             dbService.getPartnerEarnings(partner.id),
             dbService.getProducts(),
             dbService.getPrograms(),
-            dbService.getArticles()
+            dbService.getArticles(),
+            dbService.getNotifications(partner.partnerId).catch(() => [])
           ]);
         if (!active) return;
         setOrders(
@@ -333,12 +345,13 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
         setProducts(productsList.filter((product) => product.status === 'ACTIVE'));
         setPrograms(programsList.filter((program) => program.status === 'ACTIVE'));
         setArticles(articlesList.filter((article) => article.status === 'PUBLISHED'));
+        setPersistentNotifications(notifList);
       } catch (error) {
         console.error('Failed to refresh partner dashboard data', error);
       }
     };
     const unsubscribe = dbService.subscribeToCollections(
-      ['orders', 'partner_earnings', 'products', 'wellness_programs', 'educational_articles'],
+      ['orders', 'partner_earnings', 'products', 'wellness_programs', 'educational_articles', 'notifications'],
       () => {
         void refreshLiveData();
       }
@@ -349,7 +362,7 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
     };
   }, [partner]);
 
-  const referralUrl = partner ? `${window.location.origin}/#/partner/${partner.slug}` : '';
+  const referralUrl = partner ? `${window.location.origin}/partner/${partner.slug}` : '';
 
   useEffect(() => {
     if (!referralUrl) {
@@ -507,32 +520,49 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
       });
     }
 
-    orders.slice(0, 5).forEach((ord) => {
+    persistentNotifications.forEach((n) => {
       items.push({
-        id: `ord-${ord.id}`,
-        title: `New order ${ord.orderNumber}`,
-        detail: `${ord.customerName} · $${ord.subtotal.toFixed(2)} (${ord.status})`,
-        time: formatRelativeTime(ord.createdAt),
-        targetSection: 'orders',
-        type: 'order'
+        id: n.id,
+        title: n.subject,
+        detail: n.body,
+        time: formatRelativeTime(n.createdAt),
+        targetSection: n.eventType.includes('APPROVED') ? 'wholesale' : 'notifications',
+        type: 'status'
       });
     });
 
-    earnings.slice(0, 3).forEach((earn) => {
-      items.push({
-        id: `earn-${earn.id}`,
-        title: `Commission ${earn.status === 'PAID' ? 'settled' : 'logged'}: +$${earn.earningAmount.toFixed(2)}`,
-        detail: `Ref ${earn.orderNumber} (${(earn.commissionRate * 100).toFixed(0)}% share)`,
-        time: formatRelativeTime(earn.createdAt),
-        targetSection: 'earnings',
-        type: 'earning'
+    if (canViewFinancials) {
+      orders.slice(0, 5).forEach((ord) => {
+        items.push({
+          id: `ord-${ord.id}`,
+          title: `New order ${ord.orderNumber}`,
+          detail: `${ord.customerName} · $${ord.subtotal.toFixed(2)} (${ord.status})`,
+          time: formatRelativeTime(ord.createdAt),
+          targetSection: 'orders',
+          type: 'order'
+        });
       });
-    });
+
+      earnings.slice(0, 3).forEach((earn) => {
+        items.push({
+          id: `earn-${earn.id}`,
+          title: `Commission ${earn.status === 'PAID' ? 'settled' : 'logged'}: +$${earn.earningAmount.toFixed(2)}`,
+          detail: `Ref ${earn.orderNumber} (${(earn.commissionRate * 100).toFixed(0)}% share)`,
+          time: formatRelativeTime(earn.createdAt),
+          targetSection: 'earnings',
+          type: 'earning'
+        });
+      });
+    }
 
     return items;
-  }, [partner, orders, earnings]);
+  }, [partner, persistentNotifications, orders, earnings, canViewFinancials]);
 
-  const unreadNotifCount = partnerNotifications.filter((n) => !readNotifications.includes(n.id)).length;
+  const unreadNotifCount = partnerNotifications.filter(
+    (n) =>
+      !readNotifications.includes(n.id) &&
+      !persistentNotifications.find((pn) => pn.id === n.id && pn.read)
+  ).length;
 
   const markAllNotificationsRead = () => {
     if (!partner) return;
@@ -543,6 +573,11 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
     } catch {
       // Ignore storage error
     }
+    persistentNotifications
+      .filter((n) => !n.read)
+      .forEach((n) => {
+        void dbService.markNotificationRead(n.id).catch(() => {});
+      });
   };
 
   // Global search results
@@ -550,14 +585,16 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
     const q = globalSearchQuery.trim().toLowerCase();
     if (!q) return { orders: [], products: [], articles: [] };
     return {
-      orders: orders
-        .filter(
-          (o) =>
-            o.orderNumber.toLowerCase().includes(q) ||
-            o.customerName.toLowerCase().includes(q) ||
-            o.items.some((i) => i.productName.toLowerCase().includes(q))
-        )
-        .slice(0, 4),
+      orders: canViewFinancials
+        ? orders
+            .filter(
+              (o) =>
+                o.orderNumber.toLowerCase().includes(q) ||
+                o.customerName.toLowerCase().includes(q) ||
+                o.items.some((i) => i.productName.toLowerCase().includes(q))
+            )
+            .slice(0, 4)
+        : [],
       products: products
         .filter(
           (p) =>
@@ -573,10 +610,24 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
         )
         .slice(0, 3)
     };
-  }, [globalSearchQuery, orders, products, articles]);
+  }, [globalSearchQuery, orders, products, articles, canViewFinancials]);
+
+  useEffect(() => {
+    if (!canViewFinancials && ['orders', 'earnings', 'reports', 'settings'].includes(activeSection)) {
+      setActiveSection('overview');
+    }
+  }, [canViewFinancials, activeSection]);
+
+  useEffect(() => {
+    setOrdersPage(1);
+  }, [orderStatusFilter, dateFilter, ordersSearchQuery, orderSortField, orderSortDir, ordersPageSize]);
 
   const switchSection = (section: PartnerSection) => {
-    setActiveSection(section);
+    if (!canViewFinancials && ['orders', 'earnings', 'reports', 'settings'].includes(section)) {
+      setActiveSection('overview');
+    } else {
+      setActiveSection(section);
+    }
     setMobileSidebarOpen(false);
     setNotificationsOpen(false);
     setProfileMenuOpen(false);
@@ -657,6 +708,39 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
     );
   });
 
+  const sortedOrders = [...filteredOrders].sort((a, b) => {
+    const dir = orderSortDir === 'asc' ? 1 : -1;
+    switch (orderSortField) {
+      case 'customer':
+        return a.customerName.localeCompare(b.customerName) * dir;
+      case 'status':
+        return a.status.localeCompare(b.status) * dir;
+      case 'revenue':
+        return (a.subtotal - b.subtotal) * dir;
+      case 'commission':
+        return ((a.partnerCommission || 0) - (b.partnerCommission || 0)) * dir;
+      case 'date':
+      default:
+        return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * dir;
+    }
+  });
+
+  const totalOrderPages = Math.max(1, Math.ceil(sortedOrders.length / ordersPageSize));
+  const safeOrdersPage = Math.min(ordersPage, totalOrderPages);
+  const paginatedOrders = sortedOrders.slice(
+    (safeOrdersPage - 1) * ordersPageSize,
+    safeOrdersPage * ordersPageSize
+  );
+
+  const toggleOrderSort = (field: 'date' | 'customer' | 'status' | 'revenue' | 'commission') => {
+    if (orderSortField === field) {
+      setOrderSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setOrderSortField(field);
+      setOrderSortDir(field === 'customer' || field === 'status' ? 'asc' : 'desc');
+    }
+  };
+
   const partnerContactName =
     partner.contactPerson ||
     currentUser?.displayName ||
@@ -720,21 +804,16 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
     document.body.removeChild(link);
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 750 * 1024) {
-      setProfileErrorMsg('Logo file must be under 750 KB.');
-      return;
-    }
     setProfileErrorMsg(null);
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setProfileLogoUrl(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const { dataUrl } = await compressImageFile(file, 800, 420_000);
+      setProfileLogoUrl(dataUrl);
+    } catch (err) {
+      setProfileErrorMsg(err instanceof Error ? err.message : 'Unable to process uploaded logo.');
+    }
   };
 
   const toggleProfileCategory = (cat: ProductCategoryType) => {
@@ -745,6 +824,14 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
 
   const handleSavePartnerProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canViewFinancials) {
+      setProfileErrorMsg('Staff accounts have read-only access to partner branding settings.');
+      return;
+    }
+    if (!isSafeMediaOrLinkUrl(profileWebsite) || !isSafeMediaOrLinkUrl(profileLogoUrl)) {
+      setProfileErrorMsg('Please enter valid http(s), relative (/), or image URLs.');
+      return;
+    }
     setSavingProfile(true);
     setProfileSaveMsg(null);
     setProfileErrorMsg(null);
@@ -793,14 +880,22 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
     { id: 'profile', label: 'My Profile', icon: User },
     { id: 'referral', label: 'Referral Link', icon: Link2 },
     { id: 'wholesale', label: 'Wholesale Kits', icon: Package },
-    { id: 'orders', label: 'Sales & Orders', icon: ShoppingCart },
-    { id: 'earnings', label: 'Earnings', icon: Wallet },
+    ...(canViewFinancials
+      ? [
+          { id: 'orders' as const, label: 'Sales & Orders', icon: ShoppingCart },
+          { id: 'earnings' as const, label: 'Earnings', icon: Wallet }
+        ]
+      : []),
     { id: 'landing-page', label: 'My Landing Page', icon: Globe },
     { id: 'programs', label: 'Wellness Programs', icon: Flower2 },
     { id: 'resources', label: 'Resources', icon: BookOpen },
-    { id: 'reports', label: 'Reports & Analytics', icon: BarChart3 },
+    ...(canViewFinancials
+      ? [{ id: 'reports' as const, label: 'Reports & Analytics', icon: BarChart3 }]
+      : []),
     { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadNotifCount },
-    { id: 'settings', label: 'Settings', icon: Settings }
+    ...(canViewFinancials
+      ? [{ id: 'settings' as const, label: 'Settings', icon: Settings }]
+      : [])
   ];
 
   const sectionLabels: Record<PartnerSection, string> = {
@@ -1250,14 +1345,16 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                     <Globe className="w-3.5 h-3.5 text-[#c5a059]" />
                     <span>Live Partner Storefront</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => switchSection('settings')}
-                    className="w-full text-left px-3 py-2 rounded-xl hover:bg-[#f6f4ee] flex items-center gap-2 cursor-pointer"
-                  >
-                    <Settings className="w-3.5 h-3.5 text-[#c5a059]" />
-                    <span>Settings</span>
-                  </button>
+                  {canViewFinancials && (
+                    <button
+                      type="button"
+                      onClick={() => switchSection('settings')}
+                      className="w-full text-left px-3 py-2 rounded-xl hover:bg-[#f6f4ee] flex items-center gap-2 cursor-pointer"
+                    >
+                      <Settings className="w-3.5 h-3.5 text-[#c5a059]" />
+                      <span>Settings</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -1337,243 +1434,268 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                 </div>
               </section>
 
-              {/* 4-Column KPI Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOrderStatusFilter('ALL');
-                    switchSection('orders');
-                  }}
-                  className="text-left bg-[#fffdfb] border border-[#dfd7c7] rounded-2xl p-5 hover:border-[#c5a059] transition-colors cursor-pointer flex items-center justify-between gap-3"
-                >
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-9 h-9 rounded-full bg-[#0c2340] text-[#fffdfb] flex items-center justify-center shrink-0">
-                        <ShoppingCart className="w-4 h-4" />
-                      </span>
-                      <span className="text-xs font-medium text-[#5a6b7c] truncate">Total Orders</span>
-                    </div>
-                    <div className="font-serif text-3xl font-bold text-[#0c2340] tabular-nums pt-1">
-                      {totalOrders.toLocaleString()}
-                    </div>
-                    <div className="text-[11px] font-medium text-[#4b6b58] tabular-nums">
-                      ↑ {totalOrders > 0 ? '+12.5%' : '0.0%'} referral activity
-                    </div>
-                  </div>
-                  <KpiSparkBars values={[24, 38, 32, 52, 61, 74, 88]} tone="navy" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOrderStatusFilter('COMPLETED');
-                    switchSection('orders');
-                  }}
-                  className="text-left bg-[#fffdfb] border border-[#dfd7c7] rounded-2xl p-5 hover:border-[#c5a059] transition-colors cursor-pointer flex items-center justify-between gap-3"
-                >
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-9 h-9 rounded-full bg-[#4b6b58] text-[#fffdfb] flex items-center justify-center shrink-0">
-                        <CheckCircle2 className="w-4 h-4" />
-                      </span>
-                      <span className="text-xs font-medium text-[#5a6b7c] truncate">Completed Orders</span>
-                    </div>
-                    <div className="font-serif text-3xl font-bold text-[#0c2340] tabular-nums pt-1">
-                      {completedOrders.toLocaleString()}
-                    </div>
-                    <div className="text-[11px] font-medium text-[#4b6b58] tabular-nums">
-                      ↑ Dispatched by lab
-                    </div>
-                  </div>
-                  <KpiSparkBars values={[28, 34, 45, 50, 62, 76, 86]} tone="sage" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOrderStatusFilter('PENDING_GROUP');
-                    switchSection('orders');
-                  }}
-                  className="text-left bg-[#fffdfb] border border-[#dfd7c7] rounded-2xl p-5 hover:border-[#c5a059] transition-colors cursor-pointer flex items-center justify-between gap-3"
-                >
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-9 h-9 rounded-full bg-[#c5a059] text-[#fffdfb] flex items-center justify-center shrink-0">
-                        <Clock className="w-4 h-4" />
-                      </span>
-                      <span className="text-xs font-medium text-[#5a6b7c] truncate">Pending Orders</span>
-                    </div>
-                    <div className="font-serif text-3xl font-bold text-[#0c2340] tabular-nums pt-1">
-                      {pendingOrders.toLocaleString()}
-                    </div>
-                    <div className="text-[11px] font-medium text-[#c5a059] tabular-nums">
-                      In cold-chain queue
-                    </div>
-                  </div>
-                  <KpiSparkBars values={[18, 26, 22, 30, 36, 42, 48]} tone="gold" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => switchSection('reports')}
-                  className="text-left bg-[#fffdfb] border border-[#dfd7c7] rounded-2xl p-5 hover:border-[#c5a059] transition-colors cursor-pointer flex items-center justify-between gap-3"
-                >
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-9 h-9 rounded-full bg-[#0c2340] text-[#c5a059] flex items-center justify-center shrink-0">
-                        <DollarSign className="w-4 h-4" />
-                      </span>
-                      <span className="text-xs font-medium text-[#5a6b7c] truncate">Gross Sales</span>
-                    </div>
-                    <div className="font-serif text-3xl font-bold text-[#0c2340] tabular-nums pt-1">
-                      ${grossSales.toLocaleString('en-US', { maximumFractionDigits: 0 })}
-                    </div>
-                    <div className="text-[11px] font-medium text-[#4b6b58] tabular-nums">
-                      ↑ +15.2% community volume
-                    </div>
-                  </div>
-                  <KpiSparkBars values={[32, 46, 54, 62, 74, 84, 96]} tone="navy" />
-                </button>
-              </div>
-
-              {/* Middle Grid: Performance Overview Chart (8 cols) + Referral Link & Earnings Stack (4 cols) */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-                {/* Performance Chart */}
-                <div className="lg:col-span-8 bg-[#fffdfb] border border-[#dfd7c7] rounded-2xl p-5 sm:p-6 flex flex-col justify-between">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                    <div className="flex items-center gap-2.5">
-                      <BarChart3 className="w-5 h-5 text-[#c5a059]" />
-                      <h2 className="font-serif text-xl font-bold text-[#0c2340]">
-                        Your Performance Overview
-                      </h2>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-3 text-xs text-[#5a6b7c]">
-                        <span className="flex items-center gap-1.5">
-                          <span className="w-2.5 h-2.5 rounded-full bg-[#0c2340] inline-block" />
-                          Sales
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <span className="w-2.5 h-2.5 rounded-full bg-[#c5a059] inline-block" />
-                          Earnings
-                        </span>
-                      </div>
-                      <select
-                        value={chartMonths}
-                        onChange={(e) => setChartMonths(Number(e.target.value) as 6 | 12)}
-                        aria-label="Chart timeframe"
-                        className="px-3 py-1.5 rounded-xl bg-[#f6f4ee] border border-[#dfd7c7] text-xs font-semibold text-[#0c2340] cursor-pointer focus:outline-none"
-                      >
-                        <option value={6}>Last 6 Months</option>
-                        <option value={12}>Last 12 Months</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <PartnerPerformanceChart
-                    orders={orders}
-                    commissionRate={partner.commissionRate}
-                    monthsCount={chartMonths}
-                  />
-                </div>
-
-                {/* Right Column Stack: Your Referral Link + Your Earnings */}
-                <div className="lg:col-span-4 flex flex-col gap-5">
-                  {/* Dark Navy Referral Card */}
-                  <div className="rounded-2xl bg-gradient-to-br from-[#0c2340] via-[#0a1e37] to-[#07172b] text-[#fffdfb] p-5 border border-[#c5a059]/30 space-y-3.5 shadow-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Link2 className="w-4 h-4 text-[#c5a059]" />
-                        <h3 className="font-serif text-lg font-bold">Your Referral Link</h3>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={copyReferralLink}
-                        className="px-3 py-1 rounded-full bg-white/12 hover:bg-[#c5a059] text-white text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
-                      >
-                        {copiedLink ? 'Copied!' : 'Copy Link'}
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-2 bg-[#fffdfb] rounded-xl px-3 py-2 text-[#0c2340]">
-                      <span className="font-mono text-[11px] truncate flex-1 select-all">{referralUrl}</span>
-                      <button
-                        type="button"
-                        onClick={copyReferralLink}
-                        aria-label="Copy referral URL"
-                        className="text-[#5a6b7c] hover:text-[#0c2340] cursor-pointer shrink-0"
-                      >
-                        {copiedLink ? <Check className="w-4 h-4 text-emerald-700" /> : <Copy className="w-4 h-4" />}
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-3.5 pt-0.5">
-                      {qrCodeUrl && (
-                        <button
-                          type="button"
-                          onClick={() => switchSection('referral')}
-                          title="Open full QR Code studio"
-                          className="w-16 h-16 rounded-xl bg-[#fffdfb] p-1 shrink-0 cursor-pointer hover:ring-2 hover:ring-[#c5a059] transition-all"
-                        >
-                          <img src={qrCodeUrl} alt="Partner Referral QR Code" className="w-full h-full object-contain" />
-                        </button>
-                      )}
-                      <div className="space-y-1.5 min-w-0">
-                        <p className="text-xs text-[#dfd7c7] leading-snug">
-                          Share your unique link and earn {(partner.commissionRate * 100).toFixed(0)}% commissions!
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => switchSection('referral')}
-                          className="text-[11px] font-semibold text-[#c5a059] hover:text-white transition-colors cursor-pointer inline-flex items-center gap-1"
-                        >
-                          <span>Download QR &amp; Links</span>
-                          <ArrowRight className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Your Earnings Card */}
-                  <div className="flex-1 rounded-2xl bg-[#fffdfb] border border-[#dfd7c7] p-5 flex flex-col justify-between space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Wallet className="w-4 h-4 text-[#c5a059]" />
-                        <h3 className="font-serif text-lg font-bold text-[#0c2340]">Your Earnings</h3>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => switchSection('earnings')}
-                        className="px-3 py-1 rounded-full border border-[#dfd7c7] text-[11px] font-semibold text-[#0c2340] hover:bg-[#f6f4ee] transition-colors cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
-                      >
-                        <span>View Details</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </button>
-                    </div>
-
-                    <div className="flex items-end justify-between gap-3">
-                      <div>
-                        <div className="flex items-baseline gap-2">
-                          <span className="font-serif text-3xl font-bold text-[#0c2340] tabular-nums">
-                            ${totalEarnings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {canViewFinancials ? (
+                <>
+                  {/* 4-Column KPI Row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOrderStatusFilter('ALL');
+                        switchSection('orders');
+                      }}
+                      className="text-left bg-[#fffdfb] border border-[#dfd7c7] rounded-2xl p-5 hover:border-[#c5a059] transition-colors cursor-pointer flex items-center justify-between gap-3"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-9 h-9 rounded-full bg-[#0c2340] text-[#fffdfb] flex items-center justify-center shrink-0">
+                            <ShoppingCart className="w-4 h-4" />
                           </span>
-                          <span className="text-xs font-semibold text-[#4b6b58] tabular-nums">
-                            ↑ {(partner.commissionRate * 100).toFixed(0)}%
-                          </span>
+                          <span className="text-xs font-medium text-[#5a6b7c] truncate">Total Orders</span>
                         </div>
-                        <p className="text-xs text-[#5a6b7c] mt-1 tabular-nums">
-                          Eligible for payout:{' '}
-                          <strong className="text-[#0c2340]">
-                            ${pendingEarnings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </strong>
-                        </p>
+                        <div className="font-serif text-3xl font-bold text-[#0c2340] tabular-nums pt-1">
+                          {totalOrders.toLocaleString()}
+                        </div>
+                        <div className="text-[11px] font-medium text-[#4b6b58] tabular-nums">
+                          ↑ {totalOrders > 0 ? '+12.5%' : '0.0%'} referral activity
+                        </div>
                       </div>
-                      <KpiSparkBars values={[22, 34, 40, 56, 68, 78, 92]} tone="gold" />
+                      <KpiSparkBars values={[24, 38, 32, 52, 61, 74, 88]} tone="navy" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOrderStatusFilter('COMPLETED');
+                        switchSection('orders');
+                      }}
+                      className="text-left bg-[#fffdfb] border border-[#dfd7c7] rounded-2xl p-5 hover:border-[#c5a059] transition-colors cursor-pointer flex items-center justify-between gap-3"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-9 h-9 rounded-full bg-[#4b6b58] text-[#fffdfb] flex items-center justify-center shrink-0">
+                            <CheckCircle2 className="w-4 h-4" />
+                          </span>
+                          <span className="text-xs font-medium text-[#5a6b7c] truncate">Completed Orders</span>
+                        </div>
+                        <div className="font-serif text-3xl font-bold text-[#0c2340] tabular-nums pt-1">
+                          {completedOrders.toLocaleString()}
+                        </div>
+                        <div className="text-[11px] font-medium text-[#4b6b58] tabular-nums">
+                          ↑ Dispatched by lab
+                        </div>
+                      </div>
+                      <KpiSparkBars values={[28, 34, 45, 50, 62, 76, 86]} tone="sage" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOrderStatusFilter('PENDING_GROUP');
+                        switchSection('orders');
+                      }}
+                      className="text-left bg-[#fffdfb] border border-[#dfd7c7] rounded-2xl p-5 hover:border-[#c5a059] transition-colors cursor-pointer flex items-center justify-between gap-3"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-9 h-9 rounded-full bg-[#c5a059] text-[#fffdfb] flex items-center justify-center shrink-0">
+                            <Clock className="w-4 h-4" />
+                          </span>
+                          <span className="text-xs font-medium text-[#5a6b7c] truncate">Pending Orders</span>
+                        </div>
+                        <div className="font-serif text-3xl font-bold text-[#0c2340] tabular-nums pt-1">
+                          {pendingOrders.toLocaleString()}
+                        </div>
+                        <div className="text-[11px] font-medium text-[#c5a059] tabular-nums">
+                          In cold-chain queue
+                        </div>
+                      </div>
+                      <KpiSparkBars values={[18, 26, 22, 30, 36, 42, 48]} tone="gold" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => switchSection('reports')}
+                      className="text-left bg-[#fffdfb] border border-[#dfd7c7] rounded-2xl p-5 hover:border-[#c5a059] transition-colors cursor-pointer flex items-center justify-between gap-3"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-9 h-9 rounded-full bg-[#0c2340] text-[#c5a059] flex items-center justify-center shrink-0">
+                            <DollarSign className="w-4 h-4" />
+                          </span>
+                          <span className="text-xs font-medium text-[#5a6b7c] truncate">Gross Sales</span>
+                        </div>
+                        <div className="font-serif text-3xl font-bold text-[#0c2340] tabular-nums pt-1">
+                          ${grossSales.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                        </div>
+                        <div className="text-[11px] font-medium text-[#4b6b58] tabular-nums">
+                          ↑ +15.2% community volume
+                        </div>
+                      </div>
+                      <KpiSparkBars values={[32, 46, 54, 62, 74, 84, 96]} tone="navy" />
+                    </button>
+                  </div>
+
+                  {/* Middle Grid: Performance Overview Chart (8 cols) + Referral Link & Earnings Stack (4 cols) */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+                    {/* Performance Chart */}
+                    <div className="lg:col-span-8 bg-[#fffdfb] border border-[#dfd7c7] rounded-2xl p-5 sm:p-6 flex flex-col justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                        <div className="flex items-center gap-2.5">
+                          <BarChart3 className="w-5 h-5 text-[#c5a059]" />
+                          <h2 className="font-serif text-xl font-bold text-[#0c2340]">
+                            Your Performance Overview
+                          </h2>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-3 text-xs text-[#5a6b7c]">
+                            <span className="flex items-center gap-1.5">
+                              <span className="w-2.5 h-2.5 rounded-full bg-[#0c2340] inline-block" />
+                              Sales
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <span className="w-2.5 h-2.5 rounded-full bg-[#c5a059] inline-block" />
+                              Earnings
+                            </span>
+                          </div>
+                          <select
+                            value={chartMonths}
+                            onChange={(e) => setChartMonths(Number(e.target.value) as 6 | 12)}
+                            aria-label="Chart timeframe"
+                            className="px-3 py-1.5 rounded-xl bg-[#f6f4ee] border border-[#dfd7c7] text-xs font-semibold text-[#0c2340] cursor-pointer focus:outline-none"
+                          >
+                            <option value={6}>Last 6 Months</option>
+                            <option value={12}>Last 12 Months</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <PartnerPerformanceChart
+                        orders={orders}
+                        commissionRate={partner.commissionRate}
+                        monthsCount={chartMonths}
+                      />
+                    </div>
+
+                    {/* Right Column Stack: Your Referral Link + Your Earnings */}
+                    <div className="lg:col-span-4 flex flex-col gap-5">
+                      {/* Dark Navy Referral Card */}
+                      <div className="rounded-2xl bg-gradient-to-br from-[#0c2340] via-[#0a1e37] to-[#07172b] text-[#fffdfb] p-5 border border-[#c5a059]/30 space-y-3.5 shadow-sm">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Link2 className="w-4 h-4 text-[#c5a059]" />
+                            <h3 className="font-serif text-lg font-bold">Your Referral Link</h3>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={copyReferralLink}
+                            className="px-3 py-1 rounded-full bg-white/12 hover:bg-[#c5a059] text-white text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                          >
+                            {copiedLink ? 'Copied!' : 'Copy Link'}
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2 bg-[#fffdfb] rounded-xl px-3 py-2 text-[#0c2340]">
+                          <span className="font-mono text-[11px] truncate flex-1 select-all">{referralUrl}</span>
+                          <button
+                            type="button"
+                            onClick={copyReferralLink}
+                            aria-label="Copy referral URL"
+                            className="text-[#5a6b7c] hover:text-[#0c2340] cursor-pointer shrink-0"
+                          >
+                            {copiedLink ? <Check className="w-4 h-4 text-emerald-700" /> : <Copy className="w-4 h-4" />}
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-3.5 pt-0.5">
+                          {qrCodeUrl && (
+                            <button
+                              type="button"
+                              onClick={() => switchSection('referral')}
+                              title="Open full QR Code studio"
+                              className="w-16 h-16 rounded-xl bg-[#fffdfb] p-1 shrink-0 cursor-pointer hover:ring-2 hover:ring-[#c5a059] transition-all"
+                            >
+                              <img src={qrCodeUrl} alt="Partner Referral QR Code" className="w-full h-full object-contain" />
+                            </button>
+                          )}
+                          <div className="space-y-1.5 min-w-0">
+                            <p className="text-xs text-[#dfd7c7] leading-snug">
+                              Share your unique link and earn {(partner.commissionRate * 100).toFixed(0)}% commissions!
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => switchSection('referral')}
+                              className="text-[11px] font-semibold text-[#c5a059] hover:text-white transition-colors cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <span>Download QR &amp; Links</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Your Earnings Card */}
+                      <div className="flex-1 rounded-2xl bg-[#fffdfb] border border-[#dfd7c7] p-5 flex flex-col justify-between space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Wallet className="w-4 h-4 text-[#c5a059]" />
+                            <h3 className="font-serif text-lg font-bold text-[#0c2340]">Your Earnings</h3>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => switchSection('earnings')}
+                            className="px-3 py-1 rounded-full border border-[#dfd7c7] text-[11px] font-semibold text-[#0c2340] hover:bg-[#f6f4ee] transition-colors cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
+                          >
+                            <span>View Details</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
+                        </div>
+
+                        <div className="flex items-end justify-between gap-3">
+                          <div>
+                            <div className="flex items-baseline gap-2">
+                              <span className="font-serif text-3xl font-bold text-[#0c2340] tabular-nums">
+                                ${totalEarnings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                              <span className="text-xs font-semibold text-[#4b6b58] tabular-nums">
+                                ↑ {(partner.commissionRate * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                            <p className="text-xs text-[#5a6b7c] mt-1 tabular-nums">
+                              Eligible for payout:{' '}
+                              <strong className="text-[#0c2340]">
+                                ${pendingEarnings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </strong>
+                            </p>
+                          </div>
+                          <KpiSparkBars values={[22, 34, 40, 56, 68, 78, 92]} tone="gold" />
+                        </div>
+                      </div>
                     </div>
                   </div>
+                </>
+              ) : (
+                <div className="bg-[#fffdfb] border border-[#dfd7c7] rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#c5a059]">
+                      Partner Staff Care Workspace
+                    </span>
+                    <h2 className="font-serif text-xl font-bold text-[#0c2340]">
+                      Wholesale Ordering, Referral QR &amp; Clinical Resources
+                    </h2>
+                    <p className="text-xs text-[#5a6b7c]">
+                      Financial sales reports and commission ledgers are restricted to the Partner Owner account.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => switchSection('referral')}
+                    className="px-4 py-2 rounded-xl bg-[#0c2340] text-white text-xs font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer shrink-0"
+                  >
+                    Open Referral &amp; QR Tools →
+                  </button>
                 </div>
-              </div>
+              )}
 
               {/* Bottom 3-Column Row: Top Performing Products, Recent Sales Activity, Growth Banner */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
@@ -1584,14 +1706,16 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                       <Trophy className="w-4 h-4 text-[#c5a059]" />
                       <h3 className="font-serif text-lg font-bold text-[#0c2340]">Top Performing Products</h3>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => switchSection('reports')}
-                      className="text-xs font-semibold text-[#0c2340] hover:text-[#c5a059] transition-colors cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
-                    >
-                      <span>View All</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
+                    {canViewFinancials && (
+                      <button
+                        type="button"
+                        onClick={() => switchSection('reports')}
+                        className="text-xs font-semibold text-[#0c2340] hover:text-[#c5a059] transition-colors cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
+                      >
+                        <span>View All</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
 
                   <div className="divide-y divide-[#dfd7c7]/60 flex-1">
@@ -1623,37 +1747,59 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                           <div className="min-w-0">
                             <p className="text-xs font-semibold text-[#0c2340] truncate">{item.name}</p>
                             <p className="text-[11px] text-[#5a6b7c] tabular-nums">
-                              {item.units > 0 ? `${item.units} units referred` : 'Featured formulation'}
+                              {item.units > 0 && canViewFinancials ? `${item.units} units referred` : 'Featured formulation'}
                             </p>
                           </div>
                         </div>
-                        <span className="text-xs font-bold text-[#0c2340] tabular-nums shrink-0">
-                          ${item.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
+                        {canViewFinancials && (
+                          <span className="text-xs font-bold text-[#0c2340] tabular-nums shrink-0">
+                            ${item.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* Recent Sales Activity */}
+                {/* Recent Sales Activity (Owner/Admin only) or Clinic Storefront Status */}
                 <div className="lg:col-span-4 bg-[#fffdfb] border border-[#dfd7c7] rounded-2xl p-5 flex flex-col">
                   <div className="flex items-center justify-between gap-2 pb-3 border-b border-[#dfd7c7]">
                     <div className="flex items-center gap-2">
                       <Zap className="w-4 h-4 text-[#c5a059]" />
-                      <h3 className="font-serif text-lg font-bold text-[#0c2340]">Recent Sales Activity</h3>
+                      <h3 className="font-serif text-lg font-bold text-[#0c2340]">
+                        {canViewFinancials ? 'Recent Sales Activity' : 'Clinic Storefront Link'}
+                      </h3>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => switchSection('orders')}
-                      className="text-xs font-semibold text-[#0c2340] hover:text-[#c5a059] transition-colors cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
-                    >
-                      <span>View All</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
+                    {canViewFinancials && (
+                      <button
+                        type="button"
+                        onClick={() => switchSection('orders')}
+                        className="text-xs font-semibold text-[#0c2340] hover:text-[#c5a059] transition-colors cursor-pointer inline-flex items-center gap-1 whitespace-nowrap"
+                      >
+                        <span>View All</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
 
                   <div className="pt-3 space-y-3 flex-1">
-                    {orders.length === 0 ? (
+                    {!canViewFinancials ? (
+                      <div className="space-y-3 text-xs">
+                        <p className="text-[#5a6b7c] leading-relaxed">
+                          Share {partner.name}’s verified partner URL with patients for automatic {(partner.memberDiscountRate * 100).toFixed(0)}% VIP savings.
+                        </p>
+                        <div className="p-2.5 rounded-xl bg-[#f6f4ee] border border-[#dfd7c7] font-mono text-[11px] text-[#0c2340] break-all">
+                          {referralUrl}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={copyReferralLink}
+                          className="w-full py-2 rounded-xl bg-[#0c2340] text-white font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer"
+                        >
+                          {copiedLink ? 'Link Copied!' : 'Copy Partner Storefront Link'}
+                        </button>
+                      </div>
+                    ) : orders.length === 0 ? (
                       <div className="py-8 text-center text-xs text-[#5a6b7c]">
                         Share your referral link to start recording community orders.
                       </div>
@@ -1873,9 +2019,15 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                   </div>
                 </div>
 
+                {!canViewFinancials && (
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800">
+                    Staff view: profile &amp; branding edits are restricted to the Partner Owner account.
+                  </div>
+                )}
+
                 <button
                   type="submit"
-                  disabled={savingProfile}
+                  disabled={savingProfile || !canViewFinancials}
                   className="px-6 py-2.5 rounded-xl bg-[#0c2340] text-white text-xs font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {savingProfile ? 'Saving Profile...' : 'Save Partner Profile & Branding'}
@@ -2425,24 +2577,69 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                 <table className="w-full text-xs text-left">
                   <thead className="bg-[#f6f4ee] text-[#0c2340] font-serif border-b border-[#dfd7c7]">
                     <tr>
-                      <th className="p-4 font-bold">Date</th>
+                      <th className="p-4 font-bold">
+                        <button
+                          type="button"
+                          onClick={() => toggleOrderSort('date')}
+                          className="inline-flex items-center gap-1 hover:text-[#c5a059] cursor-pointer"
+                        >
+                          <span>Date</span>
+                          <span>{orderSortField === 'date' ? (orderSortDir === 'asc' ? '↑' : '↓') : ''}</span>
+                        </button>
+                      </th>
                       <th className="p-4 font-bold">Order ID</th>
-                      <th className="p-4 font-bold">Customer</th>
+                      <th className="p-4 font-bold">
+                        <button
+                          type="button"
+                          onClick={() => toggleOrderSort('customer')}
+                          className="inline-flex items-center gap-1 hover:text-[#c5a059] cursor-pointer"
+                        >
+                          <span>Customer</span>
+                          <span>{orderSortField === 'customer' ? (orderSortDir === 'asc' ? '↑' : '↓') : ''}</span>
+                        </button>
+                      </th>
                       <th className="p-4 font-bold">Formulations</th>
-                      <th className="p-4 font-bold">Status</th>
-                      <th className="p-4 font-bold text-right">Revenue</th>
-                      <th className="p-4 font-bold text-right text-[#c5a059]">Commission</th>
+                      <th className="p-4 font-bold">
+                        <button
+                          type="button"
+                          onClick={() => toggleOrderSort('status')}
+                          className="inline-flex items-center gap-1 hover:text-[#c5a059] cursor-pointer"
+                        >
+                          <span>Status</span>
+                          <span>{orderSortField === 'status' ? (orderSortDir === 'asc' ? '↑' : '↓') : ''}</span>
+                        </button>
+                      </th>
+                      <th className="p-4 font-bold text-right">
+                        <button
+                          type="button"
+                          onClick={() => toggleOrderSort('revenue')}
+                          className="inline-flex items-center gap-1 hover:text-[#c5a059] cursor-pointer"
+                        >
+                          <span>Revenue</span>
+                          <span>{orderSortField === 'revenue' ? (orderSortDir === 'asc' ? '↑' : '↓') : ''}</span>
+                        </button>
+                      </th>
+                      <th className="p-4 font-bold text-right text-[#c5a059]">
+                        <button
+                          type="button"
+                          onClick={() => toggleOrderSort('commission')}
+                          className="inline-flex items-center gap-1 hover:text-[#0c2340] cursor-pointer"
+                        >
+                          <span>Commission</span>
+                          <span>{orderSortField === 'commission' ? (orderSortDir === 'asc' ? '↑' : '↓') : ''}</span>
+                        </button>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#dfd7c7]/50 text-[#5a6b7c]">
-                    {filteredOrders.length === 0 ? (
+                    {paginatedOrders.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="p-10 text-center text-[#5a6b7c]">
                           No orders found matching this filter.
                         </td>
                       </tr>
                     ) : (
-                      filteredOrders.map((ord) => (
+                      paginatedOrders.map((ord) => (
                         <tr
                           key={ord.id}
                           onClick={() => setSelectedOrder(ord)}
@@ -2483,6 +2680,46 @@ export const PartnerDashboardView: React.FC<PartnerDashboardViewProps> = ({ navi
                   </tbody>
                 </table>
               </div>
+
+              {sortedOrders.length > 0 && (
+                <div className="px-5 py-3.5 border-t border-[#dfd7c7] bg-[#f9f8f4] flex flex-wrap items-center justify-between gap-3 text-xs text-[#5a6b7c]">
+                  <span>
+                    Showing {(safeOrdersPage - 1) * ordersPageSize + 1}–
+                    {Math.min(safeOrdersPage * ordersPageSize, sortedOrders.length)} of {sortedOrders.length}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={ordersPageSize}
+                      onChange={(e) => setOrdersPageSize(Number(e.target.value) as 10 | 25 | 50)}
+                      aria-label="Rows per page"
+                      className="px-2.5 py-1 rounded-lg bg-white border border-[#dfd7c7] text-xs font-medium text-[#0c2340]"
+                    >
+                      <option value={10}>10 / page</option>
+                      <option value={25}>25 / page</option>
+                      <option value={50}>50 / page</option>
+                    </select>
+                    <button
+                      type="button"
+                      disabled={safeOrdersPage <= 1}
+                      onClick={() => setOrdersPage((p) => Math.max(1, p - 1))}
+                      className="px-3 py-1 rounded-lg bg-white border border-[#dfd7c7] font-semibold text-[#0c2340] disabled:opacity-40 cursor-pointer"
+                    >
+                      Prev
+                    </button>
+                    <span className="font-mono text-[11px]">
+                      {safeOrdersPage} / {totalOrderPages}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={safeOrdersPage >= totalOrderPages}
+                      onClick={() => setOrdersPage((p) => Math.min(totalOrderPages, p + 1))}
+                      className="px-3 py-1 rounded-lg bg-white border border-[#dfd7c7] font-semibold text-[#0c2340] disabled:opacity-40 cursor-pointer"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

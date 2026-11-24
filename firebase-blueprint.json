@@ -47,6 +47,8 @@
         "ownerUid": { "type": "string", "maxLength": 128 },
         "preferredCategories": { "type": "array" },
         "adminNotes": { "type": "string", "maxLength": 2048 },
+        "landingPageVisible": { "type": "boolean" },
+        "landingPageHeadline": { "type": "string", "maxLength": 256 },
         "createdAt": { "type": "string", "maxLength": 64 },
         "updatedAt": { "type": "string", "maxLength": 64 }
       },
@@ -152,10 +154,16 @@
         "shortDescription": { "type": "string", "maxLength": 512 },
         "fullDescription": { "type": "string", "maxLength": 4096 },
         "priceMonthly": { "type": "number" },
+        "imageUrl": { "type": "string", "maxLength": 524288 },
+        "eligibility": { "type": "string", "maxLength": 1024 },
+        "ctaLabel": { "type": "string", "maxLength": 128 },
+        "ctaLink": { "type": "string", "maxLength": 512 },
+        "publishedAt": { "type": "string", "maxLength": 64 },
         "features": { "type": "array" },
         "status": { "type": "string", "enum": ["ACTIVE", "DRAFT", "ARCHIVED"] },
         "featured": { "type": "boolean" },
-        "createdAt": { "type": "string", "maxLength": 64 }
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
       },
       "required": ["name", "slug", "priceMonthly", "status", "createdAt"]
     },
@@ -171,8 +179,12 @@
         "readTime": { "type": "string", "maxLength": 64 },
         "summary": { "type": "string", "maxLength": 1024 },
         "content": { "type": "string", "maxLength": 16384 },
-        "imageUrl": { "type": "string", "maxLength": 1024 },
+        "imageUrl": { "type": "string", "maxLength": 524288 },
         "author": { "type": "string", "maxLength": 128 },
+        "tags": { "type": "array" },
+        "seoTitle": { "type": "string", "maxLength": 256 },
+        "seoDescription": { "type": "string", "maxLength": 512 },
+        "publishedAt": { "type": "string", "maxLength": 64 },
         "status": { "type": "string", "enum": ["PUBLISHED", "DRAFT", "ARCHIVED"] },
         "createdAt": { "type": "string", "maxLength": 64 },
         "updatedAt": { "type": "string", "maxLength": 64 }
@@ -188,7 +200,10 @@
         "question": { "type": "string", "maxLength": 512 },
         "answer": { "type": "string", "maxLength": 4096 },
         "category": { "type": "string", "maxLength": 64 },
-        "orderIndex": { "type": "number" }
+        "orderIndex": { "type": "number" },
+        "status": { "type": "string", "enum": ["PUBLISHED", "DRAFT"] },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
       },
       "required": ["question", "answer"]
     },
@@ -203,10 +218,74 @@
         "organization": { "type": "string", "maxLength": 128 },
         "quote": { "type": "string", "maxLength": 2048 },
         "rating": { "type": "number" },
+        "imageUrl": { "type": "string", "maxLength": 524288 },
+        "category": { "type": "string", "maxLength": 64 },
+        "consentConfirmed": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["PUBLISHED", "DRAFT"] },
         "verified": { "type": "boolean" },
-        "featured": { "type": "boolean" }
+        "featured": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
       },
       "required": ["name", "quote", "rating"]
+    },
+    "CmsPageContent": {
+      "title": "CmsPageContent",
+      "description": "Editable storefront, Our Approach, promotion banner, and legal pages",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "slug": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 256 },
+        "subtitle": { "type": "string", "maxLength": 512 },
+        "category": { "type": "string", "enum": ["Legal & Compliance", "Storefront & Approach", "Promotions", "Custom Page"] },
+        "body": { "type": "string", "maxLength": 32768 },
+        "ctaLabel": { "type": "string", "maxLength": 128 },
+        "ctaPath": { "type": "string", "maxLength": 256 },
+        "seoTitle": { "type": "string", "maxLength": 256 },
+        "seoDescription": { "type": "string", "maxLength": 512 },
+        "sections": { "type": "array" },
+        "status": { "type": "string", "enum": ["PUBLISHED", "DRAFT"] },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["slug", "title", "category", "body", "status", "createdAt", "updatedAt"]
+    },
+    "MediaAsset": {
+      "title": "MediaAsset",
+      "description": "Admin-managed media library imagery for products, articles, and branding",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "title": { "type": "string", "maxLength": 128 },
+        "url": { "type": "string", "maxLength": 655360 },
+        "category": { "type": "string", "enum": ["Brand & Hero", "Products", "Learn Studio", "Uploaded"] },
+        "mimeType": { "type": "string", "maxLength": 64 },
+        "isBuiltIn": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["title", "url", "category", "createdAt"]
+    },
+    "NotificationRecord": {
+      "title": "NotificationRecord",
+      "description": "Persistent transactional event notifications for partner onboarding and account updates",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "eventType": { "type": "string", "enum": ["PARTNER_APPLICATION_RECEIVED", "PARTNER_APPLICATION_APPROVED", "PARTNER_STATUS_UPDATED", "PARTNER_ACCOUNT_CREATED", "ACCOUNT_SECURITY_UPDATED"] },
+        "recipientEmail": { "type": "string", "maxLength": 256 },
+        "recipientName": { "type": "string", "maxLength": 128 },
+        "recipientUid": { "type": "string", "maxLength": 128 },
+        "partnerId": { "type": "string", "maxLength": 64 },
+        "subject": { "type": "string", "maxLength": 256 },
+        "body": { "type": "string", "maxLength": 2048 },
+        "channel": { "type": "string", "enum": ["EMAIL_WEBHOOK", "IN_APP_LEDGER"] },
+        "deliveryStatus": { "type": "string", "enum": ["SENT", "LOGGED", "FAILED"] },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["eventType", "recipientEmail", "subject", "body", "channel", "deliveryStatus", "createdAt"]
     },
     "AuditLog": {
       "title": "AuditLog",
@@ -297,6 +376,18 @@
     "/testimonials/{testimonialId}": {
       "schema": { "$ref": "#/entities/Testimonial" },
       "description": "Physician and patient clinical testimonials"
+    },
+    "/cms_pages/{pageId}": {
+      "schema": { "$ref": "#/entities/CmsPageContent" },
+      "description": "Editable storefront, Our Approach, promotions, and legal pages"
+    },
+    "/media_assets/{assetId}": {
+      "schema": { "$ref": "#/entities/MediaAsset" },
+      "description": "Uploaded and managed media assets for CMS and catalog"
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/NotificationRecord" },
+      "description": "Transactional email and account security notification logs"
     },
     "/audit_logs/{logId}": {
       "schema": { "$ref": "#/entities/AuditLog" },

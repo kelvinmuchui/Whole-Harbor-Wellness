@@ -12,6 +12,7 @@ import {
 } from 'firebase/auth';
 import { auth, googleAuthProvider } from '../lib/firebase.ts';
 import { dbService, INITIAL_USERS } from '../services/dbService.ts';
+import { notificationService } from '../services/notificationService.ts';
 import { UserProfile, UserRole, PermissionMatrix } from '../types/index.ts';
 import { demoModeEnabled, TEST_VARS } from '../lib/testVariables.ts';
 
@@ -193,6 +194,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           firebaseUser.emailVerified &&
           [
             'muchuimalcolm423@gmail.com',
+            'muchuikelvin423@gmail.com',
             'admin@wholeharborwellness.com',
             TEST_VARS.auth.adminEmail.toLowerCase()
           ].includes(email);
@@ -291,6 +293,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isAdminAccount =
       cleanEmail === TEST_VARS.auth.adminEmail.toLowerCase() ||
       cleanEmail === 'muchuimalcolm423@gmail.com' ||
+      cleanEmail === 'muchuikelvin423@gmail.com' ||
       cleanEmail === 'director@wholeharborwellness.com';
     if (isAdminAccount && demoModeEnabled && !mfaCode) {
       return { success: false, requiresMfa: true };
@@ -464,6 +467,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       await dbService.upsertUserProfile(savedUser);
+      if (assignedRole === 'PARTNER_OWNER') {
+        await notificationService
+          .dispatchTransactionalNotification({
+            eventType: 'PARTNER_ACCOUNT_CREATED',
+            recipientEmail: savedUser.email,
+            recipientName: savedUser.displayName,
+            recipientUid: savedUser.uid,
+            partnerId: savedUser.partnerId,
+            subject: `Partner Account Created (${savedUser.partnerId || 'Pending'}) – Whole Harbor Wellness`,
+            body: `Welcome to Whole Harbor Wellness, ${savedUser.displayName}. Your partner applicant account for ${registeredBusinessName} has been created and is awaiting compliance review.`
+          })
+          .catch(() => {});
+      }
       setCurrentUser(savedUser);
       return { success: true };
     } catch (err) {
@@ -532,6 +548,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
           await reauthenticateWithCredential(auth.currentUser, credential);
           await updatePassword(auth.currentUser, newPassword);
+          await notificationService
+            .dispatchTransactionalNotification({
+              eventType: 'ACCOUNT_SECURITY_UPDATED',
+              recipientEmail: auth.currentUser.email,
+              recipientName: currentUser?.displayName || auth.currentUser.email,
+              recipientUid: auth.currentUser.uid,
+              partnerId: currentUser?.partnerId,
+              subject: 'Security Alert: Password Updated – Whole Harbor Wellness',
+              body: 'Your Whole Harbor Wellness account password was recently changed. If you did not authorize this update, contact support immediately.'
+            })
+            .catch(() => {});
           return { success: true, message: 'Your account password has been updated.' };
         }
         return {
@@ -560,6 +587,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     await dbService.upsertUserProfile(updated);
     setCurrentUser(updated);
+    if (updates.mfaEnabled !== undefined && updates.mfaEnabled !== currentUser.mfaEnabled) {
+      await notificationService
+        .dispatchTransactionalNotification({
+          eventType: 'ACCOUNT_SECURITY_UPDATED',
+          recipientEmail: updated.email,
+          recipientName: updated.displayName,
+          recipientUid: updated.uid,
+          partnerId: updated.partnerId,
+          subject: `Multi-Factor Authentication ${updates.mfaEnabled ? 'Enabled' : 'Disabled'} – Whole Harbor Wellness`,
+          body: `Multi-factor authentication has been ${updates.mfaEnabled ? 'enabled' : 'disabled'} on your Whole Harbor Wellness account.`
+        })
+        .catch(() => {});
+    }
   };
 
   const logout = async () => {

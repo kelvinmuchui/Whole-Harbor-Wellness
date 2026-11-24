@@ -36,11 +36,20 @@ import {
   Mail,
   Store,
   Copy,
-  Check
+  Check,
+  ArrowUp,
+  ArrowDown,
+  Upload,
+  Trash2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { dbService } from '../services/dbService.ts';
 import { analyticsService } from '../services/analyticsService.ts';
+import {
+  compressImageFile,
+  isSafeMediaOrLinkUrl,
+  sanitizeLinkUrl
+} from '../lib/mediaUtils.ts';
 import { KpiSparkBars, SalesPerformanceChart } from '../components/AdminCharts.tsx';
 import {
   Partner,
@@ -52,6 +61,9 @@ import {
   EducationalArticle,
   FAQ,
   Testimonial,
+  CmsPageContent,
+  MediaAsset,
+  NotificationRecord,
   PartnerEarning,
   PartnerStatus,
   OrderStatus,
@@ -157,16 +169,20 @@ const WEBSITE_ROUTES: Array<{
   category: string;
   description: string;
 }> = [
-  { title: 'Storefront Home', path: 'home', hash: '#/', category: 'Storefront', description: 'Hero showcase, curated goal shortcuts, featured formulations & trust standards.' },
-  { title: 'Peptide Catalog & Shop', path: 'shop', hash: '#/shop', category: 'Storefront', description: 'Full retail and partner wholesale peptide catalog with strength & vial selectors.' },
-  { title: 'Learn Studio', path: 'learn', hash: '#/learn', category: 'Education', description: 'Clinical education hub, peptide dosing guides, storage & reconstitution manuals.' },
-  { title: 'Partner Ecosystem', path: 'partners', hash: '#/partners', category: 'Partners', description: 'Partner directory, wholesale tier overview, and public partner application intake.' },
-  { title: 'Wellness Programs', path: 'wellness-programs', hash: '#/wellness-programs', category: 'Clinical', description: 'Physician-guided multi-week metabolic, cellular, and longevity protocols.' },
-  { title: 'Our Approach', path: 'approach', hash: '#/approach', category: 'Clinical', description: 'Third-party HPLC testing, COA batch verification, and cold-chain standards.' },
-  { title: 'About Whole Harbor', path: 'about', hash: '#/about', category: 'Company', description: 'Mission, clinical advisory governance, and partnership commitment.' },
-  { title: 'Frequently Asked Questions', path: 'faq', hash: '#/faq', category: 'Support', description: 'Searchable member & clinic knowledge base on shipping, vials, and accounts.' },
-  { title: 'Contact & Concierge', path: 'contact', hash: '#/contact', category: 'Support', description: 'Direct member care, wholesale onboarding support, and inquiry submission.' },
-  { title: 'System Architecture Specs', path: 'architecture', hash: '#/architecture', category: 'Technical', description: 'Platform security boundaries, partner attribution flow, and data governance.' }
+  { title: 'Storefront Home', path: 'home', hash: '/', category: 'Storefront', description: 'Hero showcase, curated goal shortcuts, featured formulations & trust standards.' },
+  { title: 'Peptide Catalog & Shop', path: 'shop', hash: '/shop', category: 'Storefront', description: 'Full retail and partner wholesale peptide catalog with strength & vial selectors.' },
+  { title: 'Learn Studio', path: 'learn', hash: '/learn', category: 'Education', description: 'Clinical education hub, peptide dosing guides, storage & reconstitution manuals.' },
+  { title: 'Partner Ecosystem', path: 'partners', hash: '/partners', category: 'Partners', description: 'Partner directory, wholesale tier overview, and public partner application intake.' },
+  { title: 'Wellness Programs', path: 'wellness-programs', hash: '/wellness-programs', category: 'Clinical', description: 'Physician-guided multi-week metabolic, cellular, and longevity protocols.' },
+  { title: 'Our Approach', path: 'approach', hash: '/approach', category: 'Clinical', description: 'Third-party HPLC testing, COA batch verification, and cold-chain standards.' },
+  { title: 'About Whole Harbor', path: 'about', hash: '/about', category: 'Company', description: 'Mission, clinical advisory governance, and partnership commitment.' },
+  { title: 'Frequently Asked Questions', path: 'faq', hash: '/faq', category: 'Support', description: 'Searchable member & clinic knowledge base on shipping, vials, and accounts.' },
+  { title: 'Contact & Concierge', path: 'contact', hash: '/contact', category: 'Support', description: 'Direct member care, wholesale onboarding support, and inquiry submission.' },
+  { title: 'Privacy Policy', path: 'privacy', hash: '/privacy', category: 'Compliance', description: 'Published privacy practices, attribution cookie disclosures, and data governance.' },
+  { title: 'Terms of Service', path: 'terms', hash: '/terms', category: 'Compliance', description: 'Platform terms, wholesale agreement rules, and cold-chain fulfillment policies.' },
+  { title: 'CoA Verification', path: 'coa-verification', hash: '/coa-verification', category: 'Compliance', description: 'Batch-level HPLC purity and third-party Certificate of Analysis standards.' },
+  { title: 'Cold-Chain Protocol', path: 'cold-chain', hash: '/cold-chain', category: 'Compliance', description: '2°C–8°C thermal validation and insulated shipping procedures.' },
+  { title: 'System Architecture Specs', path: 'architecture', hash: '/architecture', category: 'Technical', description: 'Platform security boundaries, partner attribution flow, and data governance.' }
 ];
 
 const matchesOrderDate = (isoDate: string, filter: 'all' | 'current_month' | 'prev_month' | 'ytd'): boolean => {
@@ -213,7 +229,7 @@ const downloadCsv = (filename: string, headers: string[], rows: Array<Array<stri
 };
 
 export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate }) => {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, permissions } = useAuth();
   const [activeSection, setActiveSection] = useState<AdminSection>('overview');
   const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -239,6 +255,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   const [articles, setArticles] = useState<EducationalArticle[]>([]);
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [cmsPages, setCmsPages] = useState<CmsPageContent[]>([]);
+  const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
+  const [notifications, setNotifications] = useState<NotificationRecord[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [inquiries, setInquiries] = useState<ContactInquiry[]>([]);
   const [analyticsSummary, setAnalyticsSummary] = useState<{
@@ -260,15 +279,27 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   const [orderChannelFilter, setOrderChannelFilter] = useState<'ALL' | 'PARTNER' | 'DIRECT'>('ALL');
   const [orderDateFilter, setOrderDateFilter] = useState<'all' | 'current_month' | 'prev_month' | 'ytd'>('all');
   const [searchProduct, setSearchProduct] = useState('');
-  const [mediaFilter, setMediaFilter] = useState<'ALL' | 'Brand & Hero' | 'Products' | 'Learn Studio'>('ALL');
+  const [mediaFilter, setMediaFilter] = useState<'ALL' | 'Brand & Hero' | 'Products' | 'Learn Studio' | 'Uploaded'>('ALL');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [previewMediaUrl, setPreviewMediaUrl] = useState<{ title: string; url: string } | null>(null);
+
+  // Media Library Create / Replace / Delete State
+  const [newMediaTitle, setNewMediaTitle] = useState('');
+  const [newMediaCategory, setNewMediaCategory] = useState<MediaAsset['category']>('Uploaded');
+  const [newMediaUrlInput, setNewMediaUrlInput] = useState('');
+  const [replacingMediaId, setReplacingMediaId] = useState<string | null>(null);
+  const [replacingMediaUrl, setReplacingMediaUrl] = useState('');
+  const [confirmDeleteMediaId, setConfirmDeleteMediaId] = useState<string | null>(null);
+  const [mediaBusy, setMediaBusy] = useState(false);
 
   // Modals
   const [inspectingOrder, setInspectingOrder] = useState<Order | null>(null);
   const [reviewingPartner, setReviewingPartner] = useState<Partner | null>(null);
   const [partnerAdminNotes, setPartnerAdminNotes] = useState('');
   const [partnerReviewCategories, setPartnerReviewCategories] = useState<ProductCategoryType[]>([]);
+  const [partnerLandingVisible, setPartnerLandingVisible] = useState<boolean>(true);
+  const [partnerLandingHeadline, setPartnerLandingHeadline] = useState('');
+  const [partnerReviewDescription, setPartnerReviewDescription] = useState('');
   const [savingPartnerReview, setSavingPartnerReview] = useState(false);
 
   // Add Partner Modal
@@ -292,9 +323,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
 
   // CMS Inline Editors
   const [editingProgram, setEditingProgram] = useState<Partial<WellnessProgram> | null>(null);
-  const [editingArticle, setEditingArticle] = useState<Partial<EducationalArticle> | null>(null);
+  const [editingArticle, setEditingArticle] = useState<Partial<EducationalArticle> & { tagsText?: string } | null>(null);
   const [editingFaq, setEditingFaq] = useState<Partial<FAQ> | null>(null);
   const [editingTestimonial, setEditingTestimonial] = useState<Partial<Testimonial> | null>(null);
+  const [editingCmsPage, setEditingCmsPage] = useState<Partial<CmsPageContent> | null>(null);
 
   // Add / Edit Product Modal
   const [productModalOpen, setProductModalOpen] = useState(false);
@@ -357,10 +389,32 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
     return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
 
+  useEffect(() => {
+    if (!permissions.canManageUsers && (activeSection === 'users' || activeSection === 'settings')) {
+      setActiveSection('overview');
+    }
+  }, [permissions.canManageUsers, activeSection]);
+
   const reloadData = async () => {
     setAdminDataError(null);
     try {
-      const [usrs, pts, ords, erngs, prods, progs, arts, fqs, tests, logs, inqs, analytics] = await Promise.all([
+      const [
+        usrs,
+        pts,
+        ords,
+        erngs,
+        prods,
+        progs,
+        arts,
+        fqs,
+        tests,
+        pages,
+        assets,
+        notifs,
+        logs,
+        inqs,
+        analytics
+      ] = await Promise.all([
         dbService.getUsers(),
         dbService.getPartners(true),
         dbService.getOrders('admin'),
@@ -370,6 +424,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
         dbService.getArticles(),
         dbService.getFaqs(),
         dbService.getTestimonials(),
+        dbService.getCmsPages(),
+        dbService.getMediaAssets(),
+        dbService.getNotifications(),
         dbService.getAuditLogs(),
         dbService.getInquiries(),
         analyticsService.getSummary()
@@ -381,8 +438,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
       setProducts(prods);
       setPrograms(progs);
       setArticles(arts);
-      setFaqs(fqs);
+      setFaqs([...fqs].sort((a, b) => (a.orderIndex ?? 999) - (b.orderIndex ?? 999)));
       setTestimonials(tests);
+      setCmsPages(pages);
+      setMediaAssets(assets.length > 0 ? assets : MEDIA_LIBRARY_ASSETS.map((m) => ({
+        ...m,
+        isBuiltIn: true,
+        createdAt: '2026-01-01T00:00:00Z'
+      })));
+      setNotifications(notifs);
       setAuditLogs(logs);
       setInquiries(inqs);
       setAnalyticsSummary(analytics);
@@ -411,6 +475,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
         'educational_articles',
         'faqs',
         'testimonials',
+        'cms_pages',
+        'media_assets',
+        'notifications',
         'audit_logs',
         'inquiries',
         'analytics_events'
@@ -422,6 +489,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   }, []);
 
   const switchSection = (sec: AdminSection) => {
+    if (!permissions.canManageUsers && (sec === 'users' || sec === 'settings')) {
+      setAdminSaveNotice({
+        kind: 'error',
+        message: 'Role access restricted: Sales Administrators cannot open Users & Roles or Platform Settings.'
+      });
+      return;
+    }
     setActiveSection(sec);
     if (sec === 'partner-users') {
       setUserRoleFilter('PARTNERS');
@@ -651,21 +725,64 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   const handleUpdatePartnerStatus = async (partnerId: string, status: PartnerStatus, notes?: string) => {
     setSavingPartnerReview(true);
     try {
-      await dbService.updatePartner(partnerId, { preferredCategories: partnerReviewCategories });
-      await dbService.updatePartnerStatus(partnerId, status, notes, 'SUPER_ADMIN');
+      const partnerUpdates: Partial<Partner> = {
+        preferredCategories: partnerReviewCategories,
+        landingPageVisible: partnerLandingVisible,
+        ...(partnerLandingHeadline.trim() ? { landingPageHeadline: partnerLandingHeadline.trim() } : {}),
+        ...(partnerReviewDescription.trim() ? { description: partnerReviewDescription.trim() } : {})
+      };
+      await dbService.updatePartner(partnerId, partnerUpdates);
+      await dbService.updatePartnerStatus(partnerId, status, notes, permissions.canManageUsers ? 'ADMIN' : 'SALES_ADMIN');
       await reloadData();
       if (reviewingPartner && reviewingPartner.id === partnerId) {
         setReviewingPartner((prev) =>
           prev
             ? {
                 ...prev,
+                ...partnerUpdates,
                 status,
-                adminNotes: notes ?? prev.adminNotes,
-                preferredCategories: partnerReviewCategories
+                adminNotes: notes ?? prev.adminNotes
               }
             : null
         );
       }
+      setAdminSaveNotice({
+        kind: 'success',
+        message: `Partner record updated (${status}).`
+      });
+    } catch (err) {
+      setAdminSaveNotice({
+        kind: 'error',
+        message: err instanceof Error ? err.message : 'Unable to update partner status.'
+      });
+    } finally {
+      setSavingPartnerReview(false);
+    }
+  };
+
+  const handleSavePartnerStorefrontDetails = async () => {
+    if (!reviewingPartner) return;
+    setSavingPartnerReview(true);
+    try {
+      const updates: Partial<Partner> = {
+        preferredCategories: partnerReviewCategories,
+        landingPageVisible: partnerLandingVisible,
+        adminNotes: partnerAdminNotes,
+        ...(partnerLandingHeadline.trim() ? { landingPageHeadline: partnerLandingHeadline.trim() } : {}),
+        ...(partnerReviewDescription.trim() ? { description: partnerReviewDescription.trim() } : {})
+      };
+      await dbService.updatePartner(reviewingPartner.id, updates);
+      await reloadData();
+      setReviewingPartner((prev) => (prev ? { ...prev, ...updates } : null));
+      setAdminSaveNotice({
+        kind: 'success',
+        message: `Storefront visibility & copy saved for ${reviewingPartner.name}.`
+      });
+    } catch (err) {
+      setAdminSaveNotice({
+        kind: 'error',
+        message: err instanceof Error ? err.message : 'Failed to save partner storefront settings.'
+      });
     } finally {
       setSavingPartnerReview(false);
     }
@@ -675,6 +792,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
     setReviewingPartner(partner);
     setPartnerAdminNotes(partner.adminNotes || '');
     setPartnerReviewCategories(partner.preferredCategories || []);
+    setPartnerLandingVisible(partner.landingPageVisible !== false);
+    setPartnerLandingHeadline(partner.landingPageHeadline || '');
+    setPartnerReviewDescription(partner.description || '');
   }
 
   const handleCreateNewPartner = async (e: React.FormEvent) => {
@@ -786,6 +906,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   };
 
   const openCreateProductModal = () => {
+    if (!permissions.canManageCatalog) {
+      setAdminSaveNotice({
+        kind: 'error',
+        message: 'Read-only access: Sales Administrators cannot create catalog formulations.'
+      });
+      return;
+    }
     setAdminSaveNotice(null);
     setEditingProduct(null);
     setProdName('');
@@ -806,6 +933,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   };
 
   function openEditProductModal(product: Product) {
+    if (!permissions.canManageCatalog) {
+      setAdminSaveNotice({
+        kind: 'error',
+        message: 'Read-only access: Sales Administrators cannot modify product formulations.'
+      });
+      return;
+    }
     setAdminSaveNotice(null);
     setEditingProduct(product);
     setProdName(product.name);
@@ -825,20 +959,30 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
     setProductModalOpen(true);
   }
 
-  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setProdImageUrl(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const { dataUrl } = await compressImageFile(file);
+      setProdImageUrl(dataUrl);
+    } catch (err) {
+      setAdminSaveNotice({
+        kind: 'error',
+        message: err instanceof Error ? err.message : 'Unable to process image upload.'
+      });
+    }
   };
 
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!permissions.canManageCatalog) return;
+    if (!isSafeMediaOrLinkUrl(prodImageUrl)) {
+      setAdminSaveNotice({
+        kind: 'error',
+        message: 'Please provide a valid relative path, HTTPS URL, or uploaded image.'
+      });
+      return;
+    }
     setSavingProduct(true);
     setAdminSaveNotice(null);
     const slug = prodName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -938,6 +1082,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
   };
 
   const handleQuickProductStatus = async (product: Product, newStatus: ProductStatus) => {
+    if (!permissions.canManageCatalog) return;
     await dbService.updateProduct(product.id, { status: newStatus });
     await reloadData();
   };
@@ -952,6 +1097,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!permissions.canManageUsers) return;
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
     await dbService.createAuditLog({
       userId: currentUser?.uid,
@@ -976,11 +1122,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
         .toUpperCase()
     : 'AD';
 
-  const navItems: Array<{
+  const allNavItems: Array<{
     id: AdminSection;
     label: string;
     icon: React.ComponentType<{ className?: string }>;
     badge?: number;
+    requiresUserAdmin?: boolean;
   }> = [
     { id: 'overview', label: 'Overview', icon: Home },
     { id: 'partners', label: 'Partners', icon: Handshake },
@@ -998,9 +1145,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
     { id: 'media', label: 'Media Library', icon: ImageIcon },
     { id: 'website-pages', label: 'Website Pages', icon: Layers },
     { id: 'analytics', label: 'Analytics & Reports', icon: BarChart3 },
-    { id: 'users', label: 'Users & Roles', icon: ShieldCheck },
-    { id: 'settings', label: 'Settings', icon: Settings }
+    { id: 'users', label: 'Users & Roles', icon: ShieldCheck, requiresUserAdmin: true },
+    { id: 'settings', label: 'Settings', icon: Settings, requiresUserAdmin: true }
   ];
+
+  const navItems = allNavItems.filter(
+    (item) => !item.requiresUserAdmin || permissions.canManageUsers
+  );
 
   const sectionTitleMap: Record<AdminSection, string> = {
     overview: 'Overview',
@@ -1142,17 +1293,19 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                 <Store className="w-3.5 h-3.5 text-[#c5a059]" />
                 <span>Storefront Home</span>
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSidebarProfileOpen(false);
-                  switchSection('settings');
-                }}
-                className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#f6f4ee] flex items-center gap-2 cursor-pointer"
-              >
-                <Settings className="w-3.5 h-3.5 text-[#c5a059]" />
-                <span>Platform Settings</span>
-              </button>
+              {permissions.canManageUsers && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSidebarProfileOpen(false);
+                    switchSection('settings');
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#f6f4ee] flex items-center gap-2 cursor-pointer"
+                >
+                  <Settings className="w-3.5 h-3.5 text-[#c5a059]" />
+                  <span>Platform Settings</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -1400,17 +1553,19 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                     <Store className="w-3.5 h-3.5 text-[#c5a059]" />
                     <span>View Storefront</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setProfileMenuOpen(false);
-                      switchSection('settings');
-                    }}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#f6f4ee] flex items-center gap-2 cursor-pointer"
-                  >
-                    <Settings className="w-3.5 h-3.5 text-[#c5a059]" />
-                    <span>Admin Settings</span>
-                  </button>
+                  {permissions.canManageUsers && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        switchSection('settings');
+                      }}
+                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-[#f6f4ee] flex items-center gap-2 cursor-pointer"
+                    >
+                      <Settings className="w-3.5 h-3.5 text-[#c5a059]" />
+                      <span>Admin Settings</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -1498,14 +1653,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                     </select>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={openCreateProductModal}
-                    className="h-10 px-4 rounded-xl bg-white border border-[#dfd7c7] hover:border-[#c5a059] text-[#0c2340] text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
-                  >
-                    <Plus className="w-3.5 h-3.5 text-[#c5a059]" />
-                    <span>New Formulation</span>
-                  </button>
+                  {permissions.canManageCatalog && (
+                    <button
+                      type="button"
+                      onClick={openCreateProductModal}
+                      className="h-10 px-4 rounded-xl bg-white border border-[#dfd7c7] hover:border-[#c5a059] text-[#0c2340] text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-[#c5a059]" />
+                      <span>New Formulation</span>
+                    </button>
+                  )}
 
                   <button
                     type="button"
@@ -2441,7 +2598,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
 
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {partners.map((pt) => {
-                  const shareUrl = `${window.location.origin}/#/partner/${pt.slug}`;
+                  const shareUrl = `${window.location.origin}/partner/${pt.slug}`;
                   return (
                     <div key={pt.id} className="bg-white border border-[#dfd7c7] rounded-2xl p-5 flex flex-col justify-between gap-4">
                       <div className="space-y-2">
@@ -2501,15 +2658,23 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                     Edit formulations, adjust retail and wholesale 10-vial pricing, upload images, or toggle availability.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={openCreateProductModal}
-                  className="h-10 px-4 rounded-xl bg-[#0c2340] hover:bg-[#c5a059] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shrink-0"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Product</span>
-                </button>
+                {permissions.canManageCatalog && (
+                  <button
+                    type="button"
+                    onClick={openCreateProductModal}
+                    className="h-10 px-4 rounded-xl bg-[#0c2340] hover:bg-[#c5a059] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Product</span>
+                  </button>
+                )}
               </div>
+
+              {!permissions.canManageCatalog && (
+                <div className="mx-4 mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium">
+                  Read-Only Catalog View: Sales Administrator accounts can inspect formulations and pricing, but catalog creation, editing, and status toggles require full Administrator access.
+                </div>
+              )}
 
               <div className="p-4 bg-[#f6f4ee] border-b border-[#dfd7c7]">
                 <div className="flex items-center gap-2.5 bg-white border border-[#dfd7c7] rounded-xl px-3 h-10 max-w-md">
@@ -2579,29 +2744,39 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                             </span>
                           </td>
                           <td className="p-4 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
+                            {permissions.canManageCatalog ? (
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => openEditProductModal(p)}
+                                  className="px-2.5 py-1 rounded-lg bg-[#0c2340] text-white text-[11px] font-semibold hover:bg-[#c5a059] cursor-pointer"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickProductStatus(p, p.status === 'UNAVAILABLE' ? 'ACTIVE' : 'UNAVAILABLE')}
+                                  className="px-2.5 py-1 rounded-lg border border-[#dfd7c7] bg-white text-[#0c2340] hover:border-[#c5a059] text-[11px] font-semibold cursor-pointer"
+                                >
+                                  {p.status === 'UNAVAILABLE' ? 'Mark Active' : 'Unavailable'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickProductStatus(p, p.status === 'DISABLED' ? 'ACTIVE' : 'DISABLED')}
+                                  className="px-2.5 py-1 rounded-lg border border-red-200 text-red-700 bg-red-50 hover:bg-red-100 text-[11px] font-semibold cursor-pointer"
+                                >
+                                  {p.status === 'DISABLED' ? 'Enable' : 'Disable'}
+                                </button>
+                              </div>
+                            ) : (
                               <button
                                 type="button"
-                                onClick={() => openEditProductModal(p)}
-                                className="px-2.5 py-1 rounded-lg bg-[#0c2340] text-white text-[11px] font-semibold hover:bg-[#c5a059] cursor-pointer"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleQuickProductStatus(p, p.status === 'UNAVAILABLE' ? 'ACTIVE' : 'UNAVAILABLE')}
+                                onClick={() => navigate('product-detail', p.slug)}
                                 className="px-2.5 py-1 rounded-lg border border-[#dfd7c7] bg-white text-[#0c2340] hover:border-[#c5a059] text-[11px] font-semibold cursor-pointer"
                               >
-                                {p.status === 'UNAVAILABLE' ? 'Mark Active' : 'Unavailable'}
+                                View
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => handleQuickProductStatus(p, p.status === 'DISABLED' ? 'ACTIVE' : 'DISABLED')}
-                                className="px-2.5 py-1 rounded-lg border border-red-200 text-red-700 bg-red-50 hover:bg-red-100 text-[11px] font-semibold cursor-pointer"
-                              >
-                                {p.status === 'DISABLED' ? 'Enable' : 'Disable'}
-                              </button>
-                            </div>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -2640,6 +2815,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                         shortDescription: '',
                         fullDescription: '',
                         priceMonthly: 299,
+                        imageUrl: '',
+                        eligibility: '',
+                        ctaLabel: 'Enroll in Protocol',
+                        ctaLink: '/contact',
+                        publishedAt: new Date().toISOString().slice(0, 10),
                         features: [],
                         status: 'ACTIVE',
                         featured: true
@@ -2656,15 +2836,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    const slug = (editingProgram.name || 'program')
-                      .toLowerCase()
-                      .replace(/[^a-z0-9]+/g, '-')
-                      .replace(/(^-|-$)/g, '');
-                    if (editingProgram.id) {
-                      await dbService.updateProgram(editingProgram.id, editingProgram);
-                    } else {
-                      await dbService.createProgram({
-                        name: editingProgram.name || 'New Program',
+                    if (!isSafeMediaOrLinkUrl(editingProgram.imageUrl) || !isSafeMediaOrLinkUrl(editingProgram.ctaLink)) {
+                      setAdminSaveNotice({
+                        kind: 'error',
+                        message: 'Program image and CTA link must be relative paths or valid HTTPS URLs.'
+                      });
+                      return;
+                    }
+                    try {
+                      const slug = (editingProgram.slug || editingProgram.name || 'program')
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, '-')
+                        .replace(/(^-|-$)/g, '');
+                      const cleanPayload = {
+                        name: (editingProgram.name || 'New Program').trim(),
                         slug,
                         duration: editingProgram.duration || '12 Weeks',
                         category: editingProgram.category || 'Metabolic',
@@ -2672,14 +2857,35 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                         shortDescription: editingProgram.shortDescription || '',
                         fullDescription: editingProgram.fullDescription || editingProgram.shortDescription || '',
                         priceMonthly: Number(editingProgram.priceMonthly || 299),
-                        features: editingProgram.features || [],
+                        ...(editingProgram.imageUrl?.trim() ? { imageUrl: editingProgram.imageUrl.trim() } : {}),
+                        ...(editingProgram.eligibility?.trim() ? { eligibility: editingProgram.eligibility.trim() } : {}),
+                        ...(editingProgram.ctaLabel?.trim() ? { ctaLabel: editingProgram.ctaLabel.trim() } : {}),
+                        ...(sanitizeLinkUrl(editingProgram.ctaLink) ? { ctaLink: sanitizeLinkUrl(editingProgram.ctaLink) } : {}),
+                        ...(editingProgram.publishedAt ? { publishedAt: editingProgram.publishedAt } : {}),
+                        features: Array.isArray(editingProgram.features) ? editingProgram.features : [],
                         status: editingProgram.status || 'ACTIVE',
-                        featured: Boolean(editingProgram.featured),
-                        createdAt: new Date().toISOString()
+                        featured: Boolean(editingProgram.featured)
+                      };
+                      if (editingProgram.id) {
+                        await dbService.updateProgram(editingProgram.id, cleanPayload);
+                      } else {
+                        await dbService.createProgram({
+                          ...cleanPayload,
+                          createdAt: new Date().toISOString()
+                        });
+                      }
+                      setEditingProgram(null);
+                      await reloadData();
+                      setAdminSaveNotice({
+                        kind: 'success',
+                        message: `Wellness program "${cleanPayload.name}" saved.`
+                      });
+                    } catch (err) {
+                      setAdminSaveNotice({
+                        kind: 'error',
+                        message: err instanceof Error ? err.message : 'Failed to save wellness program.'
                       });
                     }
-                    setEditingProgram(null);
-                    await reloadData();
                   }}
                   className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7] space-y-3"
                 >
@@ -2732,12 +2938,98 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                       <option value="ARCHIVED">ARCHIVED</option>
                     </select>
                   </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2 flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        placeholder="Image URL or Media Library path (/images/...)"
+                        value={editingProgram.imageUrl || ''}
+                        onChange={(e) => setEditingProgram({ ...editingProgram, imageUrl: e.target.value })}
+                        className="flex-1 px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            setEditingProgram({ ...editingProgram, imageUrl: e.target.value });
+                          }
+                        }}
+                        aria-label="Pick image from Media Library"
+                        className="px-2.5 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340] max-w-[180px]"
+                      >
+                        <option value="">Media Library...</option>
+                        {mediaAssets.map((m) => (
+                          <option key={m.id} value={m.url}>
+                            {m.title}
+                          </option>
+                        ))}
+                      </select>
+                      <label className="px-3 py-2 rounded-lg bg-[#0c2340] text-white font-semibold cursor-pointer text-center shrink-0">
+                        Upload
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              const { dataUrl } = await compressImageFile(file);
+                              setEditingProgram({ ...editingProgram, imageUrl: dataUrl });
+                            } catch (err) {
+                              setAdminSaveNotice({
+                                kind: 'error',
+                                message: err instanceof Error ? err.message : 'Image upload failed.'
+                              });
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <input
+                      type="date"
+                      value={editingProgram.publishedAt ? editingProgram.publishedAt.slice(0, 10) : ''}
+                      onChange={(e) => setEditingProgram({ ...editingProgram, publishedAt: e.target.value })}
+                      aria-label="Publish date"
+                      className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Eligibility Criteria (e.g. Adults 18+ with MD review)"
+                      value={editingProgram.eligibility || ''}
+                      onChange={(e) => setEditingProgram({ ...editingProgram, eligibility: e.target.value })}
+                      className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                    <input
+                      type="text"
+                      placeholder="CTA Label (e.g. Enroll in Protocol)"
+                      value={editingProgram.ctaLabel || ''}
+                      onChange={(e) => setEditingProgram({ ...editingProgram, ctaLabel: e.target.value })}
+                      className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                    <input
+                      type="text"
+                      placeholder="CTA Route / Link (e.g. /contact or /shop)"
+                      value={editingProgram.ctaLink || ''}
+                      onChange={(e) => setEditingProgram({ ...editingProgram, ctaLink: e.target.value })}
+                      className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                  </div>
                   <textarea
                     rows={2}
                     required
                     placeholder="Short description..."
                     value={editingProgram.shortDescription || ''}
                     onChange={(e) => setEditingProgram({ ...editingProgram, shortDescription: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                  <textarea
+                    rows={2}
+                    placeholder="Full clinical protocol details..."
+                    value={editingProgram.fullDescription || ''}
+                    onChange={(e) => setEditingProgram({ ...editingProgram, fullDescription: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
                   />
                   <div className="flex gap-2">
@@ -2768,8 +3060,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                         <button
                           type="button"
                           onClick={async () => {
-                            await dbService.deleteProgram(pr.id);
-                            await reloadData();
+                            try {
+                              await dbService.deleteProgram(pr.id);
+                              await reloadData();
+                              setAdminSaveNotice({ kind: 'success', message: `Program "${pr.name}" deleted.` });
+                            } catch (err) {
+                              setAdminSaveNotice({
+                                kind: 'error',
+                                message: err instanceof Error ? err.message : 'Unable to delete program.'
+                              });
+                            }
                           }}
                           className="text-red-700 font-semibold hover:underline cursor-pointer"
                         >
@@ -2809,6 +3109,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                         summary: '',
                         content: '',
                         imageUrl: '/images/learn/welcome.png',
+                        tagsText: 'Peptides, Cold-Chain, HPLC',
+                        seoTitle: '',
+                        seoDescription: '',
+                        publishedAt: new Date().toISOString().slice(0, 10),
                         status: 'PUBLISHED'
                       })
                     }
@@ -2823,15 +3127,24 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    const slug = (editingArticle.title || 'article')
-                      .toLowerCase()
-                      .replace(/[^a-z0-9]+/g, '-')
-                      .replace(/(^-|-$)/g, '');
-                    if (editingArticle.id) {
-                      await dbService.updateArticle(editingArticle.id, editingArticle);
-                    } else {
-                      await dbService.createArticle({
-                        title: editingArticle.title || 'Untitled Article',
+                    if (!isSafeMediaOrLinkUrl(editingArticle.imageUrl)) {
+                      setAdminSaveNotice({
+                        kind: 'error',
+                        message: 'Article cover image must be a valid relative path, HTTPS URL, or uploaded image.'
+                      });
+                      return;
+                    }
+                    try {
+                      const slug = (editingArticle.slug || editingArticle.title || 'article')
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, '-')
+                        .replace(/(^-|-$)/g, '');
+                      const parsedTags = (editingArticle.tagsText ?? (editingArticle.tags || []).join(', '))
+                        .split(',')
+                        .map((t) => t.trim())
+                        .filter(Boolean);
+                      const cleanPayload = {
+                        title: (editingArticle.title || 'Untitled Article').trim(),
                         slug,
                         category: editingArticle.category || 'Peptide Protocols',
                         readTime: editingArticle.readTime || '5 min read',
@@ -2839,12 +3152,32 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                         content: editingArticle.content || editingArticle.summary || '',
                         imageUrl: editingArticle.imageUrl || '/images/learn/welcome.png',
                         author: editingArticle.author || 'Whole Harbor Clinical Team',
-                        status: editingArticle.status || 'PUBLISHED',
-                        createdAt: new Date().toISOString()
+                        tags: parsedTags,
+                        ...(editingArticle.seoTitle?.trim() ? { seoTitle: editingArticle.seoTitle.trim() } : {}),
+                        ...(editingArticle.seoDescription?.trim() ? { seoDescription: editingArticle.seoDescription.trim() } : {}),
+                        ...(editingArticle.publishedAt ? { publishedAt: editingArticle.publishedAt } : {}),
+                        status: editingArticle.status || 'PUBLISHED'
+                      };
+                      if (editingArticle.id) {
+                        await dbService.updateArticle(editingArticle.id, cleanPayload);
+                      } else {
+                        await dbService.createArticle({
+                          ...cleanPayload,
+                          createdAt: new Date().toISOString()
+                        });
+                      }
+                      setEditingArticle(null);
+                      await reloadData();
+                      setAdminSaveNotice({
+                        kind: 'success',
+                        message: `Article "${cleanPayload.title}" saved.`
+                      });
+                    } catch (err) {
+                      setAdminSaveNotice({
+                        kind: 'error',
+                        message: err instanceof Error ? err.message : 'Failed to save article.'
                       });
                     }
-                    setEditingArticle(null);
-                    await reloadData();
                   }}
                   className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7] space-y-3"
                 >
@@ -2874,6 +3207,101 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                       <option value="ARCHIVED">ARCHIVED</option>
                     </select>
                   </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Author Name"
+                      value={editingArticle.author || ''}
+                      onChange={(e) => setEditingArticle({ ...editingArticle, author: e.target.value })}
+                      className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Read Time (e.g. 5 min read)"
+                      value={editingArticle.readTime || ''}
+                      onChange={(e) => setEditingArticle({ ...editingArticle, readTime: e.target.value })}
+                      className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                    <input
+                      type="date"
+                      value={editingArticle.publishedAt ? editingArticle.publishedAt.slice(0, 10) : ''}
+                      onChange={(e) => setEditingArticle({ ...editingArticle, publishedAt: e.target.value })}
+                      aria-label="Publish date"
+                      className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2 flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        placeholder="Cover Image Path or URL"
+                        value={editingArticle.imageUrl || ''}
+                        onChange={(e) => setEditingArticle({ ...editingArticle, imageUrl: e.target.value })}
+                        className="flex-1 px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            setEditingArticle({ ...editingArticle, imageUrl: e.target.value });
+                          }
+                        }}
+                        aria-label="Pick article image from Media Library"
+                        className="px-2.5 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340] max-w-[180px]"
+                      >
+                        <option value="">Media Library...</option>
+                        {mediaAssets.map((m) => (
+                          <option key={m.id} value={m.url}>
+                            {m.title}
+                          </option>
+                        ))}
+                      </select>
+                      <label className="px-3 py-2 rounded-lg bg-[#0c2340] text-white font-semibold cursor-pointer text-center shrink-0">
+                        Upload
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              const { dataUrl } = await compressImageFile(file);
+                              setEditingArticle({ ...editingArticle, imageUrl: dataUrl });
+                            } catch (err) {
+                              setAdminSaveNotice({
+                                kind: 'error',
+                                message: err instanceof Error ? err.message : 'Image upload failed.'
+                              });
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Tags (comma-separated)"
+                      value={editingArticle.tagsText ?? (editingArticle.tags || []).join(', ')}
+                      onChange={(e) => setEditingArticle({ ...editingArticle, tagsText: e.target.value })}
+                      className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="SEO Title Override (optional)"
+                      value={editingArticle.seoTitle || ''}
+                      onChange={(e) => setEditingArticle({ ...editingArticle, seoTitle: e.target.value })}
+                      className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                    <input
+                      type="text"
+                      placeholder="SEO Meta Description (optional)"
+                      value={editingArticle.seoDescription || ''}
+                      onChange={(e) => setEditingArticle({ ...editingArticle, seoDescription: e.target.value })}
+                      className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                  </div>
                   <textarea
                     rows={2}
                     required
@@ -2883,7 +3311,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                     className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
                   />
                   <textarea
-                    rows={3}
+                    rows={4}
                     placeholder="Full educational content..."
                     value={editingArticle.content || ''}
                     onChange={(e) => setEditingArticle({ ...editingArticle, content: e.target.value })}
@@ -2909,14 +3337,40 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] font-bold text-[#c5a059]">{art.status}</span>
-                      <button type="button" onClick={() => setEditingArticle(art)} className="text-[#0c2340] font-semibold hover:text-[#c5a059] cursor-pointer">
+                      {art.status === 'PUBLISHED' && (
+                        <button
+                          type="button"
+                          onClick={() => navigate('article-detail', art.slug)}
+                          className="text-[#c5a059] font-semibold hover:underline cursor-pointer"
+                        >
+                          View Live ↗
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingArticle({
+                            ...art,
+                            tagsText: (art.tags || []).join(', ')
+                          })
+                        }
+                        className="text-[#0c2340] font-semibold hover:text-[#c5a059] cursor-pointer"
+                      >
                         Edit
                       </button>
                       <button
                         type="button"
                         onClick={async () => {
-                          await dbService.deleteArticle(art.id);
-                          await reloadData();
+                          try {
+                            await dbService.deleteArticle(art.id);
+                            await reloadData();
+                            setAdminSaveNotice({ kind: 'success', message: `Article "${art.title}" deleted.` });
+                          } catch (err) {
+                            setAdminSaveNotice({
+                              kind: 'error',
+                              message: err instanceof Error ? err.message : 'Unable to delete article.'
+                            });
+                          }
                         }}
                         className="text-red-700 font-semibold hover:underline cursor-pointer"
                       >
@@ -2951,7 +3405,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                         question: '',
                         answer: '',
                         category: 'Protocols',
-                        orderIndex: faqs.length + 1
+                        orderIndex: faqs.length + 1,
+                        status: 'PUBLISHED'
                       })
                     }
                     className="h-9 px-4 rounded-xl bg-[#0c2340] hover:bg-[#c5a059] text-white font-semibold cursor-pointer"
@@ -2965,23 +3420,35 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    if (editingFaq.id) {
-                      await dbService.updateFaq(editingFaq.id, editingFaq);
-                    } else {
-                      await dbService.createFaq({
-                        question: editingFaq.question || '',
-                        answer: editingFaq.answer || '',
+                    try {
+                      const cleanPayload = {
+                        question: (editingFaq.question || '').trim(),
+                        answer: (editingFaq.answer || '').trim(),
                         category: editingFaq.category || 'Protocols',
-                        orderIndex: Number(editingFaq.orderIndex || faqs.length + 1),
-                        createdAt: new Date().toISOString()
+                        orderIndex: Number(editingFaq.orderIndex ?? faqs.length + 1),
+                        status: (editingFaq.status || 'PUBLISHED') as 'PUBLISHED' | 'DRAFT'
+                      };
+                      if (editingFaq.id) {
+                        await dbService.updateFaq(editingFaq.id, cleanPayload);
+                      } else {
+                        await dbService.createFaq({
+                          ...cleanPayload,
+                          createdAt: new Date().toISOString()
+                        });
+                      }
+                      setEditingFaq(null);
+                      await reloadData();
+                      setAdminSaveNotice({ kind: 'success', message: 'FAQ entry saved.' });
+                    } catch (err) {
+                      setAdminSaveNotice({
+                        kind: 'error',
+                        message: err instanceof Error ? err.message : 'Unable to save FAQ.'
                       });
                     }
-                    setEditingFaq(null);
-                    await reloadData();
                   }}
                   className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7] space-y-3"
                 >
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                     <input
                       type="text"
                       required
@@ -2997,6 +3464,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                       onChange={(e) => setEditingFaq({ ...editingFaq, category: e.target.value })}
                       className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
                     />
+                    <select
+                      value={editingFaq.status || 'PUBLISHED'}
+                      onChange={(e) => setEditingFaq({ ...editingFaq, status: e.target.value as 'PUBLISHED' | 'DRAFT' })}
+                      aria-label="FAQ visibility status"
+                      className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    >
+                      <option value="PUBLISHED">PUBLISHED</option>
+                      <option value="DRAFT">DRAFT</option>
+                    </select>
                   </div>
                   <textarea
                     rows={2}
@@ -3018,23 +3494,83 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
               )}
 
               <div className="space-y-2.5">
-                {faqs.map((fq) => (
+                {faqs.map((fq, idx) => (
                   <div key={fq.id} className="p-4 rounded-xl border border-[#dfd7c7] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div>
-                      <span className="font-semibold text-[#0c2340] block">{fq.question}</span>
-                      <span className="text-[11px] text-[#5a6b7c]">{fq.category} · {fq.answer.slice(0, 110)}...</span>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[10px] font-bold text-[#c5a059]">#{idx + 1}</span>
+                        <span className="font-semibold text-[#0c2340]">{fq.question}</span>
+                        <span className="px-2 py-0.5 rounded bg-[#f6f4ee] border border-[#dfd7c7] text-[9px] font-bold text-[#0c2340]">
+                          {fq.status || 'PUBLISHED'}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-[#5a6b7c] block mt-0.5">{fq.category} · {fq.answer.slice(0, 110)}...</span>
                     </div>
-                    <div className="flex gap-3 shrink-0">
-                      <button type="button" onClick={() => setEditingFaq(fq)} className="text-[#0c2340] font-semibold hover:text-[#c5a059] cursor-pointer">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        disabled={idx === 0}
+                        aria-label="Move FAQ up"
+                        onClick={async () => {
+                          const prevFaq = faqs[idx - 1];
+                          if (!prevFaq) return;
+                          await Promise.all([
+                            dbService.updateFaq(fq.id, { orderIndex: idx }),
+                            dbService.updateFaq(prevFaq.id, { orderIndex: idx + 1 })
+                          ]);
+                          await reloadData();
+                        }}
+                        className="p-1.5 rounded-lg border border-[#dfd7c7] text-[#0c2340] hover:border-[#c5a059] disabled:opacity-30 cursor-pointer"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={idx === faqs.length - 1}
+                        aria-label="Move FAQ down"
+                        onClick={async () => {
+                          const nextFaq = faqs[idx + 1];
+                          if (!nextFaq) return;
+                          await Promise.all([
+                            dbService.updateFaq(fq.id, { orderIndex: idx + 2 }),
+                            dbService.updateFaq(nextFaq.id, { orderIndex: idx + 1 })
+                          ]);
+                          await reloadData();
+                        }}
+                        className="p-1.5 rounded-lg border border-[#dfd7c7] text-[#0c2340] hover:border-[#c5a059] disabled:opacity-30 cursor-pointer"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await dbService.updateFaq(fq.id, {
+                            status: (fq.status || 'PUBLISHED') === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
+                          });
+                          await reloadData();
+                        }}
+                        className="text-[#c5a059] font-semibold hover:underline cursor-pointer px-1"
+                      >
+                        {(fq.status || 'PUBLISHED') === 'PUBLISHED' ? 'Unpublish' : 'Publish'}
+                      </button>
+                      <button type="button" onClick={() => setEditingFaq(fq)} className="text-[#0c2340] font-semibold hover:text-[#c5a059] cursor-pointer px-1">
                         Edit
                       </button>
                       <button
                         type="button"
                         onClick={async () => {
-                          await dbService.deleteFaq(fq.id);
-                          await reloadData();
+                          try {
+                            await dbService.deleteFaq(fq.id);
+                            await reloadData();
+                            setAdminSaveNotice({ kind: 'success', message: 'FAQ deleted.' });
+                          } catch (err) {
+                            setAdminSaveNotice({
+                              kind: 'error',
+                              message: err instanceof Error ? err.message : 'Unable to delete FAQ.'
+                            });
+                          }
                         }}
-                        className="text-red-700 font-semibold hover:underline cursor-pointer"
+                        className="text-red-700 font-semibold hover:underline cursor-pointer px-1"
                       >
                         Delete
                       </button>
@@ -3061,6 +3597,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                       organization: '',
                       quote: '',
                       rating: 5,
+                      imageUrl: '',
+                      category: 'Clinical Partner',
+                      consentConfirmed: true,
+                      status: 'PUBLISHED',
                       verified: true,
                       featured: true
                     })
@@ -3075,22 +3615,44 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    if (editingTestimonial.id) {
-                      await dbService.updateTestimonial(editingTestimonial.id, editingTestimonial);
-                    } else {
-                      await dbService.createTestimonial({
-                        name: editingTestimonial.name || 'Client',
+                    if (!isSafeMediaOrLinkUrl(editingTestimonial.imageUrl)) {
+                      setAdminSaveNotice({
+                        kind: 'error',
+                        message: 'Testimonial avatar image must be a relative path, HTTPS URL, or uploaded image.'
+                      });
+                      return;
+                    }
+                    try {
+                      const cleanPayload = {
+                        name: (editingTestimonial.name || 'Client').trim(),
                         role: editingTestimonial.role || 'Member',
                         organization: editingTestimonial.organization || '',
-                        quote: editingTestimonial.quote || '',
+                        quote: (editingTestimonial.quote || '').trim(),
                         rating: Number(editingTestimonial.rating || 5),
+                        ...(editingTestimonial.imageUrl?.trim() ? { imageUrl: editingTestimonial.imageUrl.trim() } : {}),
+                        ...(editingTestimonial.category?.trim() ? { category: editingTestimonial.category.trim() } : {}),
+                        consentConfirmed: Boolean(editingTestimonial.consentConfirmed ?? true),
+                        status: (editingTestimonial.status || 'PUBLISHED') as 'PUBLISHED' | 'DRAFT',
                         verified: Boolean(editingTestimonial.verified ?? true),
-                        featured: Boolean(editingTestimonial.featured ?? true),
-                        createdAt: new Date().toISOString()
+                        featured: Boolean(editingTestimonial.featured ?? true)
+                      };
+                      if (editingTestimonial.id) {
+                        await dbService.updateTestimonial(editingTestimonial.id, cleanPayload);
+                      } else {
+                        await dbService.createTestimonial({
+                          ...cleanPayload,
+                          createdAt: new Date().toISOString()
+                        });
+                      }
+                      setEditingTestimonial(null);
+                      await reloadData();
+                      setAdminSaveNotice({ kind: 'success', message: `Testimonial from ${cleanPayload.name} saved.` });
+                    } catch (err) {
+                      setAdminSaveNotice({
+                        kind: 'error',
+                        message: err instanceof Error ? err.message : 'Unable to save testimonial.'
                       });
                     }
-                    setEditingTestimonial(null);
-                    await reloadData();
                   }}
                   className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7] space-y-3"
                 >
@@ -3118,6 +3680,83 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                       className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
                     />
                   </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Category (e.g. Longevity Member, Clinic Partner)"
+                      value={editingTestimonial.category || ''}
+                      onChange={(e) => setEditingTestimonial({ ...editingTestimonial, category: e.target.value })}
+                      className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                    <select
+                      value={editingTestimonial.rating ?? 5}
+                      onChange={(e) => setEditingTestimonial({ ...editingTestimonial, rating: Number(e.target.value) })}
+                      aria-label="Testimonial rating"
+                      className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    >
+                      {[5, 4, 3, 2, 1].map((r) => (
+                        <option key={r} value={r}>
+                          {r} Stars
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={editingTestimonial.status || 'PUBLISHED'}
+                      onChange={(e) => setEditingTestimonial({ ...editingTestimonial, status: e.target.value as 'PUBLISHED' | 'DRAFT' })}
+                      aria-label="Testimonial publish status"
+                      className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    >
+                      <option value="PUBLISHED">PUBLISHED</option>
+                      <option value="DRAFT">DRAFT</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      placeholder="Optional Avatar / Clinic Photo URL"
+                      value={editingTestimonial.imageUrl || ''}
+                      onChange={(e) => setEditingTestimonial({ ...editingTestimonial, imageUrl: e.target.value })}
+                      className="flex-1 px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          setEditingTestimonial({ ...editingTestimonial, imageUrl: e.target.value });
+                        }
+                      }}
+                      aria-label="Pick testimonial image from Media Library"
+                      className="px-2.5 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340] max-w-[180px]"
+                    >
+                      <option value="">Media Library...</option>
+                      {mediaAssets.map((m) => (
+                        <option key={m.id} value={m.url}>
+                          {m.title}
+                        </option>
+                      ))}
+                    </select>
+                    <label className="px-3 py-2 rounded-lg bg-[#0c2340] text-white font-semibold cursor-pointer text-center shrink-0">
+                      Upload
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          try {
+                            const { dataUrl } = await compressImageFile(file);
+                            setEditingTestimonial({ ...editingTestimonial, imageUrl: dataUrl });
+                          } catch (err) {
+                            setAdminSaveNotice({
+                              kind: 'error',
+                              message: err instanceof Error ? err.message : 'Image upload failed.'
+                            });
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
                   <textarea
                     rows={2}
                     required
@@ -3126,6 +3765,35 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                     onChange={(e) => setEditingTestimonial({ ...editingTestimonial, quote: e.target.value })}
                     className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
                   />
+                  <div className="flex flex-wrap gap-4">
+                    <label className="flex items-center gap-1.5 text-[#0c2340] font-medium cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(editingTestimonial.consentConfirmed ?? true)}
+                        onChange={(e) => setEditingTestimonial({ ...editingTestimonial, consentConfirmed: e.target.checked })}
+                        className="accent-[#0c2340]"
+                      />
+                      <span>Publication consent confirmed</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 text-[#0c2340] font-medium cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(editingTestimonial.verified ?? true)}
+                        onChange={(e) => setEditingTestimonial({ ...editingTestimonial, verified: e.target.checked })}
+                        className="accent-[#0c2340]"
+                      />
+                      <span>Verified partner/member</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 text-[#0c2340] font-medium cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(editingTestimonial.featured ?? true)}
+                        onChange={(e) => setEditingTestimonial({ ...editingTestimonial, featured: e.target.checked })}
+                        className="accent-[#0c2340]"
+                      />
+                      <span>Featured on Home &amp; About</span>
+                    </label>
+                  </div>
                   <div className="flex gap-2">
                     <button type="submit" className="px-4 py-2 rounded-lg bg-[#0c2340] text-white font-semibold cursor-pointer">
                       Save Testimonial
@@ -3140,10 +3808,23 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {testimonials.map((t) => (
                   <div key={t.id} className="p-4 rounded-xl border border-[#dfd7c7] bg-[#fffdfb] space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#c5a059]">
+                        {t.category || 'Member Story'} · {t.rating}/5★
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-[#f6f4ee] border border-[#dfd7c7] text-[9px] font-bold text-[#0c2340]">
+                        {t.status || 'PUBLISHED'}
+                      </span>
+                    </div>
                     <p className="italic text-[#0c2340]">&ldquo;{t.quote}&rdquo;</p>
                     <div className="flex items-center justify-between text-[11px] text-[#5a6b7c]">
-                      <span>
-                        <strong className="text-[#0c2340]">{t.name}</strong> · {t.organization || t.role}
+                      <span className="flex items-center gap-2">
+                        {t.imageUrl && (
+                          <img src={t.imageUrl} alt={t.name} className="w-6 h-6 rounded-full object-cover border border-[#dfd7c7]" />
+                        )}
+                        <span>
+                          <strong className="text-[#0c2340]">{t.name}</strong> · {t.organization || t.role}
+                        </span>
                       </span>
                       <div className="flex gap-3">
                         <button type="button" onClick={() => setEditingTestimonial(t)} className="text-[#0c2340] font-semibold hover:text-[#c5a059] cursor-pointer">
@@ -3152,8 +3833,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                         <button
                           type="button"
                           onClick={async () => {
-                            await dbService.deleteTestimonial(t.id);
-                            await reloadData();
+                            try {
+                              await dbService.deleteTestimonial(t.id);
+                              await reloadData();
+                              setAdminSaveNotice({ kind: 'success', message: `Testimonial from ${t.name} deleted.` });
+                            } catch (err) {
+                              setAdminSaveNotice({
+                                kind: 'error',
+                                message: err instanceof Error ? err.message : 'Unable to delete testimonial.'
+                              });
+                            }
                           }}
                           className="text-red-700 font-semibold hover:underline cursor-pointer"
                         >
@@ -3168,49 +3857,116 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
           )}
 
           {activeSection === 'inquiries' && (
-            <div className="bg-white border border-[#dfd7c7] rounded-2xl p-6 space-y-4 text-xs">
-              <div>
-                <h2 className="font-serif text-2xl font-bold text-[#0c2340]">
-                  Customer &amp; Partner Inquiries ({inquiries.length})
-                </h2>
-                <p className="text-[#5a6b7c]">Respond to messages submitted via the Contact and About pages.</p>
-              </div>
-              {inquiries.length === 0 ? (
-                <p className="p-8 rounded-xl bg-[#f6f4ee] border border-[#dfd7c7] text-center text-[#5a6b7c]">
-                  No inquiries received yet. Messages submitted from Contact and About pages appear here.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {inquiries.map((inq) => (
-                    <div key={inq.id} className="p-4 rounded-2xl border border-[#dfd7c7] bg-[#fffdfb] space-y-2">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div>
-                          <span className="font-semibold text-sm text-[#0c2340]">{inq.name}</span>
-                          <span className="text-[11px] text-[#5a6b7c] ml-2">
-                            ({inq.email}) · {inq.department} · {new Date(inq.createdAt).toLocaleString()}
-                          </span>
-                        </div>
-                        <select
-                          value={inq.status}
-                          onChange={(e) => handleUpdateInquiryStatus(inq.id, e.target.value as ContactInquiry['status'])}
-                          aria-label={`Status for inquiry from ${inq.name}`}
-                          className="px-2.5 py-1 rounded-lg bg-white border border-[#dfd7c7] text-[11px] font-bold text-[#0c2340] cursor-pointer"
-                        >
-                          <option value="NEW">NEW</option>
-                          <option value="IN_PROGRESS">IN_PROGRESS</option>
-                          <option value="RESOLVED">RESOLVED</option>
-                        </select>
-                      </div>
-                      <p className="text-[#5a6b7c] leading-relaxed">{inq.message}</p>
-                      {inq.orderNumber && (
-                        <span className="inline-block font-mono text-[10px] px-2 py-0.5 rounded bg-[#f6f4ee] text-[#0c2340]">
-                          Order Ref: {inq.orderNumber}
-                        </span>
-                      )}
-                    </div>
-                  ))}
+            <div className="space-y-6 text-xs">
+              <div className="bg-white border border-[#dfd7c7] rounded-2xl p-6 space-y-4">
+                <div>
+                  <h2 className="font-serif text-2xl font-bold text-[#0c2340]">
+                    Customer &amp; Partner Inquiries ({inquiries.length})
+                  </h2>
+                  <p className="text-[#5a6b7c]">Respond to messages submitted via the Contact and About pages.</p>
                 </div>
-              )}
+                {inquiries.length === 0 ? (
+                  <p className="p-8 rounded-xl bg-[#f6f4ee] border border-[#dfd7c7] text-center text-[#5a6b7c]">
+                    No inquiries received yet. Messages submitted from Contact and About pages appear here.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {inquiries.map((inq) => (
+                      <div key={inq.id} className="p-4 rounded-2xl border border-[#dfd7c7] bg-[#fffdfb] space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div>
+                            <span className="font-semibold text-sm text-[#0c2340]">{inq.name}</span>
+                            <span className="text-[11px] text-[#5a6b7c] ml-2">
+                              ({inq.email}) · {inq.department} · {new Date(inq.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                          <select
+                            value={inq.status}
+                            onChange={(e) => handleUpdateInquiryStatus(inq.id, e.target.value as ContactInquiry['status'])}
+                            aria-label={`Status for inquiry from ${inq.name}`}
+                            className="px-2.5 py-1 rounded-lg bg-white border border-[#dfd7c7] text-[11px] font-bold text-[#0c2340] cursor-pointer"
+                          >
+                            <option value="NEW">NEW</option>
+                            <option value="IN_PROGRESS">IN_PROGRESS</option>
+                            <option value="RESOLVED">RESOLVED</option>
+                          </select>
+                        </div>
+                        <p className="text-[#5a6b7c] leading-relaxed">{inq.message}</p>
+                        {inq.orderNumber && (
+                          <span className="inline-block font-mono text-[10px] px-2 py-0.5 rounded bg-[#f6f4ee] text-[#0c2340]">
+                            Order Ref: {inq.orderNumber}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Transactional Email & Notification Ledger */}
+              <div className="bg-white border border-[#dfd7c7] rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 bg-[#f6f4ee] border-b border-[#dfd7c7] flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-serif text-lg font-bold text-[#0c2340]">
+                      Transactional Notification Ledger ({notifications.length})
+                    </h3>
+                    <p className="text-[11px] text-[#5a6b7c]">
+                      Partner registration alerts, onboarding status emails, role changes, and account security dispatches.
+                    </p>
+                  </div>
+                </div>
+                {notifications.length === 0 ? (
+                  <p className="p-8 text-center text-[#5a6b7c]">
+                    No transactional notifications dispatched yet.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-[#fffdfb] text-[#0c2340] font-serif border-b border-[#dfd7c7]">
+                        <tr>
+                          <th className="p-4 font-bold">Timestamp</th>
+                          <th className="p-4 font-bold">Event</th>
+                          <th className="p-4 font-bold">Recipient</th>
+                          <th className="p-4 font-bold">Subject &amp; Summary</th>
+                          <th className="p-4 font-bold">Channel</th>
+                          <th className="p-4 font-bold">Delivery</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#dfd7c7]/40 text-[#5a6b7c]">
+                        {notifications.slice(0, 40).map((nt) => (
+                          <tr key={nt.id} className="hover:bg-[#f6f4ee]/40">
+                            <td className="p-4 font-mono text-[11px] tabular-nums whitespace-nowrap">
+                              {new Date(nt.createdAt).toLocaleString()}
+                            </td>
+                            <td className="p-4 font-mono text-[10px] font-bold text-[#0c2340]">
+                              {nt.eventType}
+                            </td>
+                            <td className="p-4 text-[#0c2340]">{nt.recipientEmail}</td>
+                            <td className="p-4 max-w-md">
+                              <span className="font-semibold text-[#0c2340] block">{nt.subject}</span>
+                              <span className="text-[11px] text-[#5a6b7c] line-clamp-1">{nt.body}</span>
+                            </td>
+                            <td className="p-4 font-mono text-[10px]">{nt.channel}</td>
+                            <td className="p-4">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  nt.deliveryStatus === 'SENT'
+                                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                    : nt.deliveryStatus === 'FAILED'
+                                    ? 'bg-red-50 text-red-700 border border-red-200'
+                                    : 'bg-[#f6f4ee] text-[#0c2340] border border-[#dfd7c7]'
+                                }`}
+                              >
+                                {nt.deliveryStatus}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -3221,11 +3977,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
             <div className="bg-white border border-[#dfd7c7] rounded-2xl p-6 space-y-5 text-xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h2 className="font-serif text-2xl font-bold text-[#0c2340]">Media Library</h2>
-                  <p className="text-[#5a6b7c]">Verified Whole Harbor Wellness brand crests, product photography, and Learn Studio assets.</p>
+                  <h2 className="font-serif text-2xl font-bold text-[#0c2340]">Media Library ({mediaAssets.length})</h2>
+                  <p className="text-[#5a6b7c]">Upload, inspect, replace, or copy paths for brand crests, product photos, and editorial covers.</p>
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  {(['ALL', 'Brand & Hero', 'Products', 'Learn Studio'] as const).map((cat) => (
+                  {(['ALL', 'Brand & Hero', 'Products', 'Learn Studio', 'Uploaded'] as const).map((cat) => (
                     <button
                       key={cat}
                       type="button"
@@ -3240,64 +3996,503 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                 </div>
               </div>
 
+              {/* Upload / Add Media Asset Form */}
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!newMediaTitle.trim() || !newMediaUrlInput.trim()) return;
+                  if (!isSafeMediaOrLinkUrl(newMediaUrlInput)) {
+                    setAdminSaveNotice({
+                      kind: 'error',
+                      message: 'Asset URL must be a relative /images path, HTTPS URL, or image data URL.'
+                    });
+                    return;
+                  }
+                  setMediaBusy(true);
+                  try {
+                    await dbService.createMediaAsset({
+                      title: newMediaTitle.trim(),
+                      category: newMediaCategory,
+                      url: newMediaUrlInput.trim(),
+                      isBuiltIn: false
+                    });
+                    setNewMediaTitle('');
+                    setNewMediaUrlInput('');
+                    await reloadData();
+                    setAdminSaveNotice({ kind: 'success', message: 'Media asset added to library.' });
+                  } catch (err) {
+                    setAdminSaveNotice({
+                      kind: 'error',
+                      message: err instanceof Error ? err.message : 'Unable to save media asset.'
+                    });
+                  } finally {
+                    setMediaBusy(false);
+                  }
+                }}
+                className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7] grid grid-cols-1 sm:grid-cols-12 gap-3 items-center"
+              >
+                <input
+                  type="text"
+                  placeholder="Asset title (e.g. Clinic Hero Banner)"
+                  value={newMediaTitle}
+                  onChange={(e) => setNewMediaTitle(e.target.value)}
+                  className="sm:col-span-3 px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                />
+                <select
+                  value={newMediaCategory}
+                  onChange={(e) => setNewMediaCategory(e.target.value as MediaAsset['category'])}
+                  aria-label="Media asset category"
+                  className="sm:col-span-2 px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                >
+                  <option value="Uploaded">Uploaded</option>
+                  <option value="Products">Products</option>
+                  <option value="Brand & Hero">Brand &amp; Hero</option>
+                  <option value="Learn Studio">Learn Studio</option>
+                </select>
+                <input
+                  type="text"
+                  placeholder="Paste HTTPS/relative URL or upload file →"
+                  value={newMediaUrlInput}
+                  onChange={(e) => setNewMediaUrlInput(e.target.value)}
+                  className="sm:col-span-4 px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                />
+                <label className="sm:col-span-1 py-2 px-2.5 rounded-lg bg-white border border-[#dfd7c7] hover:border-[#c5a059] text-[#0c2340] font-semibold flex items-center justify-center gap-1 cursor-pointer">
+                  <Upload className="w-3.5 h-3.5 text-[#c5a059]" />
+                  <span>File</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setMediaBusy(true);
+                      try {
+                        const { dataUrl, mimeType } = await compressImageFile(file);
+                        const title = newMediaTitle.trim() || file.name.replace(/\.[^.]+$/, '');
+                        await dbService.createMediaAsset({
+                          title,
+                          category: newMediaCategory,
+                          url: dataUrl,
+                          mimeType,
+                          isBuiltIn: false
+                        });
+                        setNewMediaTitle('');
+                        setNewMediaUrlInput('');
+                        await reloadData();
+                        setAdminSaveNotice({ kind: 'success', message: `Uploaded "${title}" to Media Library.` });
+                      } catch (err) {
+                        setAdminSaveNotice({
+                          kind: 'error',
+                          message: err instanceof Error ? err.message : 'Unable to upload image.'
+                        });
+                      } finally {
+                        setMediaBusy(false);
+                      }
+                    }}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={mediaBusy || !newMediaTitle.trim() || !newMediaUrlInput.trim()}
+                  className="sm:col-span-2 py-2 px-3 rounded-lg bg-[#0c2340] hover:bg-[#c5a059] text-white font-semibold cursor-pointer disabled:opacity-50"
+                >
+                  + Add URL
+                </button>
+              </form>
+
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {MEDIA_LIBRARY_ASSETS.filter((m) => mediaFilter === 'ALL' || m.category === mediaFilter).map((asset) => (
-                  <div key={asset.id} className="border border-[#dfd7c7] rounded-2xl overflow-hidden bg-[#fffdfb] flex flex-col">
-                    <button
-                      type="button"
-                      onClick={() => setPreviewMediaUrl({ title: asset.title, url: asset.url })}
-                      className="h-36 bg-[#f6f4ee] overflow-hidden cursor-pointer flex items-center justify-center p-2"
-                    >
-                      <img src={asset.url} alt={asset.title} className="w-full h-full object-contain rounded-lg" />
-                    </button>
-                    <div className="p-3 space-y-2 flex-1 flex flex-col justify-between">
-                      <div>
-                        <p className="font-semibold text-[#0c2340] truncate">{asset.title}</p>
-                        <p className="text-[10px] text-[#5a6b7c]">{asset.category}</p>
-                      </div>
+                {mediaAssets
+                  .filter((m) => mediaFilter === 'ALL' || m.category === mediaFilter)
+                  .map((asset) => (
+                    <div key={asset.id} className="border border-[#dfd7c7] rounded-2xl overflow-hidden bg-[#fffdfb] flex flex-col">
                       <button
                         type="button"
-                        onClick={() => handleCopyText(asset.id, asset.url)}
-                        className="w-full py-1.5 rounded-lg bg-[#f6f4ee] hover:bg-[#0c2340] hover:text-white text-[#0c2340] text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                        onClick={() => setPreviewMediaUrl({ title: asset.title, url: asset.url })}
+                        className="h-36 bg-[#f6f4ee] overflow-hidden cursor-pointer flex items-center justify-center p-2"
                       >
-                        {copiedId === asset.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                        <span>{copiedId === asset.id ? 'Path Copied' : 'Copy Asset Path'}</span>
+                        <img src={asset.url} alt={asset.title} className="w-full h-full object-contain rounded-lg" />
                       </button>
+                      <div className="p-3 space-y-2 flex-1 flex flex-col justify-between">
+                        <div>
+                          <p className="font-semibold text-[#0c2340] truncate">{asset.title}</p>
+                          <p className="text-[10px] text-[#5a6b7c]">{asset.category}</p>
+                        </div>
+
+                        {replacingMediaId === asset.id ? (
+                          <div className="space-y-1.5">
+                            <input
+                              type="text"
+                              placeholder="New image URL..."
+                              value={replacingMediaUrl}
+                              onChange={(e) => setReplacingMediaUrl(e.target.value)}
+                              className="w-full px-2 py-1 rounded border border-[#dfd7c7] text-[11px] text-[#0c2340]"
+                            />
+                            <div className="flex gap-1.5">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (!isSafeMediaOrLinkUrl(replacingMediaUrl) || !replacingMediaUrl.trim()) {
+                                    setAdminSaveNotice({ kind: 'error', message: 'Provide a valid replacement URL.' });
+                                    return;
+                                  }
+                                  await dbService.updateMediaAsset(asset.id, { url: replacingMediaUrl.trim() });
+                                  setReplacingMediaId(null);
+                                  setReplacingMediaUrl('');
+                                  await reloadData();
+                                  setAdminSaveNotice({ kind: 'success', message: `Replaced URL for "${asset.title}".` });
+                                }}
+                                className="flex-1 py-1 rounded bg-[#0c2340] text-white text-[10px] font-semibold cursor-pointer"
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setReplacingMediaId(null)}
+                                className="px-2 py-1 rounded border border-[#dfd7c7] text-[10px] cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleCopyText(asset.id, asset.url)}
+                              className="w-full py-1.5 rounded-lg bg-[#f6f4ee] hover:bg-[#0c2340] hover:text-white text-[#0c2340] text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                            >
+                              {copiedId === asset.id ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                              <span>{copiedId === asset.id ? 'Path Copied' : 'Copy Asset Path'}</span>
+                            </button>
+                            <div className="flex items-center justify-between gap-1.5 text-[10px]">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setReplacingMediaId(asset.id);
+                                  setReplacingMediaUrl(asset.url);
+                                }}
+                                className="flex-1 py-1 rounded bg-white border border-[#dfd7c7] hover:border-[#c5a059] text-[#0c2340] font-semibold cursor-pointer"
+                              >
+                                Replace
+                              </button>
+                              {confirmDeleteMediaId === asset.id ? (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      await dbService.deleteMediaAsset(asset.id);
+                                      setConfirmDeleteMediaId(null);
+                                      await reloadData();
+                                      setAdminSaveNotice({ kind: 'success', message: `Deleted media asset "${asset.title}".` });
+                                    } catch (err) {
+                                      setAdminSaveNotice({
+                                        kind: 'error',
+                                        message: err instanceof Error ? err.message : 'Unable to delete media asset.'
+                                      });
+                                    }
+                                  }}
+                                  className="px-2 py-1 rounded bg-red-600 text-white font-semibold cursor-pointer"
+                                >
+                                  Confirm
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmDeleteMediaId(asset.id)}
+                                  aria-label={`Delete ${asset.title}`}
+                                  className="p-1 rounded border border-red-200 text-red-700 hover:bg-red-50 cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
           )}
 
           {/* ============================================================== */}
-          {/* SECTION 10: WEBSITE PAGES LAUNCHER                             */}
+          {/* SECTION 10: WEBSITE PAGES & CMS CONTENT MANAGER                */}
           {/* ============================================================== */}
           {activeSection === 'website-pages' && (
-            <div className="bg-white border border-[#dfd7c7] rounded-2xl p-6 space-y-5 text-xs">
-              <div>
-                <h2 className="font-serif text-2xl font-bold text-[#0c2340]">Website Pages &amp; Routes</h2>
-                <p className="text-[#5a6b7c]">Inspect and launch any public storefront, educational hub, or clinical route directly.</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {WEBSITE_ROUTES.map((rt) => (
-                  <div key={rt.path} className="p-4 rounded-2xl border border-[#dfd7c7] bg-[#fffdfb] flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#c5a059] block">{rt.category}</span>
-                      <h3 className="font-serif text-lg font-bold text-[#0c2340]">{rt.title}</h3>
-                      <p className="text-[11px] text-[#5a6b7c] mt-0.5">{rt.description}</p>
-                      <span className="font-mono text-[10px] text-[#5a6b7c] mt-1 inline-block">{rt.hash}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => navigate(rt.path)}
-                      className="h-9 px-3.5 rounded-xl bg-[#0c2340] hover:bg-[#c5a059] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
-                    >
-                      <span>Visit</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </button>
+            <div className="space-y-6 text-xs">
+              <div className="bg-white border border-[#dfd7c7] rounded-2xl p-6 space-y-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="font-serif text-2xl font-bold text-[#0c2340]">Managed CMS Pages ({cmsPages.length})</h2>
+                    <p className="text-[#5a6b7c]">
+                      Edit live compliance policies, Our Approach standards, promotional banners, or publish custom storefront pages.
+                    </p>
                   </div>
-                ))}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingCmsPage({
+                        slug: '',
+                        title: '',
+                        subtitle: '',
+                        category: 'Custom Page',
+                        body: '',
+                        ctaLabel: 'Browse Catalog',
+                        ctaPath: 'shop',
+                        seoTitle: '',
+                        seoDescription: '',
+                        sections: [],
+                        status: 'PUBLISHED'
+                      })
+                    }
+                    className="h-9 px-4 rounded-xl bg-[#0c2340] hover:bg-[#c5a059] text-white font-semibold cursor-pointer"
+                  >
+                    + New Custom Page
+                  </button>
+                </div>
+
+                {editingCmsPage && (
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const cleanSlug = (editingCmsPage.slug || editingCmsPage.title || 'custom-page')
+                        .toLowerCase()
+                        .replace(/[^a-z0-9-]+/g, '-')
+                        .replace(/(^-|-$)/g, '');
+                      if (!cleanSlug || !editingCmsPage.title?.trim()) {
+                        setAdminSaveNotice({ kind: 'error', message: 'Page title and URL slug are required.' });
+                        return;
+                      }
+                      try {
+                        await dbService.upsertCmsPage({
+                          ...(editingCmsPage.id ? { id: editingCmsPage.id } : {}),
+                          ...(editingCmsPage.createdAt ? { createdAt: editingCmsPage.createdAt } : {}),
+                          slug: cleanSlug,
+                          title: editingCmsPage.title.trim(),
+                          ...(editingCmsPage.subtitle?.trim() ? { subtitle: editingCmsPage.subtitle.trim() } : {}),
+                          category: editingCmsPage.category || 'Custom Page',
+                          body: editingCmsPage.body || '',
+                          ...(editingCmsPage.ctaLabel?.trim() ? { ctaLabel: editingCmsPage.ctaLabel.trim() } : {}),
+                          ...(editingCmsPage.ctaPath?.trim() ? { ctaPath: editingCmsPage.ctaPath.trim() } : {}),
+                          ...(editingCmsPage.seoTitle?.trim() ? { seoTitle: editingCmsPage.seoTitle.trim() } : {}),
+                          ...(editingCmsPage.seoDescription?.trim() ? { seoDescription: editingCmsPage.seoDescription.trim() } : {}),
+                          sections: editingCmsPage.sections || [],
+                          status: editingCmsPage.status || 'PUBLISHED'
+                        });
+                        setEditingCmsPage(null);
+                        await reloadData();
+                        setAdminSaveNotice({
+                          kind: 'success',
+                          message: `CMS page "${editingCmsPage.title.trim()}" saved (${cleanSlug}).`
+                        });
+                      } catch (err) {
+                        setAdminSaveNotice({
+                          kind: 'error',
+                          message: err instanceof Error ? err.message : 'Unable to save CMS page.'
+                        });
+                      }
+                    }}
+                    className="p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7] space-y-3"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Page Title"
+                        value={editingCmsPage.title || ''}
+                        onChange={(e) => setEditingCmsPage({ ...editingCmsPage, title: e.target.value })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
+                      <input
+                        type="text"
+                        required
+                        placeholder="URL Slug (e.g. privacy, cold-chain, clinic-faq)"
+                        value={editingCmsPage.slug || ''}
+                        onChange={(e) => setEditingCmsPage({ ...editingCmsPage, slug: e.target.value })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340] font-mono"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          value={editingCmsPage.category || 'Custom Page'}
+                          onChange={(e) => setEditingCmsPage({ ...editingCmsPage, category: e.target.value as CmsPageContent['category'] })}
+                          aria-label="CMS page category"
+                          className="px-2.5 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                        >
+                          <option value="Legal & Compliance">Legal &amp; Compliance</option>
+                          <option value="Storefront & Approach">Storefront &amp; Approach</option>
+                          <option value="Promotions">Promotions</option>
+                          <option value="Custom Page">Custom Page</option>
+                        </select>
+                        <select
+                          value={editingCmsPage.status || 'PUBLISHED'}
+                          onChange={(e) => setEditingCmsPage({ ...editingCmsPage, status: e.target.value as 'PUBLISHED' | 'DRAFT' })}
+                          aria-label="CMS page status"
+                          className="px-2.5 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                        >
+                          <option value="PUBLISHED">PUBLISHED</option>
+                          <option value="DRAFT">DRAFT</option>
+                        </select>
+                      </div>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Subtitle / Hero Lead (optional)"
+                      value={editingCmsPage.subtitle || ''}
+                      onChange={(e) => setEditingCmsPage({ ...editingCmsPage, subtitle: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                    <textarea
+                      rows={4}
+                      required
+                      placeholder="Main page body content..."
+                      value={editingCmsPage.body || ''}
+                      onChange={(e) => setEditingCmsPage({ ...editingCmsPage, body: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                      <input
+                        type="text"
+                        placeholder="CTA Label (optional)"
+                        value={editingCmsPage.ctaLabel || ''}
+                        onChange={(e) => setEditingCmsPage({ ...editingCmsPage, ctaLabel: e.target.value })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
+                      <input
+                        type="text"
+                        placeholder="CTA Target Route (e.g. shop, contact)"
+                        value={editingCmsPage.ctaPath || ''}
+                        onChange={(e) => setEditingCmsPage({ ...editingCmsPage, ctaPath: e.target.value })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
+                      <input
+                        type="text"
+                        placeholder="SEO Title (optional)"
+                        value={editingCmsPage.seoTitle || ''}
+                        onChange={(e) => setEditingCmsPage({ ...editingCmsPage, seoTitle: e.target.value })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
+                      <input
+                        type="text"
+                        placeholder="SEO Description (optional)"
+                        value={editingCmsPage.seoDescription || ''}
+                        onChange={(e) => setEditingCmsPage({ ...editingCmsPage, seoDescription: e.target.value })}
+                        className="px-3 py-2 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340]"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="submit" className="px-4 py-2 rounded-lg bg-[#0c2340] text-white font-semibold cursor-pointer">
+                        Save CMS Page
+                      </button>
+                      <button type="button" onClick={() => setEditingCmsPage(null)} className="px-4 py-2 rounded-lg border border-[#dfd7c7] bg-white text-[#5a6b7c] cursor-pointer">
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {cmsPages.map((pg) => {
+                    const liveTarget =
+                      pg.slug === 'our-approach'
+                        ? 'approach'
+                        : pg.slug === 'storefront-promo'
+                        ? 'home'
+                        : ['privacy', 'terms', 'coa-verification', 'cold-chain'].includes(pg.slug)
+                        ? pg.slug
+                        : 'cms-page';
+                    const liveParam = liveTarget === 'cms-page' ? pg.slug : undefined;
+                    return (
+                      <div key={pg.id} className="p-4 rounded-2xl border border-[#dfd7c7] bg-[#fffdfb] space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#c5a059]">
+                            {pg.category}
+                          </span>
+                          <span className="px-2 py-0.5 rounded bg-[#f6f4ee] border border-[#dfd7c7] text-[9px] font-bold text-[#0c2340]">
+                            {pg.status}
+                          </span>
+                        </div>
+                        <h3 className="font-serif text-lg font-bold text-[#0c2340]">{pg.title}</h3>
+                        <p className="text-[11px] text-[#5a6b7c] line-clamp-2">{pg.subtitle || pg.body}</p>
+                        <div className="flex items-center justify-between pt-2 border-t border-[#dfd7c7]/50">
+                          <span className="font-mono text-[10px] text-[#5a6b7c]">
+                            {liveTarget === 'cms-page' ? `/page/${pg.slug}` : `/${pg.slug}`}
+                          </span>
+                          <div className="flex items-center gap-3">
+                            {pg.status === 'PUBLISHED' && (
+                              <button
+                                type="button"
+                                onClick={() => navigate(liveTarget, liveParam)}
+                                className="text-[#c5a059] font-semibold hover:underline cursor-pointer"
+                              >
+                                Visit Live ↗
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                await dbService.upsertCmsPage({
+                                  ...pg,
+                                  status: pg.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
+                                });
+                                await reloadData();
+                              }}
+                              className="text-[#0c2340] font-semibold hover:text-[#c5a059] cursor-pointer"
+                            >
+                              {pg.status === 'PUBLISHED' ? 'Unpublish' : 'Publish'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingCmsPage(pg)}
+                              className="text-[#0c2340] font-semibold hover:text-[#c5a059] cursor-pointer"
+                            >
+                              Edit
+                            </button>
+                            {pg.category === 'Custom Page' && (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  await dbService.deleteCmsPage(pg.id);
+                                  await reloadData();
+                                }}
+                                className="text-red-700 font-semibold hover:underline cursor-pointer"
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-white border border-[#dfd7c7] rounded-2xl p-6 space-y-5">
+                <div>
+                  <h2 className="font-serif text-2xl font-bold text-[#0c2340]">Storefront &amp; System Routes</h2>
+                  <p className="text-[#5a6b7c]">Inspect and launch any public storefront, educational hub, or compliance route directly.</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {WEBSITE_ROUTES.map((rt) => (
+                    <div key={rt.path} className="p-4 rounded-2xl border border-[#dfd7c7] bg-[#fffdfb] flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#c5a059] block">{rt.category}</span>
+                        <h3 className="font-serif text-lg font-bold text-[#0c2340]">{rt.title}</h3>
+                        <p className="text-[11px] text-[#5a6b7c] mt-0.5">{rt.description}</p>
+                        <span className="font-mono text-[10px] text-[#5a6b7c] mt-1 inline-block">{rt.hash}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate(rt.path)}
+                        className="h-9 px-3.5 rounded-xl bg-[#0c2340] hover:bg-[#c5a059] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
+                      >
+                        <span>Visit</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -3873,6 +5068,47 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                 </div>
               </div>
 
+              <div className="space-y-3 p-4 rounded-2xl bg-[#f6f4ee] border border-[#dfd7c7]">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[10px] uppercase font-bold text-[#5a6b7c]">
+                    Partner Storefront Visibility &amp; Copy
+                  </span>
+                  <label className="flex items-center gap-2 font-semibold text-[#0c2340] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={partnerLandingVisible}
+                      onChange={(e) => setPartnerLandingVisible(e.target.checked)}
+                      className="accent-[#0c2340]"
+                    />
+                    <span>Public Page Visible</span>
+                  </label>
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-[#5a6b7c] mb-1">
+                    Custom Storefront Headline
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Curated Longevity Protocols for Apex Performance Members"
+                    value={partnerLandingHeadline}
+                    onChange={(e) => setPartnerLandingHeadline(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-[#5a6b7c] mb-1">
+                    Public Storefront Description
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="Describe this clinic's wellness focus and member benefits..."
+                    value={partnerReviewDescription}
+                    onChange={(e) => setPartnerReviewDescription(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-[#dfd7c7] text-[#0c2340]"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-[10px] uppercase font-bold text-[#5a6b7c] mb-1">
                   Admin Reviewer Notes (Internal)
@@ -3892,7 +5128,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                 <span className="text-[10px] uppercase font-bold text-[#5a6b7c]">
                   Status: <strong className="text-[#0c2340]">{reviewingPartner.status}</strong>
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={savingPartnerReview}
+                    onClick={handleSavePartnerStorefrontDetails}
+                    className="px-3 py-1.5 rounded-xl bg-[#0c2340] text-white hover:bg-[#c5a059] text-[11px] font-semibold cursor-pointer disabled:opacity-50"
+                  >
+                    Save Storefront Copy
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -4081,12 +5325,29 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
                     />
                   )}
                   <div className="flex-1 w-full space-y-2">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageFileUpload}
-                      className="block w-full text-[11px] text-[#5a6b7c] file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0c2340] file:text-white hover:file:bg-[#c5a059] cursor-pointer"
-                    />
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageFileUpload}
+                        className="block w-full text-[11px] text-[#5a6b7c] file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-[#0c2340] file:text-white hover:file:bg-[#c5a059] cursor-pointer"
+                      />
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          if (e.target.value) setProdImageUrl(e.target.value);
+                        }}
+                        aria-label="Choose product image from Media Library"
+                        className="px-2.5 py-1.5 rounded-lg bg-white border border-[#dfd7c7] text-[#0c2340] text-[11px]"
+                      >
+                        <option value="">Choose from Media Library...</option>
+                        {mediaAssets.map((m) => (
+                          <option key={m.id} value={m.url}>
+                            {m.title}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     <input
                       type="text"
                       placeholder="Or paste image path..."

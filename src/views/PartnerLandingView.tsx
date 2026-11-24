@@ -120,6 +120,36 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
     );
   }
 
+  if (partner.landingPageVisible === false) {
+    return (
+      <div className="max-w-3xl mx-auto py-20 px-4">
+        <div className="bg-[#fffdfb] border border-[#dfd7c7] rounded-3xl p-10 text-center space-y-4 shadow-xs">
+          <span className="material-symbols-outlined text-[40px] text-[#c5a059]">visibility_off</span>
+          <h2 className="font-serif text-2xl font-bold text-[#0c2340]">
+            Partner Storefront Temporarily Unavailable
+          </h2>
+          <p className="text-xs text-[#5a6b7c] max-w-md mx-auto">
+            The partner page for {partner.name} is currently paused. You can still browse the full Whole Harbor Wellness formulation catalog.
+          </p>
+          <div className="pt-2 flex flex-wrap justify-center gap-3">
+            <button
+              onClick={() => navigate('shop')}
+              className="px-6 py-2.5 rounded-xl bg-[#0c2340] text-white text-xs font-semibold hover:bg-[#c5a059] transition-colors cursor-pointer"
+            >
+              Browse Full Catalog
+            </button>
+            <button
+              onClick={() => navigate('partners')}
+              className="px-5 py-2.5 rounded-xl border border-[#dfd7c7] text-[#0c2340] text-xs font-semibold hover:bg-[#f6f4ee] cursor-pointer"
+            >
+              View Partner Network
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-16 pb-20">
       
@@ -157,6 +187,11 @@ export const PartnerLandingView: React.FC<PartnerLandingViewProps> = ({ slug, na
                   <h1 className="font-serif text-3xl sm:text-5xl text-[#0c2340] font-bold">
                     {partner.name}
                   </h1>
+                  {partner.landingPageHeadline && (
+                    <p className="font-serif text-lg text-[#c5a059] font-semibold mt-1">
+                      {partner.landingPageHeadline}
+                    </p>
+                  )}
                 </div>
               </div>
 

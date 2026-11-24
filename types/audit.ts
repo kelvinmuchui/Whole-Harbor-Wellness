@@ -24,11 +24,35 @@ export interface AuditLogEntry {
     | 'PRODUCT_DISABLED'
     | 'PRODUCT_UNAVAILABLE'
     | 'PRODUCT_DELETED'
+    | 'CMS_UPDATED'
+    | 'NOTIFICATION_DISPATCHED'
     | 'SECURITY_EVENT';
-  resource: 'User' | 'Partner' | 'Order' | 'Product' | 'PartnerEarning' | 'Session';
+  resource: 'User' | 'Partner' | 'Order' | 'Product' | 'PartnerEarning' | 'Session' | 'CMS' | 'Notification';
   resourceId?: string;
   metadata?: Record<string, unknown>;
   ipAddress?: string;
   userAgent?: string;
   timestamp: string;
+}
+
+export type NotificationEventType =
+  | 'PARTNER_APPLICATION_RECEIVED'
+  | 'PARTNER_APPLICATION_APPROVED'
+  | 'PARTNER_STATUS_UPDATED'
+  | 'PARTNER_ACCOUNT_CREATED'
+  | 'ACCOUNT_SECURITY_UPDATED';
+
+export interface NotificationRecord {
+  id: string;
+  eventType: NotificationEventType;
+  recipientEmail: string;
+  recipientName?: string;
+  recipientUid?: string;
+  partnerId?: string;
+  subject: string;
+  body: string;
+  channel: 'EMAIL_WEBHOOK' | 'IN_APP_LEDGER';
+  deliveryStatus: 'SENT' | 'LOGGED' | 'FAILED';
+  read?: boolean;
+  createdAt: string;
 }

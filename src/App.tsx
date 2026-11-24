@@ -20,6 +20,7 @@ import { AuthModal } from './components/AuthModal.tsx';
 import { GoalsModal } from './components/GoalsModal.tsx';
 import { PerksModal } from './components/PerksModal.tsx';
 import { AskWHWDrawer } from './components/AskWHWDrawer.tsx';
+import { CookieConsentBanner } from './components/CookieConsentBanner.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 
 // Views
@@ -34,10 +35,12 @@ import { PartnerDashboardView } from './views/PartnerDashboardView.tsx';
 import { CustomerPortalView } from './views/CustomerPortalView.tsx';
 import { AdminDashboardView } from './views/AdminDashboardView.tsx';
 import { LearnView } from './views/LearnView.tsx';
+import { ArticleDetailView } from './views/ArticleDetailView.tsx';
 import { AboutView } from './views/AboutView.tsx';
 import { ArchitectureView } from './views/ArchitectureView.tsx';
 import { FAQView } from './views/FAQView.tsx';
 import { ContactView } from './views/ContactView.tsx';
+import { LegalView } from './views/LegalView.tsx';
 
 function MainApp() {
   const { currentUser, role, isAdmin, isPartner, authLoading, logout } = useAuth();
@@ -78,18 +81,20 @@ function MainApp() {
     analyticsService.trackPageView(currentPath, currentParam);
   }, [currentPath, currentParam]);
 
-  // Handle URL hash changes (preserving optional ?src=... query strings cleanly)
+  // Handle both clean HTML5 History URLs (/partner/:slug) and legacy #/ hash routes
   useEffect(() => {
-    const handleHashChange = () => {
-      const rawHash = window.location.hash.replace(/^#\/?/, '');
-      const cleanHash = rawHash.split('?')[0];
-      if (!cleanHash) {
+    const resolveRoute = () => {
+      const rawHash = window.location.hash.replace(/^#\/?/, '').split('?')[0].trim();
+      const rawPathname = window.location.pathname.replace(/^\/+|\/+$/g, '');
+      const cleanRoute = rawHash || rawPathname;
+
+      if (!cleanRoute) {
         setCurrentPath('home');
         setCurrentParam(undefined);
         return;
       }
 
-      const parts = cleanHash.split('/');
+      const parts = cleanRoute.split('/').filter(Boolean);
       const primary = parts[0] || 'home';
       const secondary = parts[1];
 
@@ -104,12 +109,17 @@ function MainApp() {
         return;
       }
 
-      // Handle /partner/:slug
       if (primary === 'partner' && secondary) {
         setCurrentPath('partner-page');
         setCurrentParam(secondary);
       } else if (primary === 'product' && secondary) {
         setCurrentPath('product-detail');
+        setCurrentParam(secondary);
+      } else if (primary === 'article' && secondary) {
+        setCurrentPath('article-detail');
+        setCurrentParam(secondary);
+      } else if (primary === 'page' && secondary) {
+        setCurrentPath('cms-page');
         setCurrentParam(secondary);
       } else {
         setCurrentPath(primary);
@@ -118,27 +128,45 @@ function MainApp() {
       window.scrollTo(0, 0);
     };
 
-    handleHashChange();
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    resolveRoute();
+    window.addEventListener('popstate', resolveRoute);
+    window.addEventListener('hashchange', resolveRoute);
+    return () => {
+      window.removeEventListener('popstate', resolveRoute);
+      window.removeEventListener('hashchange', resolveRoute);
+    };
   }, []);
 
   const navigate = (path: string, param?: string) => {
-    let newHash = '';
-    if (path === 'home') {
-      newHash = '';
+    let targetPathname = '/';
+    if (path === 'home' || path === '/') {
+      targetPathname = '/';
     } else if (path === 'partner-page' && param) {
-      newHash = `#/partner/${param}`;
+      targetPathname = `/partner/${param}`;
     } else if (path === 'product-detail' && param) {
-      newHash = `#/product/${param}`;
+      targetPathname = `/product/${param}`;
+    } else if (path === 'article-detail' && param) {
+      targetPathname = `/article/${param}`;
+    } else if (path === 'cms-page' && param) {
+      targetPathname = `/page/${param}`;
     } else if (param) {
-      newHash = `#/${path}/${param}`;
+      targetPathname = `/${path}/${param}`;
     } else {
-      newHash = `#/${path}`;
+      targetPathname = `/${path}`;
     }
 
-    window.location.hash = newHash;
-    setCurrentPath(path);
+    try {
+      if (window.location.protocol !== 'file:') {
+        const search = window.location.search || '';
+        window.history.pushState({}, '', `${targetPathname}${search}`);
+      } else {
+        window.location.hash = targetPathname === '/' ? '' : `#${targetPathname}`;
+      }
+    } catch {
+      window.location.hash = targetPathname === '/' ? '' : `#${targetPathname}`;
+    }
+
+    setCurrentPath(path === '/' ? 'home' : path);
     setCurrentParam(param);
     window.scrollTo(0, 0);
   };
@@ -549,6 +577,7 @@ function MainApp() {
           currentPath={currentPath}
           navigate={navigate}
         />
+        <CookieConsentBanner navigate={navigate} />
       </div>
     );
   }
@@ -601,6 +630,7 @@ function MainApp() {
           currentPath={currentPath}
           navigate={navigate}
         />
+        <CookieConsentBanner navigate={navigate} />
       </div>
     );
   }
@@ -653,6 +683,7 @@ function MainApp() {
           currentPath={currentPath}
           navigate={navigate}
         />
+        <CookieConsentBanner navigate={navigate} />
       </div>
     );
   }
@@ -826,6 +857,21 @@ function MainApp() {
             {currentPath === 'architecture' && (
               <ArchitectureView navigate={navigate} />
             )}
+
+            {currentPath === 'article-detail' && currentParam && (
+              <ArticleDetailView slug={currentParam} navigate={navigate} />
+            )}
+
+            {(currentPath === 'privacy' ||
+              currentPath === 'terms' ||
+              currentPath === 'coa-verification' ||
+              currentPath === 'cold-chain') && (
+              <LegalView slug={currentPath} navigate={navigate} />
+            )}
+
+            {currentPath === 'cms-page' && currentParam && (
+              <LegalView slug={currentParam} navigate={navigate} />
+            )}
           </main>
 
           {/* Footer */}
@@ -886,6 +932,7 @@ function MainApp() {
         currentPath={currentPath}
         navigate={navigate}
       />
+      <CookieConsentBanner navigate={navigate} />
     </div>
   );
 }
