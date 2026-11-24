@@ -49,20 +49,42 @@ interface Database {
 
 let supabaseClient: ReturnType<typeof createClient<Database>> | undefined;
 
-export function getSupabaseClient() {
-  if (supabaseClient) return supabaseClient;
-
+export function isSupabaseConfigured(): boolean {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
   const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim();
 
-  if (!supabaseUrl || !publishableKey) {
-    throw new Error(
-      'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.'
-    );
+  if (!supabaseUrl || !publishableKey) return false;
+  if (!/^https?:\/\//i.test(supabaseUrl)) return false;
+  if (
+    publishableKey.includes('your-') ||
+    publishableKey.includes('placeholder') ||
+    supabaseUrl.includes('your-')
+  ) {
+    return false;
   }
+
+  return true;
+}
+
+export function getSupabaseClientOrNull() {
+  if (!isSupabaseConfigured()) return null;
+  if (supabaseClient) return supabaseClient;
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!.trim();
+  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY!.trim();
 
   supabaseClient = createClient<Database>(supabaseUrl, publishableKey, {
     accessToken: async () => (await auth.currentUser?.getIdToken()) ?? null
   });
   return supabaseClient;
+}
+
+export function getSupabaseClient() {
+  const client = getSupabaseClientOrNull();
+  if (!client) {
+    throw new Error(
+      'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.'
+    );
+  }
+  return client;
 }

@@ -557,5 +557,32 @@ export const WHW_PRODUCTS: Product[] = [
       { label: '100mg (10-Vial Kit)', vialsCount: 10, price: 400.00, pricePerVial: 40.00 }
     ],
     createdAt: '2026-02-06T00:00:00Z'
+  },
+  {
+    id: 'prod-tb-fragment',
+    name: 'TB Fragment',
+    slug: 'tb-fragment',
+    sku: 'WH-REC-021',
+    category: 'recovery',
+    categoryLabel: 'Actin-Binding Fragment',
+    shortDescription: 'Targeted Thymosin Beta-4 active fragment supplied in sealed 10-vial kits (5mg & 10mg).',
+    description: 'Concentrated synthetic Thymosin Beta-4 active fragment formulated for focused soft-tissue remodeling, actin sequestration, and cellular repair protocols. Supplied per 10-vial kit.',
+    price: 200.00,
+    wholesalePrice: 200.00,
+    imageUrl: '/images/products/tb-500.jpg',
+    stockQuantity: 100,
+    status: 'ACTIVE',
+    featured: false,
+    lotNumber: 'Lot #3324-TF',
+    purity: '≥ 99.6%',
+    strengths: [
+      { label: '5mg (10-Vial Kit)', vialsCount: 10, price: 200.00, pricePerVial: 20.00 },
+      { label: '10mg (10-Vial Kit)', vialsCount: 10, price: 300.00, pricePerVial: 30.00 }
+    ],
+    wholesaleStrengths: [
+      { label: '5mg (10-Vial Kit)', vialsCount: 10, price: 200.00, pricePerVial: 20.00 },
+      { label: '10mg (10-Vial Kit)', vialsCount: 10, price: 300.00, pricePerVial: 30.00 }
+    ],
+    createdAt: '2026-02-07T00:00:00Z'
   }
 ];

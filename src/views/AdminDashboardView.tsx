@@ -391,7 +391,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
       setAdminDataError(
         err instanceof Error
           ? err.message
-          : 'Unable to load admin data from Supabase.'
+          : 'Unable to load admin data from the database.'
       );
     } finally {
       setLoading(false);
@@ -723,7 +723,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
       await reloadData();
       setAdminSaveNotice({
         kind: 'success',
-        message: `${createdPartner.name} was saved to the Supabase partner records.`
+        message: `${createdPartner.name} was saved to the partner records.`
       });
     } catch (err) {
       console.error('Failed to save partner record:', err);
@@ -913,8 +913,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
       setAdminSaveNotice({
         kind: 'success',
         message: editingProduct
-          ? `${prodName} was updated in Supabase.`
-          : `${prodName} was saved to the Supabase product records.`
+          ? `${prodName} was updated in the catalog.`
+          : `${prodName} was saved to the product records.`
       });
     } catch (err) {
       console.error('Failed to save formulation:', err);
@@ -1437,7 +1437,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({ navigate
               className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800"
             >
               <span>
-                Admin data could not be loaded from Supabase: {adminDataError}
+                Admin data could not be loaded: {adminDataError}
               </span>
               <button
                 type="button"

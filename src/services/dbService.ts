@@ -1,7 +1,35 @@
-import { auth } from '../lib/firebase.ts';
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+  updateDoc,
+  where
+} from 'firebase/firestore';
+import {
+  auth,
+  db,
+  ensureFirestoreReachable,
+  handleFirestoreError,
+  OperationType,
+  testFirestoreConnection
+} from '../lib/firebase.ts';
+import {
+  INITIAL_ARTICLES,
+  INITIAL_EARNINGS,
+  INITIAL_FAQS,
+  INITIAL_ORDERS,
+  INITIAL_PARTNERS,
+  INITIAL_PROGRAMS,
+  INITIAL_TESTIMONIALS
+} from '../lib/seedData.ts';
 import { INITIAL_USERS } from '../lib/seedUsers.ts';
-import { getSupabaseClient, type Json } from '../lib/supabase.ts';
-import { demoModeEnabled } from '../lib/testVariables.ts';
+import { getSupabaseClient, isSupabaseConfigured, type Json } from '../lib/supabase.ts';
+import { demoModeEnabled, TEST_VARS } from '../lib/testVariables.ts';
+import { WHW_PRODUCTS } from '../lib/whwCatalog.ts';
 import type {
   AnalyticsEvent,
   AuditLogEntry,
@@ -42,6 +70,149 @@ interface RecordRow {
 
 export { INITIAL_USERS };
 
+const LOCAL_STORAGE_PREFIX = 'whw_v2_';
+const PUBLIC_COLLECTIONS: ReadonlySet<CollectionName> = new Set([
+  'products',
+  'wellness_programs',
+  'educational_articles',
+  'faqs',
+  'testimonials'
+]);
+
+const collectionListeners = new Map<CollectionName, Set<() => void>>();
+
+let connectionTestStarted = false;
+function ensureStartupConnectionTest(): void {
+  if (connectionTestStarted || isSupabaseConfigured()) return;
+  connectionTestStarted = true;
+  void testFirestoreConnection();
+}
+
+function getSeedData(collectionName: CollectionName): unknown[] {
+  switch (collectionName) {
+    case 'users':
+      return INITIAL_USERS;
+    case 'partners':
+      return INITIAL_PARTNERS;
+    case 'products':
+      return WHW_PRODUCTS;
+    case 'orders':
+      return INITIAL_ORDERS;
+    case 'partner_earnings':
+      return INITIAL_EARNINGS;
+    case 'wellness_programs':
+      return INITIAL_PROGRAMS;
+    case 'educational_articles':
+      return INITIAL_ARTICLES;
+    case 'faqs':
+      return INITIAL_FAQS;
+    case 'testimonials':
+      return INITIAL_TESTIMONIALS;
+    case 'inquiries':
+    case 'analytics_events':
+    case 'audit_logs':
+      return [];
+  }
+}
+
+function cloneJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+function storageKey(collectionName: CollectionName): string {
+  return `${LOCAL_STORAGE_PREFIX}${collectionName}`;
+}
+
+function notifyCollectionListeners(collectionName: CollectionName): void {
+  const listeners = collectionListeners.get(collectionName);
+  if (!listeners) return;
+  listeners.forEach((cb) => {
+    try {
+      cb();
+    } catch (err) {
+      console.error(`Listener error for ${collectionName}:`, err);
+    }
+  });
+}
+
+function readLocalCollection<T>(collectionName: CollectionName): T[] {
+  const seed = cloneJson(getSeedData(collectionName)) as T[];
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return seed;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(storageKey(collectionName));
+    if (!raw) {
+      window.localStorage.setItem(storageKey(collectionName), JSON.stringify(seed));
+      return seed;
+    }
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      if (collectionName === 'products') {
+        const deletedRaw = window.localStorage.getItem(`${LOCAL_STORAGE_PREFIX}deleted_products`);
+        const deletedIds = new Set<string>(deletedRaw ? (JSON.parse(deletedRaw) as string[]) : []);
+        const existingIds = new Set(
+          parsed.map((item) => (item as { id?: string }).id).filter(Boolean) as string[]
+        );
+        const missingSeeds = seed.filter((item) => {
+          const id = (item as { id?: string }).id;
+          return id && !existingIds.has(id) && !deletedIds.has(id);
+        });
+        if (missingSeeds.length > 0) {
+          const merged = [...parsed, ...missingSeeds];
+          window.localStorage.setItem(storageKey(collectionName), JSON.stringify(merged));
+          return merged as T[];
+        }
+      }
+      return parsed as T[];
+    }
+  } catch (err) {
+    console.warn(`Failed to read local store for ${collectionName}:`, err);
+  }
+  return seed;
+}
+
+function writeLocalCollection<T>(collectionName: CollectionName, items: T[]): void {
+  if (typeof window === 'undefined' || !window.localStorage) return;
+  try {
+    window.localStorage.setItem(storageKey(collectionName), JSON.stringify(items));
+  } catch (err) {
+    console.warn(`Failed to persist local store for ${collectionName}:`, err);
+  }
+}
+
+function mergeRecordsById<T>(primary: T[], secondary: T[]): T[] {
+  const map = new Map<string, T>();
+  secondary.forEach((item) => {
+    try {
+      const id = getId(item as object);
+      map.set(id, item);
+    } catch {
+      // skip records without id
+    }
+  });
+  primary.forEach((item) => {
+    try {
+      const id = getId(item as object);
+      map.set(id, item);
+    } catch {
+      // skip records without id
+    }
+  });
+  return Array.from(map.values());
+}
+
+function isFirebaseAdminSession(): boolean {
+  const email = auth.currentUser?.email?.toLowerCase();
+  if (!auth.currentUser?.emailVerified || !email) return false;
+  return (
+    email === 'muchuimalcolm423@gmail.com' ||
+    email === 'admin@wholeharborwellness.com' ||
+    email === TEST_VARS.auth.adminEmail.toLowerCase()
+  );
+}
+
 function raiseSupabaseError(operation: string, error: { message: string }): never {
   console.error(`Supabase ${operation} failed:`, error.message);
   throw new Error(`Supabase ${operation} failed: ${error.message}`);
@@ -69,86 +240,311 @@ function makeId(prefix: string): string {
 function getId(record: object): string {
   if ('id' in record && typeof record.id === 'string') return record.id;
   if ('uid' in record && typeof record.uid === 'string') return record.uid;
-  throw new Error('Supabase records must have an id or uid.');
+  throw new Error('Records must have an id or uid.');
 }
 
 async function getRecord<T>(collectionName: CollectionName, id: string): Promise<T | null> {
-  const { data, error } = await getSupabaseClient()
-    .from('whw_records')
-    .select('record_id,data,is_demo')
-    .eq('collection', collectionName)
-    .eq('record_id', id)
-    .maybeSingle();
+  if (isSupabaseConfigured()) {
+    const { data, error } = await getSupabaseClient()
+      .from('whw_records')
+      .select('record_id,data,is_demo')
+      .eq('collection', collectionName)
+      .eq('record_id', id)
+      .maybeSingle();
 
-  if (error) raiseSupabaseError(`read ${collectionName}/${id}`, error);
-  return data ? fromRow<T>(data as RecordRow) : null;
+    if (error) raiseSupabaseError(`read ${collectionName}/${id}`, error);
+    return data ? fromRow<T>(data as RecordRow) : null;
+  }
+
+  ensureStartupConnectionTest();
+
+  const localItems = readLocalCollection<T>(collectionName);
+  const localMatch =
+    localItems.find((item) => {
+      const obj = item as Record<string, unknown>;
+      return obj.id === id || obj.uid === id;
+    }) ?? null;
+
+  const canReadFirestore =
+    PUBLIC_COLLECTIONS.has(collectionName) ||
+    isFirebaseAdminSession() ||
+    (collectionName === 'users' && auth.currentUser?.uid === id) ||
+    (collectionName === 'partners' && auth.currentUser !== null);
+
+  if (canReadFirestore && (await ensureFirestoreReachable())) {
+    const path = `${collectionName}/${id}`;
+    try {
+      const snap = await getDoc(doc(db, collectionName, id));
+      if (snap.exists()) {
+        return { ...(snap.data() as Record<string, unknown>), id: snap.id } as T;
+      }
+    } catch (err) {
+      if (!demoModeEnabled) {
+        handleFirestoreError(err, OperationType.GET, path);
+      }
+    }
+  }
+
+  return localMatch;
 }
 
 async function getCollection<T>(collectionName: CollectionName): Promise<T[]> {
-  const { data, error } = await getSupabaseClient()
-    .from('whw_records')
-    .select('record_id,data,is_demo')
-    .eq('collection', collectionName);
+  if (isSupabaseConfigured()) {
+    const { data, error } = await getSupabaseClient()
+      .from('whw_records')
+      .select('record_id,data,is_demo')
+      .eq('collection', collectionName);
 
-  if (error) raiseSupabaseError(`list ${collectionName}`, error);
-  return ((data ?? []) as RecordRow[]).map((row) => fromRow<T>(row));
+    if (error) raiseSupabaseError(`list ${collectionName}`, error);
+    return ((data ?? []) as RecordRow[]).map((row) => fromRow<T>(row));
+  }
+
+  ensureStartupConnectionTest();
+  const localItems = readLocalCollection<T>(collectionName);
+
+  const reachable = await ensureFirestoreReachable();
+  if (!reachable) {
+    return localItems;
+  }
+
+  try {
+    if (PUBLIC_COLLECTIONS.has(collectionName)) {
+      const snap = await getDocs(collection(db, collectionName));
+      if (snap.empty) return localItems;
+      const remote = snap.docs.map(
+        (d) => ({ ...(d.data() as Record<string, unknown>), id: d.id } as T)
+      );
+      if (collectionName === 'products') {
+        return mergeRecordsById(remote, localItems);
+      }
+      return remote;
+    }
+
+    if (collectionName === 'partners') {
+      if (isFirebaseAdminSession()) {
+        const snap = await getDocs(collection(db, 'partners'));
+        const remote = snap.docs.map(
+          (d) => ({ ...(d.data() as Record<string, unknown>), id: d.id } as T)
+        );
+        return mergeRecordsById(remote, localItems);
+      }
+      const approvedSnap = await getDocs(
+        query(collection(db, 'partners'), where('status', '==', 'APPROVED'))
+      );
+      const approvedRemote = approvedSnap.docs.map(
+        (d) => ({ ...(d.data() as Record<string, unknown>), id: d.id } as T)
+      );
+      let ownRemote: T[] = [];
+      if (auth.currentUser?.uid) {
+        const ownSnap = await getDocs(
+          query(collection(db, 'partners'), where('ownerUid', '==', auth.currentUser.uid))
+        );
+        ownRemote = ownSnap.docs.map(
+          (d) => ({ ...(d.data() as Record<string, unknown>), id: d.id } as T)
+        );
+      }
+      const combinedRemote = mergeRecordsById(ownRemote, approvedRemote);
+      return demoModeEnabled
+        ? mergeRecordsById(combinedRemote, localItems)
+        : combinedRemote.length > 0
+        ? combinedRemote
+        : localItems;
+    }
+
+    if (!auth.currentUser) {
+      return localItems;
+    }
+
+    if (isFirebaseAdminSession()) {
+      const snap = await getDocs(collection(db, collectionName));
+      const remote = snap.docs.map(
+        (d) => ({ ...(d.data() as Record<string, unknown>), id: d.id } as T)
+      );
+      return demoModeEnabled ? mergeRecordsById(remote, localItems) : remote;
+    }
+
+    if (collectionName === 'users') {
+      const snap = await getDocs(
+        query(collection(db, 'users'), where('uid', '==', auth.currentUser.uid))
+      );
+      const remote = snap.docs.map(
+        (d) => ({ ...(d.data() as Record<string, unknown>), id: d.id } as T)
+      );
+      return demoModeEnabled ? mergeRecordsById(remote, localItems) : remote;
+    }
+
+    if (collectionName === 'orders') {
+      const [custSnap, partnerSnap] = await Promise.all([
+        getDocs(query(collection(db, 'orders'), where('customerUid', '==', auth.currentUser.uid))).catch(
+          () => null
+        ),
+        getDocs(query(collection(db, 'orders'), where('partnerOwnerUid', '==', auth.currentUser.uid))).catch(
+          () => null
+        )
+      ]);
+      const remote = mergeRecordsById(
+        custSnap?.docs.map((d) => ({ ...(d.data() as Record<string, unknown>), id: d.id } as T)) ?? [],
+        partnerSnap?.docs.map((d) => ({ ...(d.data() as Record<string, unknown>), id: d.id } as T)) ?? []
+      );
+      return demoModeEnabled ? mergeRecordsById(remote, localItems) : remote;
+    }
+
+    if (collectionName === 'partner_earnings') {
+      const snap = await getDocs(
+        query(collection(db, 'partner_earnings'), where('partnerOwnerUid', '==', auth.currentUser.uid))
+      );
+      const remote = snap.docs.map(
+        (d) => ({ ...(d.data() as Record<string, unknown>), id: d.id } as T)
+      );
+      return demoModeEnabled ? mergeRecordsById(remote, localItems) : remote;
+    }
+
+    if (collectionName === 'inquiries') {
+      const snap = await getDocs(
+        query(collection(db, 'inquiries'), where('userId', '==', auth.currentUser.uid))
+      );
+      const remote = snap.docs.map(
+        (d) => ({ ...(d.data() as Record<string, unknown>), id: d.id } as T)
+      );
+      return demoModeEnabled ? mergeRecordsById(remote, localItems) : remote;
+    }
+
+    return localItems;
+  } catch (err) {
+    if (demoModeEnabled) {
+      return localItems;
+    }
+    handleFirestoreError(err, OperationType.LIST, collectionName);
+  }
 }
 
 export function subscribeToCollections(
   collections: CollectionName[],
   onChange: () => void
 ): () => void {
-  const client = getSupabaseClient();
-  const channels = collections.map((collectionName) =>
-    client
-      .channel(`whw-${collectionName}-${globalThis.crypto.randomUUID()}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'whw_records',
-          filter: `collection=eq.${collectionName}`
-        },
-        onChange
-      )
-      .subscribe((status, error) => {
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(
-            `Supabase realtime subscription failed for ${collectionName} (${status}):`,
-            error
-          );
-        }
-      })
-  );
+  if (isSupabaseConfigured()) {
+    const client = getSupabaseClient();
+    const channels = collections.map((collectionName) =>
+      client
+        .channel(`whw-${collectionName}-${globalThis.crypto.randomUUID()}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'whw_records',
+            filter: `collection=eq.${collectionName}`
+          },
+          onChange
+        )
+        .subscribe((status, error) => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            console.error(
+              `Supabase realtime subscription failed for ${collectionName} (${status}):`,
+              error
+            );
+          }
+        })
+    );
+
+    return () => {
+      channels.forEach((channel) => {
+        void client.removeChannel(channel).catch((error) => {
+          console.error('Failed to close Supabase realtime subscription:', error);
+        });
+      });
+    };
+  }
+
+  collections.forEach((collectionName) => {
+    let set = collectionListeners.get(collectionName);
+    if (!set) {
+      set = new Set();
+      collectionListeners.set(collectionName, set);
+    }
+    set.add(onChange);
+  });
+
+  const watchedKeys = new Set(collections.map(storageKey));
+  const onStorage = (event: StorageEvent) => {
+    if (event.key && watchedKeys.has(event.key)) {
+      onChange();
+    }
+  };
+  if (typeof window !== 'undefined') {
+    window.addEventListener('storage', onStorage);
+  }
 
   return () => {
-    channels.forEach((channel) => {
-      void client.removeChannel(channel).catch((error) => {
-        console.error('Failed to close Supabase realtime subscription:', error);
-      });
+    collections.forEach((collectionName) => {
+      collectionListeners.get(collectionName)?.delete(onChange);
     });
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('storage', onStorage);
+    }
   };
+}
+
+async function syncFirestoreWrite(
+  collectionName: CollectionName,
+  id: string,
+  payload: Record<string, unknown>,
+  operation: 'set' | 'update'
+): Promise<void> {
+  if (!auth.currentUser || !(await ensureFirestoreReachable())) return;
+  try {
+    const ref = doc(db, collectionName, id);
+    if (operation === 'set') {
+      await setDoc(ref, payload, { merge: true });
+    } else {
+      await updateDoc(ref, payload);
+    }
+  } catch (err) {
+    if (demoModeEnabled) {
+      console.warn(`Firestore ${operation} fallback to local store for ${collectionName}/${id}:`, err);
+      return;
+    }
+    handleFirestoreError(
+      err,
+      operation === 'set' ? OperationType.WRITE : OperationType.UPDATE,
+      `${collectionName}/${id}`
+    );
+  }
 }
 
 async function insertRecord<T extends object>(
   collectionName: CollectionName,
   record: T
 ): Promise<T> {
-  const id = getId(record);
-  const { data, error } = await getSupabaseClient()
-    .from('whw_records')
-    .insert({
-      collection: collectionName,
-      record_id: id,
-      data: toJson(record),
-      is_demo: isDemoEnvironment()
-    })
-    .select('record_id,data,is_demo')
-    .single();
+  if (isSupabaseConfigured()) {
+    const id = getId(record);
+    const { data, error } = await getSupabaseClient()
+      .from('whw_records')
+      .insert({
+        collection: collectionName,
+        record_id: id,
+        data: toJson(record),
+        is_demo: isDemoEnvironment()
+      })
+      .select('record_id,data,is_demo')
+      .single();
 
-  if (error) raiseSupabaseError(`create ${collectionName}/${id}`, error);
-  return fromRow<T>(data as RecordRow);
+    if (error) raiseSupabaseError(`create ${collectionName}/${id}`, error);
+    return fromRow<T>(data as RecordRow);
+  }
+
+  const id = getId(record);
+  const cleanRecord = cloneJson({ ...record, id }) as T;
+  const items = readLocalCollection<T>(collectionName);
+  const filtered = items.filter((item) => {
+    const obj = item as Record<string, unknown>;
+    return obj.id !== id && obj.uid !== id;
+  });
+  filtered.push(cleanRecord);
+  writeLocalCollection(collectionName, filtered);
+  notifyCollectionListeners(collectionName);
+  await syncFirestoreWrite(collectionName, id, cleanRecord as Record<string, unknown>, 'set');
+  return cleanRecord;
 }
 
 async function upsertRecord<T extends object>(
@@ -156,22 +552,40 @@ async function upsertRecord<T extends object>(
   id: string,
   record: T
 ): Promise<T> {
-  const { data, error } = await getSupabaseClient()
-    .from('whw_records')
-    .upsert(
-      {
-        collection: collectionName,
-        record_id: id,
-        data: toJson(record),
-        is_demo: isDemoEnvironment()
-      },
-      { onConflict: 'collection,record_id' }
-    )
-    .select('record_id,data,is_demo')
-    .single();
+  if (isSupabaseConfigured()) {
+    const { data, error } = await getSupabaseClient()
+      .from('whw_records')
+      .upsert(
+        {
+          collection: collectionName,
+          record_id: id,
+          data: toJson(record),
+          is_demo: isDemoEnvironment()
+        },
+        { onConflict: 'collection,record_id' }
+      )
+      .select('record_id,data,is_demo')
+      .single();
 
-  if (error) raiseSupabaseError(`save ${collectionName}/${id}`, error);
-  return fromRow<T>(data as RecordRow);
+    if (error) raiseSupabaseError(`save ${collectionName}/${id}`, error);
+    return fromRow<T>(data as RecordRow);
+  }
+
+  const cleanRecord = cloneJson({ ...record, id }) as T;
+  const items = readLocalCollection<T>(collectionName);
+  const index = items.findIndex((item) => {
+    const obj = item as Record<string, unknown>;
+    return obj.id === id || obj.uid === id;
+  });
+  if (index >= 0) {
+    items[index] = cleanRecord;
+  } else {
+    items.push(cleanRecord);
+  }
+  writeLocalCollection(collectionName, items);
+  notifyCollectionListeners(collectionName);
+  await syncFirestoreWrite(collectionName, id, cleanRecord as Record<string, unknown>, 'set');
+  return cleanRecord;
 }
 
 async function updateRecord<U extends object>(
@@ -179,45 +593,118 @@ async function updateRecord<U extends object>(
   id: string,
   updates: U
 ): Promise<void> {
-  const existing = await getRecord<Record<string, unknown>>(collectionName, id);
+  if (isSupabaseConfigured()) {
+    const existing = await getRecord<Record<string, unknown>>(collectionName, id);
+    if (!existing) {
+      throw new Error(`Cannot update missing ${collectionName} record "${id}".`);
+    }
+
+    const { data, error } = await getSupabaseClient()
+      .from('whw_records')
+      .update({ data: toJson({ ...existing, ...updates, id }) })
+      .eq('collection', collectionName)
+      .eq('record_id', id)
+      .select('record_id,data,is_demo')
+      .maybeSingle();
+
+    if (error) raiseSupabaseError(`update ${collectionName}/${id}`, error);
+    if (!data) {
+      throw new Error(`Supabase did not update ${collectionName}/${id}; check the row policy.`);
+    }
+    return;
+  }
+
+  const items = readLocalCollection<Record<string, unknown>>(collectionName);
+  const index = items.findIndex((item) => item.id === id || item.uid === id);
+  const existing = index >= 0 ? items[index] : await getRecord<Record<string, unknown>>(collectionName, id);
   if (!existing) {
     throw new Error(`Cannot update missing ${collectionName} record "${id}".`);
   }
 
-  const { data, error } = await getSupabaseClient()
-    .from('whw_records')
-    .update({ data: toJson({ ...existing, ...updates, id }) })
-    .eq('collection', collectionName)
-    .eq('record_id', id)
-    .select('record_id,data,is_demo')
-    .maybeSingle();
-
-  if (error) raiseSupabaseError(`update ${collectionName}/${id}`, error);
-  if (!data) {
-    throw new Error(`Supabase did not update ${collectionName}/${id}; check the row policy.`);
+  const merged = cloneJson({ ...existing, ...updates, id });
+  if (index >= 0) {
+    items[index] = merged;
+  } else {
+    items.push(merged);
   }
+  writeLocalCollection(collectionName, items);
+  notifyCollectionListeners(collectionName);
+  await syncFirestoreWrite(collectionName, id, merged, 'set');
 }
 
 async function deleteRecord(collectionName: CollectionName, id: string): Promise<void> {
-  const { data, error } = await getSupabaseClient()
-    .from('whw_records')
-    .delete()
-    .eq('collection', collectionName)
-    .eq('record_id', id)
-    .select('record_id')
-    .maybeSingle();
+  if (isSupabaseConfigured()) {
+    const { data, error } = await getSupabaseClient()
+      .from('whw_records')
+      .delete()
+      .eq('collection', collectionName)
+      .eq('record_id', id)
+      .select('record_id')
+      .maybeSingle();
 
-  if (error) raiseSupabaseError(`delete ${collectionName}/${id}`, error);
-  if (!data) {
-    throw new Error(`Supabase did not delete ${collectionName}/${id}; check the row policy.`);
+    if (error) raiseSupabaseError(`delete ${collectionName}/${id}`, error);
+    if (!data) {
+      throw new Error(`Supabase did not delete ${collectionName}/${id}; check the row policy.`);
+    }
+    return;
+  }
+
+  const items = readLocalCollection<Record<string, unknown>>(collectionName);
+  const next = items.filter((item) => item.id !== id && item.uid !== id);
+  writeLocalCollection(collectionName, next);
+  if (collectionName === 'products' && typeof window !== 'undefined' && window.localStorage) {
+    try {
+      const deletedRaw = window.localStorage.getItem(`${LOCAL_STORAGE_PREFIX}deleted_products`);
+      const deletedIds = new Set<string>(deletedRaw ? (JSON.parse(deletedRaw) as string[]) : []);
+      deletedIds.add(id);
+      window.localStorage.setItem(
+        `${LOCAL_STORAGE_PREFIX}deleted_products`,
+        JSON.stringify(Array.from(deletedIds))
+      );
+    } catch {
+      // ignore
+    }
+  }
+  notifyCollectionListeners(collectionName);
+
+  if (auth.currentUser && (await ensureFirestoreReachable())) {
+    try {
+      await deleteDoc(doc(db, collectionName, id));
+    } catch (err) {
+      if (demoModeEnabled) {
+        console.warn(`Firestore delete fallback for ${collectionName}/${id}:`, err);
+        return;
+      }
+      handleFirestoreError(err, OperationType.DELETE, `${collectionName}/${id}`);
+    }
   }
 }
 
 function newestFirst<T extends { createdAt?: string; timestamp?: string }>(items: T[]): T[] {
-  return items.sort((a, b) => {
+  return [...items].sort((a, b) => {
     const aDate = a.createdAt || a.timestamp || '';
     const bDate = b.createdAt || b.timestamp || '';
     return new Date(bDate).getTime() - new Date(aDate).getTime();
+  });
+}
+
+export async function seedInitialDatabase(): Promise<void> {
+  if (isSupabaseConfigured()) return;
+  // Ensures local fallback stores are initialized cleanly from seed datasets
+  (
+    [
+      'users',
+      'partners',
+      'products',
+      'orders',
+      'partner_earnings',
+      'wellness_programs',
+      'educational_articles',
+      'faqs',
+      'testimonials'
+    ] as CollectionName[]
+  ).forEach((name) => {
+    readLocalCollection(name);
   });
 }
 
@@ -257,7 +744,7 @@ export async function updateUserRole(
     resource: 'User',
     resourceId: uid,
     metadata: { role, wholesaleApprovalStatus }
-  });
+  }).catch(() => {});
 }
 
 export async function updateUserStatus(
@@ -280,7 +767,7 @@ export async function updateUserStatus(
     resource: 'User',
     resourceId: uid,
     metadata: { status, partnerId, partnerSlug }
-  });
+  }).catch(() => {});
 }
 
 export async function getProducts(): Promise<Product[]> {
@@ -309,7 +796,7 @@ export async function createProduct(
       price: newProduct.price,
       status: newProduct.status
     }
-  });
+  }).catch(() => {});
   return newProduct;
 }
 
@@ -350,7 +837,7 @@ export async function updateProduct(
         : {}),
       ...(updates.category !== undefined ? { newCategory: updates.category } : {})
     }
-  });
+  }).catch(() => {});
 }
 
 export async function deleteProduct(id: string, actorRole = 'ADMIN'): Promise<void> {
@@ -363,7 +850,7 @@ export async function deleteProduct(id: string, actorRole = 'ADMIN'): Promise<vo
     resource: 'Product',
     resourceId: id,
     metadata: { productName: existing?.name || id, sku: existing?.sku }
-  });
+  }).catch(() => {});
 }
 
 export async function getPrograms(): Promise<WellnessProgram[]> {
@@ -482,7 +969,7 @@ export async function registerPartner(data: {
     resource: 'Partner',
     resourceId: created.id,
     metadata: { partnerId, name: partner.name, status: partner.status }
-  });
+  }).catch(() => {});
   return created;
 }
 
@@ -535,7 +1022,7 @@ export async function updatePartnerStatus(
       newStatus: status,
       ...(adminNotes ? { adminNotes } : {})
     }
-  });
+  }).catch(() => {});
 }
 
 export async function updatePartner(
@@ -603,7 +1090,7 @@ export async function createOrder(
   };
   const created = await insertRecord('orders', order);
 
-  if (!auth.currentUser && order.partnerId && (order.partnerCommission ?? 0) > 0) {
+  if (order.partnerId && (order.partnerCommission ?? 0) > 0) {
     const earning: PartnerEarning & { partnerOwnerUid?: string } = {
       id: makeId('earn'),
       partnerId: order.partnerId,
@@ -621,7 +1108,7 @@ export async function createOrder(
       status: 'PENDING',
       createdAt
     };
-    await insertRecord('partner_earnings', earning);
+    await insertRecord('partner_earnings', earning).catch(() => {});
   }
 
   return created;
@@ -766,7 +1253,7 @@ export async function createPartner(
       name: created.name,
       status: created.status
     }
-  });
+  }).catch(() => {});
   return created;
 }
 
@@ -832,6 +1319,7 @@ export const getFaqs = getFAQs;
 export const updatePartnerEarningStatus = updateEarningStatus;
 
 export const dbService = {
+  seedInitialDatabase,
   getUsers,
   getUserByUid,
   upsertUserProfile,
